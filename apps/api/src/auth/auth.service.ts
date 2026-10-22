@@ -18,6 +18,7 @@ export const publicUser = (u: User) => ({
   email: u.email,
   role: u.role,
   emailVerified: Boolean(u.emailVerifiedAt),
+  phone: u.phone,
   totpEnabled: Boolean(u.totpEnabledAt),
 });
 

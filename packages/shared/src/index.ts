@@ -4,3 +4,4 @@ export * from './enums.js';
 export * from './inn.js';
 export * from './profile.js';
 export * from './supplier.js';
+export * from './orders.js';

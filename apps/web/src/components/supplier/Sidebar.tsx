@@ -11,10 +11,10 @@ const ITEMS: { href: string; label: string; roles?: Role[]; soon?: string }[] = 
   { href: '/supplier', label: 'Дашборд' },
   { href: '/supplier/products', label: 'Товары', roles: ['owner', 'catalog'] },
   { href: '/supplier/import', label: 'Импорт', roles: ['owner', 'catalog'] },
-  { href: '/supplier/orders', label: 'Заказы', soon: 'этап 4' },
+  { href: '/supplier/orders', label: 'Заказы', roles: ['owner', 'warehouse'] },
   { href: '/supplier/content', label: 'Контент', roles: ['owner', 'catalog'] },
   { href: '/supplier/promotions', label: 'Акции', soon: 'этап 5' },
-  { href: '/supplier/payouts', label: 'Выплаты', soon: 'этап 4' },
+  { href: '/supplier/payouts', label: 'Выплаты', roles: ['owner'] },
   { href: '/supplier/settings', label: 'Настройки' },
 ];
 

@@ -21,7 +21,7 @@ psql -d postgres -c "CREATE ROLE aesculap LOGIN PASSWORD 'aesculap' CREATEDB" -c
 pnpm --filter @aesculap/shared build
 pnpm db:migrate
 pnpm db:seed
-pnpm db:demo   # демо-витрина: поставщик, 18 товаров, статьи, подборка
+pnpm db:demo   # демо-витрина: 2 поставщика (Москва и СПб), 18 товаров, статьи, подборка
 pnpm dev
 ```
 
@@ -35,6 +35,23 @@ pnpm --filter @aesculap/api admin:create admin@example.ru
 
 Фоновые задачи (импорт, фото по ссылкам, постеры видео, синк YML раз в 6 часов) выполняются очередью BullMQ на Redis внутри процесса API. Для постеров нужен `ffmpeg` (`brew install ffmpeg`). Файлы в dev лежат в `apps/api/.storage`.
 Письма в dev не отправляются, а пишутся в лог API (`MAIL_DRIVER=console`): ссылки подтверждения email и сброса пароля берутся оттуда.
+
+## Заказы, оплата и доставка
+
+Драйверы выбираются в `.env`:
+
+| Переменная | Значения | По умолчанию |
+| --- | --- | --- |
+| `PAYMENTS_DRIVER` | `fake` — тестовая страница оплаты `/pay/test/…` (карта, СБП, отказ банка); `yookassa` — ЮKassa для платформ со сплитом, нужны `YOOKASSA_SHOP_ID` и `YOOKASSA_SECRET_KEY` | `fake` |
+| `DELIVERY_DRIVER` | `fake` — офлайн-тарифы и ПВЗ для шести городов; `cdek` — СДЭК API v2, нужны `CDEK_CLIENT_ID` и `CDEK_CLIENT_SECRET` | `fake` |
+| `ORDER_PAY_MINUTES` | сколько держится резерв и ждёт оплата | `30` |
+| `SHIPMENT_CONFIRM_HOURS` | через сколько неподтверждённое отправление отменяется с возвратом | `48` |
+
+Для тестового контура СДЭК: `DELIVERY_DRIVER=cdek`, `CDEK_API_URL=https://api.edu.cdek.ru/v2` и тестовые ключи из документации СДЭК. Клиент проверен на этом контуре: подсказки городов, ПВЗ, тарифы, создание заказа, трек и PDF накладной. Вебхуки: ЮKassa → `POST /api/payments/webhook`, СДЭК → `POST /api/delivery/cdek-webhook`. Статус оплаты меняется только по вебхуку, причём сам платёж перечитывается через API платёжки.
+
+Демо-кабинеты поставщиков после `pnpm db:demo`: `demo.msk@example.ru` и `demo.spb@example.ru`, пароль — `DEMO_PASSWORD` из окружения или значение по умолчанию в `apps/api/prisma/demo.ts`. Только для dev-стенда.
+
+Выплаты: поставщик заполняет реквизиты в кабинете («Выплаты»), после онбординга в ЮKassa админ вносит ID получателя в `/admin/payouts`.
 
 ## Тесты
 

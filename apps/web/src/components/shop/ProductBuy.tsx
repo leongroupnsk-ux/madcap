@@ -136,7 +136,7 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         <Button
           disabled={!variant || variant.stock === 0}
           onClick={() => {
-            addToCart(variant!.id, Math.min(qty, variant!.stock));
+            addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
             setAdded(true);
           }}
         >

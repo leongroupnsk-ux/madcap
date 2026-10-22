@@ -1,98 +1,169 @@
 'use client';
 
-import { formatRub } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ButtonLink } from '@/components/ui';
-import { onCartChange, readCart, setQty, type CartLine } from '@/lib/cart';
+import { api } from '@/lib/api';
+import { onCartChange, readCart, rememberPrices, setQty, writeCart, type CartLine } from '@/lib/cart';
+import o from '@/components/shop/order.module.css';
 
-type V = { id: string; size: string; heightRange: string | null; color: string; price: number; oldPrice: number | null; stock: number; product: { slug: string; title: string; brand: string; supplier: string; image: string | null } };
+export type CheckedItem = {
+  variantId: string;
+  qty: number;
+  fromCapsule: boolean;
+  available: boolean;
+  stock: number;
+  price: number;
+  oldPrice: number | null;
+  size: string;
+  heightRange: string | null;
+  color: string;
+  product: { slug: string; title: string; brand: string; image: string | null };
+  supplier: { id: string; name: string; city: string | null };
+};
 
-/** Корзина гостя: состав и актуальные цены. Оформление, доставка и оплата — этап 4. */
-export function CartView() {
+/** Корзина (ТЗ §6.1): при открытии сверяем цены и остатки, изменившиеся позиции подсвечиваем. */
+export function CartView({ signedIn }: { signedIn: boolean }) {
   const [lines, setLines] = useState<CartLine[] | null>(null);
-  const [variants, setVariants] = useState<Map<string, V>>(new Map());
+  const [items, setItems] = useState<Map<string, CheckedItem>>(new Map());
+  const [changed, setChanged] = useState<Map<string, number>>(new Map());
+
   useEffect(() => {
     const update = () => setLines(readCart());
     update();
     return onCartChange(update);
   }, []);
-  useEffect(() => {
-    if (!lines?.length) return;
-    fetch(`/api/catalog/variants?ids=${lines.map((l) => l.variantId).join(',')}`)
-      .then((r) => r.json())
-      .then((rows: V[]) => setVariants(new Map(rows.map((v) => [v.id, v]))));
-  }, [lines]);
 
+  const key = lines?.map((l) => l.variantId).sort().join(',') ?? '';
+  useEffect(() => {
+    const current = readCart();
+    if (!current.length) return;
+    api<{ items: CheckedItem[] }>('/cart/check', { lines: current.map(({ variantId, qty, fromCapsule }) => ({ variantId, qty: Math.min(qty, 99), fromCapsule })) })
+      .then((r) => {
+        const map = new Map(r.items.map((i) => [i.variantId, i]));
+        setItems(map);
+        // Варианты, которых больше нет в каталоге, убираем из корзины совсем.
+        if (current.some((l) => !map.has(l.variantId))) writeCart(readCart().filter((l) => map.has(l.variantId)));
+        // Цена изменилась с момента добавления — показываем прежнюю, затем запоминаем новую.
+        const diff = new Map<string, number>();
+        for (const l of current) {
+          const now = map.get(l.variantId);
+          if (now && l.price !== undefined && l.price !== now.price) diff.set(l.variantId, l.price);
+        }
+        if (diff.size) setChanged((prev) => new Map([...prev, ...diff]));
+        rememberPrices(new Map(r.items.map((i) => [i.variantId, i.price])));
+      })
+      .catch(() => undefined);
+  }, [key]);
+
+  const rows = useMemo(() => (lines ?? []).map((l) => ({ line: l, item: items.get(l.variantId) })).filter((x) => x.item), [lines, items]);
   if (lines === null) return null;
-  const items = lines.map((l) => ({ line: l, v: variants.get(l.variantId) })).filter((x) => x.v);
-  const total = items.reduce((s, x) => s + x.v!.price * Math.min(x.line.qty, x.v!.stock), 0);
-  const count = items.reduce((s, x) => s + x.line.qty, 0);
+
+  const ok = rows.filter((r) => r.item!.available);
+  const total = ok.reduce((s, r) => s + r.item!.price * Math.min(r.line.qty, r.item!.stock), 0);
+  const count = ok.reduce((s, r) => s + Math.min(r.line.qty, r.item!.stock), 0);
+  const blocked = rows.some((r) => !r.item!.available || r.line.qty > r.item!.stock);
+  const capsule = rows.filter((r) => r.line.fromCapsule);
+  const regular = rows.filter((r) => !r.line.fromCapsule);
+  const suppliers = new Set(ok.map((r) => r.item!.supplier.id)).size;
+
+  const lineView = ({ line, item }: (typeof rows)[number]) => {
+    const it = item!;
+    const was = changed.get(line.variantId);
+    const over = it.available && line.qty > it.stock;
+    return (
+      <div key={line.variantId} className={`${o.line} ${was !== undefined || over ? o.changed : ''} ${!it.available ? o.dim : ''}`}>
+        {it.product.image ? <img src={it.product.image} alt="" className={o.thumb} /> : <span className={o.thumb} />}
+        <div style={{ minWidth: 0 }}>
+          <div className={o.meta}>
+            {it.product.brand} · {it.size}
+            {it.heightRange && ` · ${it.heightRange}`} · {it.color}
+          </div>
+          <Link href={`/product/${it.product.slug}`} className={o.name}>
+            {it.product.title}
+          </Link>
+          <span className={o.price}>{formatRub(it.price)}</span>
+          {it.oldPrice && it.oldPrice > it.price && <span className={o.old}>{formatRub(it.oldPrice)}</span>}
+          {was !== undefined && <div className={o.warn}>Цена изменилась: было {formatRub(was)}</div>}
+          {!it.available && <div className={o.warn}>Нет в наличии — удалите из корзины</div>}
+          {over && <div className={o.warn}>Осталось только {it.stock} шт. — уменьшите количество</div>}
+        </div>
+        <div className={o.qty}>
+          <button aria-label="Меньше" onClick={() => setQty(line.variantId, line.qty - 1)} disabled={!it.available}>
+            −
+          </button>
+          <span aria-label="Количество">{line.qty}</span>
+          <button aria-label="Больше" onClick={() => setQty(line.variantId, line.qty + 1)} disabled={!it.available || line.qty >= it.stock}>
+            +
+          </button>
+          <button className={o.link} style={{ marginLeft: 8 }} onClick={() => setQty(line.variantId, 0)}>
+            Удалить
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <section className="container" style={{ padding: '40px var(--gutter)' }}>
-      <div className="eyebrow">Корзина — доставка — оплата</div>
-      <h1 style={{ fontSize: 48, margin: '10px 0 24px' }}>Почти у вас.</h1>
+    <section className={`container ${o.page}`}>
+      <Link href="/catalog" className={o.back}>
+        ← Вернуться к покупкам
+      </Link>
+      <div className={o.steps} style={{ marginTop: 16 }}>
+        <b>Корзина</b> — Доставка — Оплата
+      </div>
+      <h1 className={o.title}>Почти у вас.</h1>
       {!lines.length ? (
-        <div style={{ background: 'var(--c-surface-soft)', borderRadius: 20, padding: 32 }}>
-          <h2 style={{ fontSize: 28 }}>В корзине пока пусто.</h2>
-          <Link href="/catalog" style={{ color: 'var(--c-sale)', textDecoration: 'none' }}>
+        <div className={o.empty}>
+          <h2>В корзине пока пусто.</h2>
+          <Link href="/catalog" className={o.link}>
             Вернуться к покупкам →
           </Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 24, alignItems: 'start' }} className="cart-grid">
-          <div style={{ display: 'grid', gap: 12 }}>
-            {items.map(({ line, v }) => (
-              <div key={line.variantId} style={{ display: 'grid', gridTemplateColumns: '72px 1fr auto', gap: 16, alignItems: 'center', background: 'var(--c-surface)', borderRadius: 16, padding: 12 }}>
-                {v!.product.image ? <img src={v!.product.image} alt="" style={{ width: 72, height: 90, objectFit: 'cover', borderRadius: 10 }} /> : <span />}
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--c-text-muted)' }}>
-                    {v!.product.brand} · {v!.size}
-                    {v!.heightRange && ` · ${v!.heightRange}`} · {v!.color}
-                  </div>
-                  <Link href={`/product/${v!.product.slug}`} style={{ fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--c-primary)', textDecoration: 'none' }}>
-                    {v!.product.title}
-                  </Link>
-                  <div style={{ fontWeight: 700, marginTop: 6 }}>{formatRub(v!.price)}</div>
-                  {line.qty > v!.stock && <div style={{ color: 'var(--c-sale)', fontSize: 13 }}>Осталось только {v!.stock} шт.</div>}
+        <div className={o.layout}>
+          <div className={o.stack}>
+            {capsule.length > 0 && (
+              <div className={o.panel}>
+                <div className={o.panelHead}>
+                  <span className={o.chip}>✦ Персональная капсула</span>
+                  <span className={o.muted}>
+                    {capsule.length} {plural(capsule.length, 'вещь', 'вещи', 'вещей')}
+                  </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button aria-label="Меньше" onClick={() => setQty(line.variantId, line.qty - 1)} style={qtyBtn}>
-                    −
-                  </button>
-                  <span>{line.qty}</span>
-                  <button aria-label="Больше" onClick={() => setQty(line.variantId, Math.min(v!.stock, line.qty + 1))} style={qtyBtn}>
-                    +
-                  </button>
-                  <button onClick={() => setQty(line.variantId, 0)} style={{ border: 0, background: 'none', color: 'var(--c-sale)', cursor: 'pointer', marginLeft: 8 }}>
-                    Удалить
-                  </button>
-                </div>
+                {capsule.map(lineView)}
               </div>
-            ))}
-            <p style={{ fontSize: 14, color: 'var(--c-text-muted)' }}>Отправления сформируются по поставщикам на шаге доставки — каждый отгружает со своего склада.</p>
+            )}
+            {regular.length > 0 && <div className={o.panel}>{regular.map(lineView)}</div>}
+            <p className={o.muted}>Отправления сформируются по поставщикам на шаге доставки — каждый отгружает со своего склада.</p>
           </div>
-          <aside style={{ background: 'var(--c-primary)', color: '#fff', borderRadius: 20, padding: 24, display: 'grid', gap: 12 }}>
-            <h2 style={{ color: '#fff', fontSize: 30 }}>Ваш заказ</h2>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+          <aside className={o.summary}>
+            <h2>Ваш заказ</h2>
+            <div className={o.row}>
               <span>Товары · {count}</span>
               <b>{formatRub(total)}</b>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <div className={o.row}>
               <span>Доставка</span>
               <span>Рассчитаем далее</span>
             </div>
-            <ButtonLink href="/checkout" variant="accent">
-              Перейти к оформлению
-            </ButtonLink>
-            <small style={{ opacity: 0.75 }}>Оформление и оплата заработают на этапе 4.</small>
+            {suppliers > 1 && <div className={o.small}>Придёт {suppliers} {plural(suppliers, 'отправлением', 'отправлениями', 'отправлениями')} от разных поставщиков.</div>}
+            <div className={o.total}>
+              <span>Итого</span>
+              <b>{formatRub(total)}</b>
+            </div>
+            {blocked ? (
+              <div className={o.small}>Исправьте отмеченные позиции, чтобы продолжить.</div>
+            ) : (
+              <ButtonLink href={signedIn ? '/checkout' : '/login?next=/checkout'} variant="accent">
+                Перейти к оформлению
+              </ButtonLink>
+            )}
+            {!signedIn && !blocked && <div className={o.small}>Для оформления войдите или создайте аккаунт — корзина сохранится.</div>}
           </aside>
         </div>
       )}
-      <style>{`@media (max-width: 860px) { .cart-grid { grid-template-columns: 1fr !important; } }`}</style>
     </section>
   );
 }
-
-const qtyBtn = { width: 32, height: 32, borderRadius: 16, border: '1px solid var(--c-border-strong)', background: 'var(--c-surface)', cursor: 'pointer' } as const;

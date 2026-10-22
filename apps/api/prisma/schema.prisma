@@ -37,6 +37,10 @@ model User {
   buyerProfile    BuyerProfile?
   capsules        Capsule[]
   supplierMembers SupplierMember[]
+  cartItems       CartItem[]
+  addresses       Address[]
+  orders          Order[]
+  returnRequests  ReturnRequest[]
   auditLogs       AuditLog[]
 
   @@map("users")
@@ -265,6 +269,16 @@ model Supplier {
   cdekCityCode      Int?
   shipDays          Int            @default(1)
   ymlFeedUrl        String?
+  /// Пункт СДЭК, куда поставщик сдаёт посылки (тарифы «склад-…»)
+  cdekShipmentPoint String?
+  /// Ставка НДС для чека 54-ФЗ (код ЮKassa: 1 — без НДС)
+  vatCode           Int            @default(1)
+  /// Реквизиты получателя выплат; изменение — повторный онбординг ЮKassa (ТЗ §7.8)
+  payoutLegalName   String?
+  payoutInn         String?
+  payoutAccount     String?
+  payoutBik         String?
+  payoutRequestedAt DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -280,6 +294,8 @@ model Supplier {
   application SupplierApplication?
   articles    Article[]
   collections Collection[]
+  shipments   Shipment[]
+  payouts     Payout[]
 
   @@map("suppliers")
 }
@@ -388,9 +404,11 @@ model ProductVariant {
   widthMm     Int?
   heightMm    Int?
 
-  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
-  color        Color         @relation(fields: [colorId], references: [id])
+  product      Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color        Color          @relation(fields: [colorId], references: [id])
   capsuleItems CapsuleItem[]
+  cartItems    CartItem[]
+  orderItems   ShipmentItem[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -652,4 +670,277 @@ model CapsuleItem {
 
   @@unique([capsuleId, slot])
   @@map("capsule_items")
+}
+
+// ─── Этап 4: корзина, заказы, оплата, доставка, выплаты ─────────────────
+
+/// Корзина вошедшего покупателя; у гостя — в браузере (ТЗ §6.1)
+model CartItem {
+  userId      String   @db.Uuid
+  variantId   String   @db.Uuid
+  qty         Int
+  fromCapsule Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@id([userId, variantId])
+  @@map("cart_items")
+}
+
+enum DeliveryType {
+  pvz
+  courier
+}
+
+model Address {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  type       DeliveryType
+  cityCode   Int
+  city       String
+  /// Курьер: улица и дом
+  street     String?
+  flat       String?
+  intercom   String?
+  entrance   String?
+  floor      String?
+  comment    String?
+  /// ПВЗ: код и адрес пункта
+  pvzCode    String?
+  pvzAddress String?
+  createdAt  DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+enum OrderStatus {
+  pending_payment
+  paid
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  canceled
+}
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  /// Номер для покупателя: 100001, 100002…
+  number          String        @unique
+  userId          String        @db.Uuid
+  status          OrderStatus   @default(pending_payment)
+  paymentStatus   PaymentStatus @default(pending)
+  paymentId       String?       @unique
+  /// «Карта •••• 1234» / «СБП»
+  paymentMethod   String?
+  confirmationUrl String?
+  goodsTotal      Int
+  deliveryTotal   Int
+  total           Int
+  recipientName   String
+  recipientPhone  String
+  recipientEmail  String
+  /// Резерв остатков и срок оплаты; после — отмена (ТЗ §6.3)
+  expiresAt       DateTime
+  paidAt          DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  shipments Shipment[]
+  refunds   Refund[]
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@map("orders")
+}
+
+enum ShipmentStatus {
+  awaiting_payment
+  new
+  confirmed
+  packed
+  handed_over
+  in_transit
+  ready_for_pickup
+  delivered
+  cancelled
+  rejected
+}
+
+/// Отправление: часть заказа от одного поставщика (ТЗ §6)
+model Shipment {
+  id            String         @id @default(uuid()) @db.Uuid
+  orderId       String         @db.Uuid
+  supplierId    String         @db.Uuid
+  no            Int
+  status        ShipmentStatus @default(awaiting_payment)
+  deliveryType  DeliveryType
+  tariffCode    Int
+  cityCode      Int
+  /// Адрес строкой для экранов; детали — в addressJson
+  address       String
+  pvzCode       String?
+  addressJson   Json           @default("{}")
+  deliveryPrice Int
+  periodMin     Int
+  periodMax     Int
+  eta           DateTime?
+  goodsTotal    Int
+  commissionBp  Int
+  commission    Int
+  cdekUuid      String?        @unique
+  trackNo       String?
+  rejectReason  String?
+  paidAt        DateTime?
+  confirmedAt   DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  order    Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplier Supplier        @relation(fields: [supplierId], references: [id])
+  items    ShipmentItem[]
+  events   ShipmentEvent[]
+  payouts  Payout[]
+  refunds  Refund[]
+  returns  ReturnRequest[]
+
+  @@unique([orderId, no])
+  @@index([supplierId, status])
+  @@map("shipments")
+}
+
+/// Снимок товара на момент покупки
+model ShipmentItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  shipmentId  String  @db.Uuid
+  variantId   String? @db.Uuid
+  productSlug String?
+  title       String
+  brand       String
+  sku         String
+  size        String
+  heightRange String?
+  color       String
+  imageKey    String?
+  price       Int
+  qty         Int
+  returnedQty Int     @default(0)
+  fromCapsule Boolean @default(false)
+  weightG     Int     @default(400)
+
+  shipment Shipment        @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@map("shipment_items")
+}
+
+model ShipmentEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  shipmentId String   @db.Uuid
+  status     String
+  note       String?
+  at         DateTime @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, at])
+  @@map("shipment_events")
+}
+
+enum PayoutKind {
+  sale
+  refund
+}
+
+/// Строка перечислений поставщику: продажа (+) или возврат (−) (ТЗ §7.8)
+model Payout {
+  id          String     @id @default(uuid()) @db.Uuid
+  shipmentId  String     @db.Uuid
+  supplierId  String     @db.Uuid
+  kind        PayoutKind
+  amountGoods Int
+  commission  Int
+  transferred Int
+  createdAt   DateTime   @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  @@index([supplierId, createdAt])
+  @@map("payouts")
+}
+
+enum RefundStatus {
+  pending
+  succeeded
+  canceled
+}
+
+model Refund {
+  id               String       @id @default(uuid()) @db.Uuid
+  orderId          String       @db.Uuid
+  shipmentId       String?      @db.Uuid
+  amount           Int
+  goodsAmount      Int
+  commission       Int
+  reason           String
+  providerRefundId String?      @unique
+  idempotenceKey   String       @unique
+  status           RefundStatus @default(pending)
+  createdAt        DateTime     @default(now())
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shipment Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+
+  @@map("refunds")
+}
+
+enum ReturnStatus {
+  requested
+  approved
+  rejected
+}
+
+/// Возврат доставленного отправления в течение 7 дней (ТЗ §6.6)
+model ReturnRequest {
+  id           String       @id @default(uuid()) @db.Uuid
+  shipmentId   String       @db.Uuid
+  userId       String       @db.Uuid
+  /// [{ itemId, qty }]
+  items        Json
+  reason       String
+  amount       Int
+  status       ReturnStatus @default(requested)
+  rejectReason String?
+  createdAt    DateTime     @default(now())
+  decidedAt    DateTime?
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@map("return_requests")
+}
+
+/// Журнал входящих уведомлений платёжки и СДЭК — для идемпотентности
+model WebhookEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  source    String
+  objectId  String
+  event     String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@unique([source, objectId, event])
+  @@map("webhook_events")
 }

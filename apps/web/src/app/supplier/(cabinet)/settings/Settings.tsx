@@ -64,6 +64,14 @@ function ProfileForm({ me }: { me: SupplierMe }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Field label="Код города СДЭК" name="cdekCityCode" inputMode="numeric" defaultValue={sup.cdekCityCode ?? ''} placeholder="44 — Москва" error={errors.cdekCityCode} hint="От него считаются тарифы" />
           <Field label="Отгрузка, дней" name="shipDays" type="number" min={0} max={14} defaultValue={sup.shipDays} error={errors.shipDays} />
+          <Field
+            label="Пункт сдачи СДЭК"
+            name="cdekShipmentPoint"
+            defaultValue={sup.cdekShipmentPoint ?? ''}
+            placeholder="MSK65"
+            error={errors.cdekShipmentPoint}
+            hint="Код пункта СДЭК, куда вы сдаёте посылки — нужен для накладных"
+          />
         </div>
         <Button type="submit" disabled={pending}>
           {pending ? 'Сохраняем…' : 'Сохранить'}

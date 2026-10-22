@@ -47,6 +47,8 @@ export const supplierSettingsSchema = z.object({
   warehouseAddress: z.string().trim().min(5, 'Укажите адрес склада').max(300),
   cdekCityCode: z.coerce.number().int('Код города СДЭК — целое число').positive('Код города СДЭК обязателен'),
   shipDays: z.coerce.number().int().min(0).max(14),
+  /** Пункт СДЭК, куда сдаются посылки: без него не создать накладную */
+  cdekShipmentPoint: z.string().trim().max(40).optional().default(''),
 });
 export type SupplierSettingsInput = z.infer<typeof supplierSettingsSchema>;
 

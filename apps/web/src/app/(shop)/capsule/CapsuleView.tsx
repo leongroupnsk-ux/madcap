@@ -98,7 +98,7 @@ export function CapsuleView({ initial }: { initial: CapsuleData }) {
             block
             disabled={!cap.count}
             onClick={() => {
-              addCapsule(cap.items.filter((i) => i.variant && !i.unavailable).map((i) => i.variant!.id));
+              addCapsule(cap.items.filter((i) => i.variant && !i.unavailable).map((i) => ({ variantId: i.variant!.id, price: i.variant!.price })));
               setAdded(true);
             }}
           >

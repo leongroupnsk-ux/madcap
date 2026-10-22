@@ -268,9 +268,10 @@
 }
 @media (max-width: 960px) {
   .shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .side {
+    min-width: 0;
     position: static;
     height: auto;
     padding: 12px var(--gutter);
@@ -298,5 +299,93 @@
   }
   .head h1 {
     font-size: 32px;
+  }
+}
+
+/* заказы и выплаты (этап 4) */
+.tiles3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 960px) {
+  .tiles3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.b_s_new,
+.b_s_overdue,
+.b_requested,
+.b_in_review {
+  background: #f9eeda;
+  color: #8a5a00;
+}
+.b_s_confirmed,
+.b_s_packed,
+.b_s_handed_over,
+.b_s_in_transit,
+.b_s_ready_for_pickup {
+  background: var(--c-chip);
+  color: var(--c-primary);
+}
+.b_s_delivered {
+  background: #e5f4e4;
+  color: var(--c-success);
+}
+.b_s_cancelled,
+.b_s_rejected,
+.b_not_connected {
+  background: #fbebeb;
+  color: var(--c-error);
+}
+.rowWarn td {
+  background: #fdf6ea;
+}
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+.detailSide {
+  display: grid;
+  gap: 16px;
+}
+.kv {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.kv div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kv span {
+  color: var(--c-text-muted);
+}
+.events {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.neg {
+  color: var(--c-error);
+}
+@media (max-width: 1180px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

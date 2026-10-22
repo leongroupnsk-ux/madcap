@@ -4,6 +4,7 @@
  * Запуск: pnpm --filter @aesculap/api db:demo. Повторный запуск пересоздаёт демо-данные.
  */
 import { PrismaClient, type Gender } from '@prisma/client';
+import * as argon2 from 'argon2';
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -12,6 +13,11 @@ import sharp from 'sharp';
 const prisma = new PrismaClient();
 const ROOT = resolve(process.env.STORAGE_LOCAL_DIR ?? './.storage');
 const DEMO_INN = '7710000008';
+/** Пароль демо-аккаунтов поставщиков на dev-стенде; в проде демо не запускается. */
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'demo-aesculap-2026';
+/** Второй демо-поставщик со складом в Санкт-Петербурге — чтобы заказ делился на отправления. */
+const DEMO_INN_2 = '7810000002';
+const SPB_BRANDS = ['Форма+', 'ART MED', 'AVEMED'];
 
 const put = async (key: string, data: Buffer) => {
   const full = resolve(ROOT, key);
@@ -76,20 +82,33 @@ const slug = (s: string) =>
   s.toLowerCase().replace(/[«»"]/g, '').replace(/ё/g, 'е').replace(/[а-я]/g, (c) => 'a b v g d e zh z i y k l m n o p r s t u f h ts ch sh sch  y  e yu ya'.split(' ')['абвгдежзийклмнопрстуфхцчшщъыьэюя'.indexOf(c)] ?? '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 async function main() {
-  // Повторный запуск: убираем прежний демо-поставщик целиком (каскадом товары, статьи, подборки).
-  const old = await prisma.supplier.findFirst({ where: { inn: DEMO_INN, legalName: 'ООО «МедТекс» (демо)' }, include: { products: { select: { id: true } } } });
-  if (old) {
-    for (const p of old.products) await rm(resolve(ROOT, 'public/products', p.id), { recursive: true, force: true });
-    await prisma.product.deleteMany({ where: { supplierId: old.id } });
-    await prisma.supplier.delete({ where: { id: old.id } });
+  // Повторный запуск: убираем прежних демо-поставщиков целиком (каскадом товары, статьи, подборки, их заказы).
+  for (const [inn, legalName] of [[DEMO_INN, 'ООО «МедТекс» (демо)'], [DEMO_INN_2, 'ООО «Форма+» (демо)']]) {
+    const old = await prisma.supplier.findFirst({ where: { inn, legalName }, include: { products: { select: { id: true } } } });
+    if (old) {
+      for (const p of old.products) await rm(resolve(ROOT, 'public/products', p.id), { recursive: true, force: true });
+      await prisma.order.deleteMany({ where: { shipments: { some: { supplierId: old.id } } } });
+      await prisma.product.deleteMany({ where: { supplierId: old.id } });
+      await prisma.supplier.delete({ where: { id: old.id } });
+    }
+    if (await prisma.supplier.findUnique({ where: { inn } })) {
+      console.error(`ИНН ${inn} уже занят не демо-поставщиком — демо не создаю.`);
+      process.exit(1);
+    }
   }
-  if (await prisma.supplier.findUnique({ where: { inn: DEMO_INN } })) {
-    console.error(`ИНН ${DEMO_INN} уже занят не демо-поставщиком — демо не создаю.`);
-    process.exit(1);
-  }
+  const demoPayout = { status: 'active' as const, payoutStatus: 'active' as const, shipDays: 1, contactPhone: '+79990000000', payoutLegalName: 'демо', payoutInn: DEMO_INN, payoutAccount: '40702810900000000001', payoutBik: '044525225' };
   const supplier = await prisma.supplier.create({
-    data: { legalName: 'ООО «МедТекс» (демо)', inn: DEMO_INN, status: 'active', payoutStatus: 'active', warehouseAddress: 'Москва, Складочная 1с5', cdekCityCode: 44, shipDays: 1, description: 'Производитель медодежды' },
+    data: { ...demoPayout, legalName: 'ООО «МедТекс» (демо)', inn: DEMO_INN, yookassaAccountId: 'demo-medteks', warehouseAddress: 'Москва, Складочная 1с5', cdekCityCode: 44, cdekShipmentPoint: 'MSK65', description: 'Производитель медодежды' },
   });
+  const supplierSpb = await prisma.supplier.create({
+    data: { ...demoPayout, legalName: 'ООО «Форма+» (демо)', inn: DEMO_INN_2, yookassaAccountId: 'demo-formaplus', warehouseAddress: 'Санкт-Петербург, Лиговский пр-т 50', cdekCityCode: 137, cdekShipmentPoint: 'SPB1', description: 'Халаты, блузы и обувь' },
+  });
+  // Входы в кабинеты демо-поставщиков — только для dev-стенда (пароль DEMO_PASSWORD, см. README).
+  const passwordHash = await argon2.hash(DEMO_PASSWORD);
+  for (const [email, s] of [['demo.msk@example.ru', supplier], ['demo.spb@example.ru', supplierSpb]] as const) {
+    const u = await prisma.user.upsert({ where: { email }, update: { passwordHash }, create: { email, role: 'supplier_staff', passwordHash, emailVerifiedAt: new Date() } });
+    await prisma.supplierMember.create({ data: { supplierId: s.id, userId: u.id, role: 'owner' } });
+  }
   const [categories, colors, specialties] = await Promise.all([prisma.category.findMany(), prisma.color.findMany(), prisma.specialty.findMany()]);
   const colorHex = new Map(colors.map((c) => [c.name, c]));
 
@@ -101,7 +120,7 @@ async function main() {
     const second = colors.find((c) => c.name === (color.name === 'Белый' ? 'Графит' : 'Белый'))!;
     const p = await prisma.product.create({
       data: {
-        supplierId: supplier.id, brandId: brand.id, categoryId: category.id, title: item.title, slug: `${slug(item.title)}-${n + 1}`,
+        supplierId: SPB_BRANDS.includes(item.brand) ? supplierSpb.id : supplier.id, brandId: brand.id, categoryId: category.id, title: item.title, slug: `${slug(item.title)}-${n + 1}`,
         gender: item.gender, fabric: item.fabric ?? '65% ПЭ · 35% хлопок', treatment: 'Антибактериальная', washing: 'до 60° · 600+ циклов',
         description: `${item.title} — эластичная медицинская одежда для активного рабочего дня. Мягкая ткань сохраняет аккуратную посадку и легко комбинируется с другими вещами капсулы.`,
         moderationStatus: 'published', publishedAt: new Date(Date.now() - n * 3600_000), source: 'manual',
@@ -152,7 +171,7 @@ async function main() {
       products: { create: pick((i) => i.specialties.some((s) => s.startsWith('Стоматолог'))).map((productId, position) => ({ productId, position })) },
     },
   });
-  console.log(`Демо: ${created.length} товаров, 2 статьи, 1 подборка. Поставщик «${supplier.legalName}».`);
+  console.log(`Демо: ${created.length} товаров, 2 статьи, 1 подборка. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }
 
 main().finally(() => prisma.$disconnect());

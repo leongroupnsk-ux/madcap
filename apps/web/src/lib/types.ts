@@ -10,7 +10,7 @@ export type SupplierMe = {
   role: 'owner' | 'catalog' | 'warehouse';
   supplier: {
     id: string; legalName: string; inn: string; status: string; payoutStatus: 'not_connected' | 'in_review' | 'active';
-    commissionBp: number; description: string; warehouseAddress: string; cdekCityCode: number | null; shipDays: number; ymlFeedUrl: string | null;
+    commissionBp: number; description: string; warehouseAddress: string; cdekCityCode: number | null; shipDays: number; cdekShipmentPoint?: string; ymlFeedUrl: string | null;
   };
 };
 

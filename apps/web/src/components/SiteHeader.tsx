@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { BRAND, CATEGORY_NAV } from '@/lib/brand';
 import { getSessionUser } from '@/lib/session';
 import { CartCount } from './CartCount';
+import { CartSync } from './CartSync';
 import { SearchBox } from './shop/SearchBox';
 import s from './site.module.css';
 
@@ -10,6 +11,7 @@ export async function SiteHeader() {
   const user = await getSessionUser();
   return (
     <header className={s.header}>
+      <CartSync userId={user?.id ?? null} />
       <div className={`container ${s.top}`}>
         <Link href="/" className={s.logo}>
           {BRAND.mark}

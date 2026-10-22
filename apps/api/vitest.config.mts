@@ -14,6 +14,8 @@ export default defineConfig({
       STOREFRONT_REQUIRE_PAYOUTS: 'true',
       REMOTE_FETCH_ALLOW_PRIVATE: '1',
       STORAGE_LOCAL_DIR: './.storage-test',
+      DELIVERY_DRIVER: 'fake',
+      PAYMENTS_DRIVER: 'fake',
     },
     include: ['test/**/*.test.ts'], fileParallelism: false, testTimeout: 20000 },
 });

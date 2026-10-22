@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
+import { writeCart } from '@/lib/cart';
+import o from '@/components/shop/order.module.css';
+import { orderLabel } from './orders/[number]/OrderView';
 import p from './profile.module.css';
 
 export type ProfileData = {
@@ -17,8 +20,10 @@ export type ProfileData = {
 
 const dash = (...v: (string | number | null | undefined)[]) => v.filter((x) => x != null && x !== '').join(' · ') || '—';
 
-/** Профиль покупателя (ТЗ §6.5). История заказов — этап 4. */
-export function Profile(props: { email: string; emailVerified: boolean; welcome: boolean; profile: ProfileData; specialties: string[]; consents: Record<string, boolean>; capsule: { count: number; total: number } | null }) {
+export type OrderRow = { number: string; createdAt: string; status: string; total: number; shipments: number; delivery: string; shipmentStatuses: string[] };
+
+/** Профиль покупателя (ТЗ §6.5). */
+export function Profile(props: { email: string; emailVerified: boolean; welcome: boolean; profile: ProfileData; specialties: string[]; consents: Record<string, boolean>; capsule: { count: number; total: number } | null; orders: OrderRow[] }) {
   const router = useRouter();
   const [profile, setProfile] = useState(props.profile);
   const [consents, setConsents] = useState(props.consents);
@@ -181,6 +186,8 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 variant="outline"
                 onClick={async () => {
                   await api('/auth/logout', {});
+                  writeCart([]);
+                  localStorage.removeItem('cart-owner');
                   router.replace('/');
                   router.refresh();
                 }}
@@ -194,7 +201,25 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
       <div className="eyebrow" style={{ marginTop: 32 }}>
         История заказов
       </div>
-      <p className={p.muted}>Заказов пока нет — оформление заработает на этапе 4.</p>
+      {props.orders.length === 0 ? (
+        <p className={p.muted}>Заказов пока нет.</p>
+      ) : (
+        <div className={o.history} style={{ marginTop: 12 }}>
+          {props.orders.map((r) => (
+            <Link key={r.number} href={`/account/orders/${r.number}`} className={o.historyRow}>
+              <span>
+                <b>№ {r.number}</b> · {new Date(r.createdAt).toLocaleDateString('ru-RU')}
+                <span className={o.muted} style={{ display: 'block' }}>
+                  {r.shipments} {plural(r.shipments, 'отправление', 'отправления', 'отправлений')} · {formatRub(r.total)} · {r.delivery}
+                </span>
+              </span>
+              <span className={r.status === 'cancelled' ? o.statusBad : r.status === 'pending_payment' ? o.statusWarn : o.status}>
+                {orderLabel({ status: r.status, shipments: r.shipmentStatuses.map((st) => ({ status: st })) })}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

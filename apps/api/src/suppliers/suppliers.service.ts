@@ -114,6 +114,7 @@ export class SuppliersService {
       warehouseAddress: supplier.warehouseAddress ?? '',
       cdekCityCode: supplier.cdekCityCode,
       shipDays: supplier.shipDays,
+      cdekShipmentPoint: supplier.cdekShipmentPoint ?? '',
       ymlFeedUrl: supplier.ymlFeedUrl,
     };
   }
@@ -121,7 +122,7 @@ export class SuppliersService {
   async updateSettings(supplier: Supplier, input: SupplierSettingsInput, actor: User) {
     const updated = await this.prisma.supplier.update({
       where: { id: supplier.id },
-      data: { description: input.description, warehouseAddress: input.warehouseAddress, cdekCityCode: input.cdekCityCode, shipDays: input.shipDays },
+      data: { description: input.description, warehouseAddress: input.warehouseAddress, cdekCityCode: input.cdekCityCode, shipDays: input.shipDays, cdekShipmentPoint: input.cdekShipmentPoint || null },
     });
     await this.audit.log(actor.id, 'supplier.settings', 'supplier', supplier.id, input);
     return this.view(updated);
