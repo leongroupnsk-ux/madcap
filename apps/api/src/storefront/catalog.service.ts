@@ -23,6 +23,25 @@ export type CatalogQuery = {
 };
 
 const PER_PAGE = 30;
+
+/** Контекст покупателя для «Подходит вам» (ТЗ §4.3): пол, размеры по слотам, ростовка, специальности. */
+export type FitContext = {
+  gender: string | null;
+  heightRange: string | null;
+  specialtyIds: string[];
+  sizeFor: (slot: string | null) => string | null;
+};
+
+function fitsProduct(
+  p: { gender: string; category: { slot: string | null }; specialties: { specialtyId: string }[]; variants: { size: string; heightRange: string | null; stock: number }[] },
+  fit: FitContext,
+) {
+  if (fit.gender && p.gender !== 'unisex' && p.gender !== fit.gender) return false;
+  const size = fit.sizeFor(p.category.slot);
+  const sizeOk = p.variants.some((v) => v.stock > 0 && (!size || v.size.toUpperCase() === size.toUpperCase()) && (!v.heightRange || !fit.heightRange || v.heightRange === fit.heightRange));
+  const specOk = !p.specialties.length || p.specialties.some((s) => fit.specialtyIds.includes(s.specialtyId));
+  return sizeOk && specOk;
+}
 const list = (v: string | string[] | undefined) => (v === undefined ? [] : (Array.isArray(v) ? v : v.split(',')).map((x) => x.trim()).filter(Boolean));
 const sizeRank = (s: string) => {
   const i = (SIZES as readonly string[]).indexOf(s.toUpperCase());
@@ -102,7 +121,7 @@ export class CatalogService {
     return { where: { AND: and } as Prisma.ProductWhereInput, scope };
   }
 
-  async list(query: CatalogQuery) {
+  async list(query: CatalogQuery, fit: FitContext | null = null) {
     const { where: base, scope } = await this.baseWhere(query);
     const genders = list(query.gender).filter((g) => ['female', 'male', 'unisex'].includes(g)) as ('female' | 'male' | 'unisex')[];
     const brands = list(query.brand);
@@ -149,7 +168,7 @@ export class CatalogService {
     const page = Math.min(pages, Math.max(1, Number(query.page) || 1));
     const pageIds = sorted.slice((page - 1) * perPage, page * perPage);
 
-    const [items, facets] = await Promise.all([this.cards(pageIds, variantWhere), this.facets(base)]);
+    const [items, facets] = await Promise.all([this.cards(pageIds, variantWhere, fit), this.facets(base)]);
     return {
       category: scope.category && {
         name: scope.category.name,
@@ -167,12 +186,14 @@ export class CatalogService {
   }
 
   /** Карточки в заданном порядке; цена — минимальная среди подходящих вариантов в наличии. */
-  async cards(ids: string[], variantWhere: Prisma.ProductVariantWhereInput = { stock: { gt: 0 } }) {
+  async cards(ids: string[], variantWhere: Prisma.ProductVariantWhereInput = { stock: { gt: 0 } }, fit: FitContext | null = null) {
     if (!ids.length) return [];
     const rows = await this.prisma.product.findMany({
       where: { id: { in: ids } },
       include: {
         brand: { select: { name: true } },
+        category: { select: { slot: true } },
+        specialties: { select: { specialtyId: true } },
         media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 2 },
         variants: { where: { stock: { gt: 0 } }, include: { color: true } },
       },
@@ -198,6 +219,7 @@ export class CatalogService {
           color: best.color.name,
           sizes: sizes.length > 2 ? `${sizes[0]}–${sizes.at(-1)}` : sizes.join(', '),
           heightRange: best.heightRange,
+          fits: fit ? fitsProduct(p, fit) : false,
         };
       });
   }
@@ -231,7 +253,7 @@ export class CatalogService {
     };
   }
 
-  async product(slug: string) {
+  async product(slug: string, fit: FitContext | null = null) {
     const p = await this.prisma.product.findFirst({
       where: { AND: [{ slug }, visibleWhere()] },
       include: {
@@ -247,7 +269,10 @@ export class CatalogService {
     });
     if (!p) throw new NotFoundException({ message: 'Товар не найден или снят с продажи' });
     const variants = [...p.variants].sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
+    const recommended = fit ? { size: fit.sizeFor(p.category.slot), heightRange: fit.heightRange } : null;
     return {
+      fits: fit ? fitsProduct(p, fit) : false,
+      recommended,
       id: p.id,
       slug: p.slug,
       title: p.title,
@@ -296,9 +321,9 @@ export class CatalogService {
   }
 
   /** Главная (ТЗ §4.2): «Хиты недели» — пока свежие публикации; по продажам — после этапа 4. */
-  async home() {
+  async home(fit: FitContext | null = null) {
     const hits = await this.prisma.product.findMany({ where: visibleWhere(), orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 15 });
-    return { hits: await this.cards(hits.map((h) => h.id)) };
+    return { hits: await this.cards(hits.map((h) => h.id), undefined, fit) };
   }
 
   /** Варианты для корзины гостя (ТЗ §6.1): актуальные цена и остаток. */

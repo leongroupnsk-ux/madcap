@@ -53,8 +53,8 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  me(@CurrentUser() user: User) {
-    return { user: publicUser(user) };
+  async me(@CurrentUser() user: User) {
+    return { user: { ...publicUser(user), hasCapsule: await this.auth.hasCapsule(user.id) } };
   }
 
   @Post('verify-email')

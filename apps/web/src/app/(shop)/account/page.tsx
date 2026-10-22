@@ -1,20 +1,34 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
-import { AccountActions } from './AccountActions';
+import type { Dictionaries } from '@/lib/types';
+import { Profile, type ProfileData } from './Profile';
 
 export const metadata: Metadata = { title: 'Мой профиль', robots: { index: false } };
 
-// Полный профиль (анкета, фото, заказы) — E3-07; сейчас аккаунт и выход.
+type Capsule = { count: number; total: number } | null;
+
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
   const user = await getSessionUser();
   if (!user) redirect('/login?next=/account');
-  const { welcome } = await searchParams;
+  const [{ welcome }, profile, consents, capsule, dict] = await Promise.all([
+    searchParams,
+    serverApi<ProfileData>('/me/profile'),
+    serverApi<Record<string, boolean>>('/me/consents'),
+    serverApi<Capsule>('/me/capsule'),
+    serverApi<Dictionaries>('/dictionaries'),
+  ]);
+  const names = (dict.data?.specialtyGroups ?? []).flatMap((g) => g.specialties).filter((s) => profile.data?.specialtyIds.includes(s.id)).map((s) => s.name);
   return (
-    <section className="container" style={{ padding: '48px var(--gutter)' }}>
-      <div className="eyebrow">Мой профиль</div>
-      <h1 style={{ fontSize: 44, margin: '12px 0 24px' }}>Добрый день.</h1>
-      <AccountActions email={user.email} emailVerified={user.emailVerified} welcome={welcome === '1'} />
-    </section>
+    <Profile
+      email={user.email}
+      emailVerified={user.emailVerified}
+      welcome={welcome === '1'}
+      profile={profile.data!}
+      specialties={names}
+      consents={consents.data ?? {}}
+      capsule={capsule.data ?? null}
+    />
   );
 }

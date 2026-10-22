@@ -1,7 +1,7 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 
-export type SessionUser = { id: string; email: string; role: 'buyer' | 'supplier_staff' | 'admin'; emailVerified: boolean };
+export type SessionUser = { id: string; email: string; role: 'buyer' | 'supplier_staff' | 'admin'; emailVerified: boolean; hasCapsule?: boolean };
 
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4100';
 

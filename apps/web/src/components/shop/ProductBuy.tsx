@@ -12,7 +12,12 @@ import p from './product.module.css';
 export function ProductBuy({ product }: { product: ProductDetails }) {
   const vs = product.variants;
   const colors = useMemo(() => [...new Map(vs.map((v) => [v.color.id, v.color])).values()], [vs]);
-  const firstInStock = vs.find((v) => v.stock > 0) ?? vs[0];
+  const rec = product.recommended;
+  // Стартовый выбор — размер и ростовка из профиля, если они есть в наличии (ТЗ §4.5).
+  const firstInStock =
+    vs.find((v) => v.stock > 0 && rec?.size && v.size.toUpperCase() === rec.size.toUpperCase() && (!v.heightRange || v.heightRange === rec.heightRange)) ??
+    vs.find((v) => v.stock > 0) ??
+    vs[0];
   const [colorId, setColorId] = useState(firstInStock.color.id);
   const ofColor = vs.filter((v) => v.color.id === colorId);
   const sizes = [...new Set(ofColor.map((v) => v.size))];
@@ -54,6 +59,7 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         {product.title}, {color.name.toLowerCase()}
       </h1>
       <div className={p.tags}>
+        {product.fits && <span className={`${p.tag} ${p.tagFit}`}>Подходит вам</span>}
         {product.treatment && <span className={p.tag}>{product.treatment}</span>}
         {product.washing && <span className={p.tag}>Стирка {product.washing}</span>}
       </div>
@@ -82,9 +88,12 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         </div>
         <div className={p.sizes}>
           {sizes.map((s) => (
-            <button key={s} type="button" className={`${p.size} ${s === size ? p.sizeOn : ''}`} onClick={() => pickSize(s)} disabled={!sizeAvailable(s)} aria-pressed={s === size}>
-              {s}
-            </button>
+            <span key={s} className={p.sizeWrap}>
+              <button type="button" className={`${p.size} ${s === size ? p.sizeOn : ''}`} onClick={() => pickSize(s)} disabled={!sizeAvailable(s)} aria-pressed={s === size}>
+                {s}
+              </button>
+              {rec?.size?.toUpperCase() === s.toUpperCase() && <small className={p.rec}>Рекомендуем</small>}
+            </span>
           ))}
         </div>
       </div>
@@ -96,9 +105,12 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
             {heights.map((h) => {
               const ok = ofColor.some((v) => v.size === size && v.heightRange === h && v.stock > 0);
               return (
-                <button key={h} type="button" className={`${p.size} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => setHeight(h)} aria-pressed={h === height}>
-                  {h}
-                </button>
+                <span key={h} className={p.sizeWrap}>
+                  <button type="button" className={`${p.size} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => setHeight(h)} aria-pressed={h === height}>
+                    {h}
+                  </button>
+                  {rec?.heightRange === h && <small className={p.rec}>Рекомендуем</small>}
+                </span>
               );
             })}
           </div>

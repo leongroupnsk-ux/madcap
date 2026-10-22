@@ -67,6 +67,10 @@ export class AuthService {
     return user;
   }
 
+  async hasCapsule(userId: string): Promise<boolean> {
+    return (await this.prisma.buyerProfile.count({ where: { userId, quizCompletedAt: { not: null } } })) > 0;
+  }
+
   async sendVerification(user: User): Promise<void> {
     const token = await this.issueToken(user.id, 'email_verify', config.tokens.emailVerifyHours * 60);
     await this.mail.send({

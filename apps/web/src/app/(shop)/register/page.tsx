@@ -6,11 +6,13 @@ import { RegisterForm } from './RegisterForm';
 
 export const metadata: Metadata = { title: 'Создать аккаунт', robots: { index: false } };
 
-export default async function RegisterPage() {
-  if (await getSessionUser()) redirect('/account');
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
+  const target = next?.startsWith('/') && !next.startsWith('//') ? next : null;
+  if (await getSessionUser()) redirect(target ?? '/account');
   return (
     <AuthCard title="Создать аккаунт">
-      <RegisterForm />
+      <RegisterForm next={target} />
     </AuthCard>
   );
 }

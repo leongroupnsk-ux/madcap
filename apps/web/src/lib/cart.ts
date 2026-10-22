@@ -31,6 +31,17 @@ export function addToCart(variantId: string, qty: number) {
   write(lines);
 }
 
+/** Вся капсула одной группой (ТЗ §5.3): вещи помечаются «Персональная капсула». */
+export function addCapsule(variantIds: string[]) {
+  const lines = readCart();
+  for (const id of variantIds) {
+    const line = lines.find((l) => l.variantId === id);
+    if (line) line.fromCapsule = true;
+    else lines.push({ variantId: id, qty: 1, fromCapsule: true });
+  }
+  write(lines);
+}
+
 export function setQty(variantId: string, qty: number) {
   write(readCart().map((l) => (l.variantId === variantId ? { ...l, qty } : l)).filter((l) => l.qty > 0));
 }

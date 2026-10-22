@@ -8,11 +8,11 @@ import { useForm } from '@/components/auth/useForm';
 import { Alert, Button, Checkbox, Field } from '@/components/ui';
 import { api } from '@/lib/api';
 
-export function RegisterForm() {
+export function RegisterForm({ next }: { next: string | null }) {
   const router = useRouter();
   const { errors, formError, pending, submit } = useForm(registerSchema, async (data) => {
     await api('/auth/register', data);
-    router.replace('/account?welcome=1');
+    router.replace(next ?? '/account?welcome=1');
     router.refresh();
   });
 
@@ -45,7 +45,7 @@ export function RegisterForm() {
         После регистрации предложим пройти анкету подбора капсулы (5 минут).
       </p>
       <div className={s.footer} style={{ marginTop: 0 }}>
-        <Link href="/login">← Вернуться ко входу</Link>
+        <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}>Уже есть аккаунт? Войти</Link>
       </div>
     </form>
   );

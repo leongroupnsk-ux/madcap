@@ -1,12 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, Req, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { User } from '@prisma/client';
+import type { Request } from 'express';
 import { articleSaveSchema, collectionSaveSchema, rejectSchema, type ArticleSaveInput, type CollectionSaveInput } from '@aesculap/shared';
 import { CurrentUser } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.guard';
+import { SessionService } from '../auth/session.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
-import { CatalogService, type CatalogQuery } from './catalog.service';
+import { CapsuleService } from '../me/capsule.service';
+import { CatalogService, type CatalogQuery, type FitContext } from './catalog.service';
 import { ContentService } from './content.service';
 
 /** Публичная витрина: без авторизации (ТЗ §4). */
@@ -15,11 +18,22 @@ export class StorefrontController {
   constructor(
     private readonly catalog: CatalogService,
     private readonly content: ContentService,
+    private readonly sessions: SessionService,
+    private readonly capsules: CapsuleService,
   ) {}
 
+  /** Если покупатель вошёл и прошёл анкету — витрина отмечает подходящие товары. */
+  private async fit(req: Request): Promise<FitContext | null> {
+    const s = await this.sessions.resolve(req).catch(() => null);
+    if (!s) return null;
+    const ctx = await this.capsules.fitContext(s.user.id);
+    if (!ctx) return null;
+    return { gender: ctx.profile.gender, heightRange: ctx.heightRange, specialtyIds: ctx.profile.specialties.map((x) => x.specialtyId), sizeFor: ctx.sizeFor };
+  }
+
   @Get('catalog/home')
-  home() {
-    return this.catalog.home();
+  async home(@Req() req: Request) {
+    return this.catalog.home(await this.fit(req));
   }
 
   @Get('catalog/categories')
@@ -28,13 +42,13 @@ export class StorefrontController {
   }
 
   @Get('catalog/products')
-  list(@Query() q: CatalogQuery) {
-    return this.catalog.list(q);
+  async list(@Query() q: CatalogQuery, @Req() req: Request) {
+    return this.catalog.list(q, await this.fit(req));
   }
 
   @Get('catalog/products/:slug')
-  product(@Param('slug') slug: string) {
-    return this.catalog.product(slug);
+  async product(@Param('slug') slug: string, @Req() req: Request) {
+    return this.catalog.product(slug, await this.fit(req));
   }
 
   @Get('catalog/suggest')

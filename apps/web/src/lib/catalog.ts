@@ -3,7 +3,7 @@ import { serverApi } from './server-api';
 
 export type Card = {
   id: string; slug: string; title: string; brand: string; images: (string | null)[]; price: number; oldPrice: number | null;
-  sale: boolean; color: string; sizes: string; heightRange: string | null;
+  sale: boolean; color: string; sizes: string; heightRange: string | null; fits?: boolean;
 };
 
 export type Facets = {
@@ -22,6 +22,8 @@ export type CatalogList = {
 };
 
 export type ProductDetails = {
+  fits?: boolean;
+  recommended?: { size: string | null; heightRange: string | null } | null;
   id: string; slug: string; title: string; brand: { name: string; slug: string };
   sizeChart: { clothes: { columns: string[]; rows: string[][] }; shoes: { columns: string[]; rows: string[][] } };
   category: { name: string; slug: string; parent: { name: string; slug: string } | null };

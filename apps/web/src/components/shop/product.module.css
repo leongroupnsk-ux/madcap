@@ -339,3 +339,19 @@
     width: 64px;
   }
 }
+
+.sizeWrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.rec {
+  font-size: 10px;
+  color: var(--c-sale);
+}
+.tagFit {
+  background: var(--c-chip);
+  border-color: var(--c-chip-strong);
+  color: var(--c-primary);
+}

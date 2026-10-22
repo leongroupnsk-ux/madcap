@@ -34,8 +34,8 @@ export async function SiteHeader() {
             Корзина
             <CartCount />
           </Link>
-          <Link href="/quiz/1" className={s.cta}>
-            Подобрать капсулу
+          <Link href={user?.hasCapsule ? '/capsule' : '/quiz/1'} className={s.cta}>
+            {user?.hasCapsule ? 'Моя капсула' : 'Подобрать капсулу'}
           </Link>
         </nav>
       </div>

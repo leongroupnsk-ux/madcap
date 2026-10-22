@@ -8,9 +8,10 @@ export function ProductCard({ p, priority }: { p: Card; priority?: boolean }) {
   return (
     <Link href={`/product/${p.slug}`} className={s.card}>
       <div className={s.media}>
-        {p.sale && (
+        {(p.sale || p.fits) && (
           <div className={s.badges}>
-            <span className={s.badgeSale}>Распродажа</span>
+            {p.sale && <span className={s.badgeSale}>Распродажа</span>}
+            {p.fits && <span className={s.badgeFit}>Подходит вам</span>}
           </div>
         )}
         {p.images.filter(Boolean).slice(0, 2).map((src, i) => (

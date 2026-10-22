@@ -35,6 +35,7 @@ model User {
   tokens          AuthToken[]
   consents        Consent[]
   buyerProfile    BuyerProfile?
+  capsules        Capsule[]
   supplierMembers SupplierMember[]
   auditLogs       AuditLog[]
 
@@ -111,7 +112,7 @@ enum Gender {
 }
 
 model BuyerProfile {
-  userId          String   @id @db.Uuid
+  userId          String    @id @db.Uuid
   gender          Gender?
   name            String?
   age             Int?
@@ -128,8 +129,10 @@ model BuyerProfile {
   /// Предусмотрено на случай решения по дресс-коду клиники (ТЗ §14)
   dressCode       String?
   budgetRange     String?
-  completenessPct Int      @default(0)
-  updatedAt       DateTime @updatedAt
+  completenessPct Int       @default(0)
+  /// Анкета пройдена до шага «Создать мой профиль»
+  quizCompletedAt DateTime?
+  updatedAt       DateTime  @updatedAt
 
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   specialties ProfileSpecialty[]
@@ -343,12 +346,13 @@ model Product {
   /// Внешний id из YML/файла — для сопоставления при повторном импорте
   externalId  String?
 
-  variants    ProductVariant[]
-  media       ProductMedia[]
-  specialties ProductSpecialty[]
-  revisions   ProductRevision[]
-  articles    ArticleProduct[]
-  collections CollectionProduct[]
+  variants     ProductVariant[]
+  media        ProductMedia[]
+  specialties  ProductSpecialty[]
+  revisions    ProductRevision[]
+  articles     ArticleProduct[]
+  collections  CollectionProduct[]
+  capsuleItems CapsuleItem[]
 
   @@unique([supplierId, externalId])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_title_trgm_idx")
@@ -384,8 +388,9 @@ model ProductVariant {
   widthMm     Int?
   heightMm    Int?
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  color   Color   @relation(fields: [colorId], references: [id])
+  product      Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color        Color         @relation(fields: [colorId], references: [id])
+  capsuleItems CapsuleItem[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -607,4 +612,44 @@ model CollectionProduct {
 
   @@id([collectionId, productId])
   @@map("collection_products")
+}
+
+// ─── Этап 3: подбор капсулы (ТЗ §5) ─────────────────────────────────────
+
+/// Один из трёх вариантов капсулы пользователя (разные основные цвета).
+model Capsule {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  variantNo    Int
+  total        Int
+  /// Причины рекомендации для блока «Почему мы рекомендуем»
+  explanations Json     @default("[]")
+  builtAt      DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CapsuleItem[]
+
+  @@unique([userId, variantNo])
+  @@map("capsules")
+}
+
+model CapsuleItem {
+  id           String  @id @default(uuid()) @db.Uuid
+  capsuleId    String  @db.Uuid
+  slot         String
+  position     Int     @default(0)
+  productId    String? @db.Uuid
+  variantId    String? @db.Uuid
+  /// Топ-4 замены: [{ productId, variantId }]
+  alternatives Json    @default("[]")
+  /// Выбрано покупателем вручную — пересборка не трогает
+  pinned       Boolean @default(false)
+
+  capsule Capsule         @relation(fields: [capsuleId], references: [id], onDelete: Cascade)
+  product Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@unique([capsuleId, slot])
+  @@map("capsule_items")
 }
