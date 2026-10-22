@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.json", "compilerOptions": { "rootDir": ".", "types": ["node", "multer", "vitest/globals"] }, "include": ["src", "test"] }

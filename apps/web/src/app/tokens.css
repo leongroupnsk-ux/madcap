@@ -1,0 +1,41 @@
+/* Дизайн-токены aesculap. Цвета сняты с прототипа Figma; точные значения сверить с дизайнером (ТЗ §11). */
+:root {
+  --c-bg: #f7f4ec;
+  --c-surface: #ffffff;
+  --c-surface-soft: #e9efeb;
+  --c-chip: #e3ece7;
+  --c-chip-strong: #c5d8d0;
+  --c-primary: #183b34;
+  --c-primary-hover: #234d44;
+  --c-on-primary: #ffffff;
+  --c-accent: #deac84;
+  --c-accent-hover: #d39a6d;
+  --c-on-accent: #1f2a26;
+  --c-sale: #c8553d;
+  --c-premium: #292929;
+  --c-text: #1d2b27;
+  --c-text-muted: #5e6b66;
+  --c-text-faint: #8a948f;
+  --c-border: #dcdfd8;
+  --c-border-strong: #b8c0ba;
+  --c-error: #b3261e;
+  --c-success: #2e7d5b;
+
+  --font-serif: var(--font-playfair), 'Times New Roman', serif;
+  --font-sans: var(--font-manrope), system-ui, -apple-system, sans-serif;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  --shadow-card: 0 12px 32px rgba(24, 59, 52, 0.12);
+  --container: 1280px;
+  --gutter: 16px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 32px;
+  }
+}

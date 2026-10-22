@@ -1,0 +1,223 @@
+.header {
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 72px;
+}
+.logo {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  color: var(--c-primary);
+  text-decoration: none;
+  flex: none;
+}
+.catalogBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-weight: 600;
+  text-decoration: none;
+  flex: none;
+}
+.search {
+  flex: 1;
+  min-width: 0;
+  max-width: 520px;
+  position: relative;
+}
+.search input {
+  width: 100%;
+  height: 44px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border-strong);
+  background: var(--c-surface);
+  padding: 0 44px 0 20px;
+  font: 400 14px var(--font-sans);
+}
+.search button {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--c-text-muted);
+}
+.actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: none;
+}
+.navLink {
+  color: var(--c-text);
+  text-decoration: none;
+  font-size: 14px;
+  position: relative;
+}
+.badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-chip-strong);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-primary);
+  background: var(--c-chip);
+  color: var(--c-primary);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.cats {
+  display: flex;
+  gap: 28px;
+  height: 44px;
+  align-items: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-top: 1px solid var(--c-border);
+}
+.cats a {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.cats a:hover {
+  color: var(--c-primary);
+}
+.sale {
+  color: var(--c-sale) !important;
+}
+.strong {
+  color: var(--c-text) !important;
+  font-weight: 700;
+}
+
+.footer {
+  margin-top: 96px;
+  background: var(--c-surface-soft);
+  padding: 28px 0;
+}
+.footerRow {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.footerRow a {
+  text-decoration: none;
+  color: var(--c-text-muted);
+}
+.footerRow a:hover {
+  color: var(--c-primary);
+}
+.footerLegal {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--c-text-faint);
+}
+
+.cookie {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  max-width: 960px;
+  margin: 0 auto;
+  background: var(--c-premium);
+  color: #fff;
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.cookie p {
+  margin: 0;
+  flex: 1 1 320px;
+}
+.cookie a {
+  color: #fff;
+}
+.cookieActions {
+  display: flex;
+  gap: 8px;
+}
+.cookieBtn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: #fff;
+  font: 600 13px var(--font-sans);
+  cursor: pointer;
+}
+.cookieBtnMain {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-on-accent);
+}
+
+@media (max-width: 900px) {
+  /* Два ряда: логотип + аккаунт/корзина, затем «Каталог» + поиск. */
+  .top {
+    flex-wrap: wrap;
+    height: auto;
+    padding-block: 12px;
+    row-gap: 12px;
+    column-gap: 12px;
+  }
+  .logo {
+    order: 1;
+  }
+  .actions {
+    order: 2;
+    gap: 16px;
+  }
+  .catalogBtn {
+    order: 3;
+    padding: 0 16px;
+  }
+  .search {
+    order: 4;
+    flex: 1 1 160px;
+    max-width: none;
+  }
+  .cta {
+    display: none;
+  }
+}

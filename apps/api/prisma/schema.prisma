@@ -1,0 +1,610 @@
+// Схема БД v1 — ТЗ §9. Деньги в копейках (Int), время в UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Пользователи и доступ ──────────────────────────────────────────────
+
+enum UserRole {
+  buyer
+  supplier_staff
+  admin
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String    @unique
+  passwordHash    String
+  role            UserRole  @default(buyer)
+  phone           String?
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  /// TOTP-секрет (base32); 2FA обязательна для владельца поставщика по желанию, для админа — рекомендуется
+  totpSecret      String?
+  totpEnabledAt   DateTime?
+
+  sessions        Session[]
+  tokens          AuthToken[]
+  consents        Consent[]
+  buyerProfile    BuyerProfile?
+  supplierMembers SupplierMember[]
+  auditLogs       AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  /// sha256 от значения cookie — сама cookie в БД не хранится
+  tokenHash  String   @unique
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  expiresAt  DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+enum AuthTokenType {
+  email_verify
+  password_reset
+  supplier_invite
+}
+
+/// Одноразовые токены: подтверждение email, сброс пароля, приглашение поставщика.
+model AuthToken {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+enum ConsentType {
+  pdn
+  offer
+  photos
+  marketing
+}
+
+model Consent {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @db.Uuid
+  type      ConsentType
+  version   String
+  grantedAt DateTime    @default(now())
+  revokedAt DateTime?
+  ip        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("consents")
+}
+
+// ─── Профиль покупателя (анкета, ТЗ §5) ─────────────────────────────────
+
+enum Gender {
+  female
+  male
+  unisex
+}
+
+model BuyerProfile {
+  userId          String   @id @db.Uuid
+  gender          Gender?
+  name            String?
+  age             Int?
+  heightCm        Int?
+  weightKg        Int?
+  sizeTop         String?
+  sizeBottom      String?
+  sizeShoes       String?
+  bodyType        String?
+  skinTone        String?
+  hair            String?
+  eyes            String?
+  colorType       String?
+  /// Предусмотрено на случай решения по дресс-коду клиники (ТЗ §14)
+  dressCode       String?
+  budgetRange     String?
+  completenessPct Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties ProfileSpecialty[]
+  photos      ProfilePhoto[]
+
+  @@map("buyer_profiles")
+}
+
+model ProfileSpecialty {
+  profileId   String @db.Uuid
+  specialtyId String @db.Uuid
+
+  profile   BuyerProfile @relation(fields: [profileId], references: [userId], onDelete: Cascade)
+  specialty Specialty    @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, specialtyId])
+  @@map("profile_specialties")
+}
+
+enum PhotoAngle {
+  front
+  side
+  back
+  three_quarter
+}
+
+model ProfilePhoto {
+  id         String      @id @default(uuid()) @db.Uuid
+  profileId  String      @db.Uuid
+  storageKey String
+  angle      PhotoAngle?
+  createdAt  DateTime    @default(now())
+
+  profile BuyerProfile @relation(fields: [profileId], references: [userId], onDelete: Cascade)
+
+  @@map("profile_photos")
+}
+
+// ─── Справочники ────────────────────────────────────────────────────────
+
+model SpecialtyGroup {
+  id          String      @id @default(uuid()) @db.Uuid
+  name        String      @unique
+  position    Int         @default(0)
+  specialties Specialty[]
+
+  @@map("specialty_groups")
+}
+
+model Specialty {
+  id       String @id @default(uuid()) @db.Uuid
+  groupId  String @db.Uuid
+  name     String
+  slug     String @unique
+  /// Требования к ткани/обработке и набор слотов капсулы — для движка подбора
+  rules    Json   @default("{}")
+  position Int    @default(0)
+
+  group    SpecialtyGroup     @relation(fields: [groupId], references: [id])
+  profiles ProfileSpecialty[]
+  products ProductSpecialty[]
+
+  @@map("specialties")
+}
+
+model Category {
+  id       String  @id @default(uuid()) @db.Uuid
+  parentId String? @db.Uuid
+  name     String
+  slug     String  @unique
+  /// Слот капсулы, который закрывает категория (top, pants, gown, shoes, accessory)
+  slot     String?
+  position Int     @default(0)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Color {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  hex         String
+  /// Цветовая группа для сочетаемости и палитр цветотипов
+  colorFamily String
+
+  variants ProductVariant[]
+
+  @@map("colors")
+}
+
+model Brand {
+  id        String @id @default(uuid()) @db.Uuid
+  name      String @unique
+  slug      String @unique
+  sizeChart Json?
+
+  products Product[]
+
+  @@map("brands")
+}
+
+// ─── Поставщики ─────────────────────────────────────────────────────────
+
+enum SupplierStatus {
+  pending
+  active
+  blocked
+}
+
+enum PayoutStatus {
+  not_connected
+  in_review
+  active
+}
+
+model Supplier {
+  id                String         @id @default(uuid()) @db.Uuid
+  legalName         String
+  inn               String         @unique
+  kpp               String?
+  status            SupplierStatus @default(pending)
+  /// Комиссия в базисных пунктах: 1000 = 10%
+  commissionBp      Int            @default(1000)
+  yookassaAccountId String?
+  payoutStatus      PayoutStatus   @default(not_connected)
+  warehouseAddress  String?
+  cdekCityCode      Int?
+  shipDays          Int            @default(1)
+  ymlFeedUrl        String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  description  String?
+  /// Контакты, переданные при подключении
+  contactName  String?
+  contactPhone String?
+  contactEmail String?
+
+  members     SupplierMember[]
+  products    Product[]
+  imports     ImportJob[]
+  application SupplierApplication?
+  articles    Article[]
+  collections Collection[]
+
+  @@map("suppliers")
+}
+
+enum SupplierMemberRole {
+  owner
+  catalog
+  warehouse
+}
+
+model SupplierMember {
+  supplierId String             @db.Uuid
+  userId     String             @db.Uuid
+  role       SupplierMemberRole @default(owner)
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([supplierId, userId])
+  @@map("supplier_members")
+}
+
+// ─── Каталог ────────────────────────────────────────────────────────────
+
+enum ModerationStatus {
+  draft
+  pending
+  published
+  rejected
+  hidden
+}
+
+enum ProductSource {
+  manual
+  file
+  yml
+}
+
+model Product {
+  id               String           @id @default(uuid()) @db.Uuid
+  supplierId       String           @db.Uuid
+  brandId          String           @db.Uuid
+  categoryId       String           @db.Uuid
+  slug             String           @unique
+  title            String
+  gender           Gender           @default(unisex)
+  fabric           String?
+  treatment        String?
+  washing          String?
+  description      String?
+  moderationStatus ModerationStatus @default(draft)
+  rejectReason     String?
+  source           ProductSource    @default(manual)
+  /// Ручные правки медиа/описания защищены от перезаписи YML-синком (ТЗ §7.3)
+  manualOverride   Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  supplier    Supplier  @relation(fields: [supplierId], references: [id])
+  brand       Brand     @relation(fields: [brandId], references: [id])
+  category    Category  @relation(fields: [categoryId], references: [id])
+  submittedAt DateTime?
+  publishedAt DateTime?
+  /// Внешний id из YML/файла — для сопоставления при повторном импорте
+  externalId  String?
+
+  variants    ProductVariant[]
+  media       ProductMedia[]
+  specialties ProductSpecialty[]
+  revisions   ProductRevision[]
+  articles    ArticleProduct[]
+  collections CollectionProduct[]
+
+  @@unique([supplierId, externalId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_title_trgm_idx")
+  @@index([supplierId])
+  @@index([categoryId, moderationStatus])
+  @@map("products")
+}
+
+model ProductSpecialty {
+  productId   String @db.Uuid
+  specialtyId String @db.Uuid
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([productId, specialtyId])
+  @@map("product_specialties")
+}
+
+model ProductVariant {
+  id          String  @id @default(uuid()) @db.Uuid
+  productId   String  @db.Uuid
+  sku         String
+  size        String
+  /// Ростовка: «170–176»
+  heightRange String?
+  colorId     String  @db.Uuid
+  price       Int
+  oldPrice    Int?
+  stock       Int     @default(0)
+  weightG     Int?
+  lengthMm    Int?
+  widthMm     Int?
+  heightMm    Int?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color   Color   @relation(fields: [colorId], references: [id])
+
+  @@unique([productId, sku])
+  @@index([productId])
+  @@map("product_variants")
+}
+
+enum MediaType {
+  photo
+  video
+}
+
+model ProductMedia {
+  id         String    @id @default(uuid()) @db.Uuid
+  productId  String    @db.Uuid
+  type       MediaType
+  storageKey String
+  posterKey  String?
+  position   Int       @default(0)
+  isMain     Boolean   @default(false)
+  /// Медиа, добавленные к опубликованному товару, видны на витрине только после модерации ревизии
+  approved   Boolean   @default(false)
+  /// Ссылка-источник при импорте (для повторного синка без перекачки)
+  sourceUrl  String?
+  width      Int?
+  height     Int?
+  durationS  Float?
+  sizeBytes  Int?
+  createdAt  DateTime  @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_media")
+}
+
+// ─── Этап 1: подключение поставщиков, модерация, импорт ─────────────────
+
+enum ApplicationStatus {
+  new
+  approved
+  rejected
+}
+
+model SupplierApplication {
+  id           String            @id @default(uuid()) @db.Uuid
+  company      String
+  inn          String
+  contactName  String
+  phone        String
+  email        String
+  assortment   String
+  status       ApplicationStatus @default(new)
+  rejectReason String?
+  supplierId   String?           @unique @db.Uuid
+  createdAt    DateTime          @default(now())
+  reviewedAt   DateTime?
+  ip           String?
+
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("supplier_applications")
+}
+
+enum RevisionStatus {
+  pending
+  approved
+  rejected
+}
+
+/// Правки текста/медиа опубликованного товара, ждущие модерации (ТЗ §7.3).
+/// На витрине до одобрения остаётся опубликованная версия.
+model ProductRevision {
+  id           String         @id @default(uuid()) @db.Uuid
+  productId    String         @db.Uuid
+  /// { title, description, fabric, treatment, washing, gender, categoryId, brandId, specialtyIds[], media: { order[], mainId, removed[] } }
+  data         Json
+  status       RevisionStatus @default(pending)
+  rejectReason String?
+  createdAt    DateTime       @default(now())
+  reviewedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("product_revisions")
+}
+
+enum ImportSource {
+  file
+  yml
+}
+
+enum ImportStatus {
+  queued
+  checking
+  checked
+  applying
+  applied
+  failed
+}
+
+model ImportJob {
+  id          String       @id @default(uuid()) @db.Uuid
+  supplierId  String       @db.Uuid
+  source      ImportSource
+  fileName    String?
+  fileKey     String?
+  feedUrl     String?
+  status      ImportStatus @default(queued)
+  totalRows   Int          @default(0)
+  newProducts Int          @default(0)
+  updates     Int          @default(0)
+  errorRows   Int          @default(0)
+  /// Первые 200 ошибок: [{ row, field, message }]
+  errors      Json         @default("[]")
+  /// Нормализованные валидные строки для применения
+  payload     Json?
+  failReason  String?
+  createdAt   DateTime     @default(now())
+  checkedAt   DateTime?
+  appliedAt   DateTime?
+  autoApply   Boolean      @default(false)
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId, createdAt])
+  @@map("import_jobs")
+}
+
+model AuditLog {
+  id       String   @id @default(uuid()) @db.Uuid
+  actorId  String?  @db.Uuid
+  action   String
+  entity   String
+  entityId String?
+  data     Json?
+  at       DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+// ─── Этап 2: журнал (статьи и подборки поставщиков и редакции) ──────────
+
+enum ContentStatus {
+  draft
+  pending
+  published
+  rejected
+}
+
+model Article {
+  id           String        @id @default(uuid()) @db.Uuid
+  /// null — материал редакции платформы
+  supplierId   String?       @db.Uuid
+  slug         String        @unique
+  title        String
+  lead         String?
+  coverKey     String?
+  /// HTML после серверной санитизации по белому списку тегов
+  body         String        @default("")
+  status       ContentStatus @default(draft)
+  rejectReason String?
+  submittedAt  DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  supplier Supplier?        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  products ArticleProduct[]
+
+  @@index([status, publishedAt])
+  @@map("articles")
+}
+
+model ArticleProduct {
+  articleId String @db.Uuid
+  productId String @db.Uuid
+  position  Int    @default(0)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, productId])
+  @@map("article_products")
+}
+
+model Collection {
+  id           String        @id @default(uuid()) @db.Uuid
+  supplierId   String?       @db.Uuid
+  slug         String        @unique
+  title        String
+  description  String?
+  coverKey     String?
+  status       ContentStatus @default(draft)
+  rejectReason String?
+  submittedAt  DateTime?
+  publishedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  supplier Supplier?           @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  products CollectionProduct[]
+
+  @@index([status, publishedAt])
+  @@map("collections")
+}
+
+model CollectionProduct {
+  collectionId String @db.Uuid
+  productId    String @db.Uuid
+  position     Int    @default(0)
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+  @@map("collection_products")
+}

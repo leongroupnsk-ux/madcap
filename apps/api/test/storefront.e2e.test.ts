@@ -1,0 +1,149 @@
+import type { INestApplication } from '@nestjs/common';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { PrismaService } from '../src/common/prisma.service';
+import { swapLayout } from '../src/storefront/catalog.service';
+import { ORIGIN, agent, bootApp, jpeg, makeSupplier, makeUser, resetDb, type Agent } from './helpers';
+
+describe('витрина и журнал', () => {
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let admin: Agent;
+  let sup: Agent;
+  let supplierId: string;
+  const anon = () => agent(app);
+
+  beforeAll(async () => {
+    app = await bootApp();
+    prisma = app.get(PrismaService);
+  });
+  beforeEach(async () => {
+    await resetDb(app);
+    admin = await makeUser(app, 'admin@example.ru', 'admin');
+    ({ agent: sup, supplierId } = await makeSupplier(app, admin, 'owner@sup.ru', '7707083893'));
+    await prisma.supplier.update({ where: { id: supplierId }, data: { payoutStatus: 'active' } });
+  });
+  afterAll(async () => {
+    await app.close();
+  });
+
+  /** Опубликованный товар напрямую в БД — витрине неважно, как он туда попал. */
+  async function product(title: string, opts: { category?: string; gender?: 'female' | 'male' | 'unisex'; status?: 'published' | 'draft'; variants: { size: string; color: string; price: number; oldPrice?: number; stock: number }[]; publishedAt?: Date }) {
+    const cat = await prisma.category.findUniqueOrThrow({ where: { slug: opts.category ?? 'kostyumy' } });
+    const brand = await prisma.brand.upsert({ where: { name: 'МедТекс' }, update: {}, create: { name: 'МедТекс', slug: 'medteks' } });
+    const colors = await prisma.color.findMany();
+    const p = await prisma.product.create({
+      data: {
+        supplierId, brandId: brand.id, categoryId: cat.id, title, slug: `${title.replace(/\W+/g, '-').toLowerCase()}-${Math.random().toString(36).slice(2, 6)}`,
+        gender: opts.gender ?? 'unisex', moderationStatus: opts.status ?? 'published', publishedAt: opts.publishedAt ?? new Date(), description: 'Описание',
+        variants: { create: opts.variants.map((v, i) => ({ sku: `${title}-${i}`, size: v.size, colorId: colors.find((c) => c.name === v.color)!.id, price: v.price * 100, oldPrice: v.oldPrice ? v.oldPrice * 100 : null, stock: v.stock })) },
+      },
+    });
+    return p;
+  }
+
+  it('видимость: только опубликованные, в наличии и с подключёнными выплатами', async () => {
+    await product('Костюм видимый', { variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 3 }] });
+    await product('Костюм черновик', { status: 'draft', variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 3 }] });
+    const zero = await product('Костюм без остатка', { variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 0 }] });
+    let list = (await anon().get('/api/catalog/products')).body;
+    expect(list.items.map((i: { title: string }) => i.title)).toEqual(['Костюм видимый']);
+    expect((await anon().get(`/api/catalog/products/${zero.slug}`)).status).toBe(404);
+
+    await prisma.supplier.update({ where: { id: supplierId }, data: { payoutStatus: 'not_connected' } });
+    list = (await anon().get('/api/catalog/products')).body;
+    expect(list.total).toBe(0);
+  });
+
+  it('фильтры по варианту, полу, цене, распродаже; цена карточки — от подходящего варианта', async () => {
+    await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Бирюзовый', price: 4590, oldPrice: 5290, stock: 3 }, { size: 'XL', color: 'Белый', price: 4990, stock: 1 }] });
+    await product('Халат «Классика»', { category: 'halaty', gender: 'female', variants: [{ size: 'S', color: 'Белый', price: 3490, stock: 5 }] });
+
+    const white = (await anon().get('/api/catalog/products').query({ color: (await prisma.color.findFirstOrThrow({ where: { name: 'Белый' } })).id, sort: 'price_asc' })).body;
+    expect(white.items.map((i: { title: string; price: number }) => [i.title, i.price])).toEqual([['Халат «Классика»', 349000], ['Костюм «Хирург»', 499000]]);
+
+    expect((await anon().get('/api/catalog/products').query({ size: 'M' })).body.total).toBe(1);
+    expect((await anon().get('/api/catalog/products').query({ gender: 'female' })).body.items[0].title).toBe('Халат «Классика»');
+    expect((await anon().get('/api/catalog/products').query({ priceFrom: 4000, priceTo: 4700 })).body.items.map((i: { title: string }) => i.title)).toEqual(['Костюм «Хирург»']);
+    const sale = (await anon().get('/api/catalog/products').query({ sale: 1 })).body;
+    expect(sale.items).toHaveLength(1);
+    expect(sale.items[0]).toMatchObject({ price: 459000, oldPrice: 529000, sale: true });
+
+    const cat = (await anon().get('/api/catalog/products').query({ category: 'halaty' })).body;
+    expect(cat.category.name).toBe('Халаты');
+    expect(cat.total).toBe(1);
+    expect((await anon().get('/api/catalog/products').query({ category: 'net-takoy' })).status).toBe(404);
+  });
+
+  it('фасеты со счётчиками и сортировка по новизне, пагинация', async () => {
+    for (let i = 0; i < 35; i++) await product(`Топ ${i}`, { publishedAt: new Date(Date.now() - i * 60_000), variants: [{ size: i % 2 ? 'S' : 'M', color: 'Белый', price: 1000 + i, stock: 1 }] });
+    const page1 = (await anon().get('/api/catalog/products')).body;
+    expect(page1).toMatchObject({ total: 35, pages: 2, page: 1 });
+    expect(page1.items[0].title).toBe('Топ 0');
+    expect((await anon().get('/api/catalog/products').query({ page: 2 })).body.items).toHaveLength(5);
+    expect(page1.facets.sizes).toEqual([{ value: 'S', count: 17 }, { value: 'M', count: 18 }]);
+    expect(page1.facets.price).toEqual({ min: 100000, max: 103400 });
+  });
+
+  it('поиск: опечатка, неверная раскладка, бренд; подсказки', async () => {
+    await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 3 }] });
+    await product('Сабо ортопедические', { category: 'halaty', variants: [{ size: '38', color: 'Белый', price: 3990, stock: 3 }] });
+    const titles = async (q: string) => (await anon().get('/api/catalog/products').query({ q })).body.items.map((i: { title: string }) => i.title);
+    expect(await titles('костюм')).toEqual(['Костюм «Хирург»']);
+    expect(await titles('кастюм')).toEqual(['Костюм «Хирург»']);
+    expect(swapLayout('rjcn.v')).toBe('костюм');
+    expect(await titles('rjcn.v')).toEqual(['Костюм «Хирург»']);
+    expect(await titles('cf,j')).toEqual(['Сабо ортопедические']);
+    expect((await titles('медтекс')).length).toBe(2);
+    const s = (await anon().get('/api/catalog/suggest').query({ q: 'хал' })).body;
+    expect(s.categories.map((c: { name: string }) => c.name)).toEqual(['Халаты']);
+    expect((await anon().get('/api/catalog/suggest').query({ q: 'с' })).body.products).toEqual([]);
+  });
+
+  it('страница товара: только проверенные медиа, сведения о продавце, таблица размеров по умолчанию', async () => {
+    const p = await product('Костюм «Хирург»', { variants: [{ size: 'L', color: 'Белый', price: 4590, stock: 3 }, { size: 'M', color: 'Белый', price: 4590, stock: 0 }] });
+    await prisma.productMedia.createMany({ data: [{ productId: p.id, type: 'photo', storageKey: `public/products/${p.id}/a.webp`, approved: true, isMain: true }, { productId: p.id, type: 'photo', storageKey: `public/products/${p.id}/b.webp`, approved: false }] });
+    const res = (await anon().get(`/api/catalog/products/${p.slug}`)).body;
+    expect(res.media).toHaveLength(1);
+    expect(res.variants.map((v: { size: string }) => v.size)).toEqual(['M', 'L']);
+    expect(res.seller).toMatchObject({ inn: '7707083893', city: 'Москва' });
+    expect(res.sizeChart.clothes.rows[2]).toEqual(['46', 'M', '92', '74', '98']);
+  });
+
+  it('журнал: статья поставщика проходит модерацию, HTML очищается, товары и страница товара связаны', async () => {
+    const p = await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 3 }] });
+    const cover = await sup.post('/api/supplier/content/image').set('Origin', ORIGIN).attach('file', await jpeg(2), { filename: 'c.jpg', contentType: 'image/jpeg' });
+    expect(cover.status).toBe(201);
+    const body = `<h2>Ткань</h2><p onclick="x()">Смесовая ткань ${'держит форму '.repeat(20)}</p><script>alert(1)</script><img src="https://evil/x.png"><a href="javascript:alert(1)">ссылка</a>`;
+    const created = await sup.post('/api/supplier/content/articles').set('Origin', ORIGIN).send({ title: 'Как выбрать форму для долгой смены', lead: 'Советы', coverKey: cover.body.key, body, productIds: [p.id] });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body.body).not.toMatch(/script|onclick|evil|javascript/);
+    expect(created.body.body).toMatch(/<h2>Ткань<\/h2>/);
+
+    expect((await anon().get('/api/journal')).body).toEqual([]);
+    expect((await sup.post(`/api/supplier/content/articles/${created.body.id}/submit`).set('Origin', ORIGIN)).status).toBe(204);
+    const queue = (await admin.get('/api/admin/content')).body;
+    expect(queue).toMatchObject([{ kind: 'article', id: created.body.id }]);
+    expect((await admin.post(`/api/admin/content/article/${created.body.id}/approve`).set('Origin', ORIGIN)).status).toBe(204);
+
+    const journal = (await anon().get('/api/journal')).body;
+    expect(journal).toMatchObject([{ kind: 'article', title: 'Как выбрать форму для долгой смены', author: `ООО owner@sup.ru` }]);
+    const article = (await anon().get(`/api/journal/articles/${journal[0].slug}`)).body;
+    expect(article.products.map((x: { title: string }) => x.title)).toEqual(['Костюм «Хирург»']);
+    expect((await anon().get(`/api/catalog/products/${p.slug}`)).body.articles).toHaveLength(1);
+
+    // Чужой товар привязать нельзя
+    const other = await makeSupplier(app, admin, 'b@sup.ru', '500100732259');
+    const bad = await other.agent.post('/api/supplier/content/collections').set('Origin', ORIGIN).send({ title: 'Подборка', productIds: [p.id] });
+    expect(bad.status).toBe(400);
+  });
+
+  it('подборка требует 3 товара и обложку; sitemap отдаёт опубликованное', async () => {
+    const ps = [];
+    for (const i of [1, 2, 3]) ps.push(await product(`Брюки ${i}`, { variants: [{ size: 'M', color: 'Белый', price: 2000, stock: 1 }] }));
+    const c = await sup.post('/api/supplier/content/collections').set('Origin', ORIGIN).send({ title: 'Форма для стоматологии', productIds: ps.slice(0, 2).map((x) => x.id) });
+    expect((await sup.post(`/api/supplier/content/collections/${c.body.id}/submit`).set('Origin', ORIGIN)).body.message).toMatch(/3 товара/);
+    const sm = (await anon().get('/api/catalog/sitemap')).body;
+    expect(sm.products).toHaveLength(3);
+    expect(sm.categories.length).toBeGreaterThan(0);
+  });
+});

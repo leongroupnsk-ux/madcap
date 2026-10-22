@@ -1,0 +1,341 @@
+.back {
+  display: inline-block;
+  margin: 28px 0 8px;
+  color: var(--c-sale);
+  text-decoration: none;
+  font-size: 14px;
+}
+.crumbs {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+  margin-bottom: 20px;
+}
+.crumbs a {
+  text-decoration: none;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+  position: sticky;
+  top: 140px;
+}
+.thumbs {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  max-height: 640px;
+  overflow-y: auto;
+}
+.thumb {
+  position: relative;
+  width: 76px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  border: 2px solid transparent;
+  padding: 0;
+  background: var(--c-chip);
+  cursor: pointer;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.thumbOn {
+  border-color: var(--c-primary);
+}
+.play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 22px;
+  background: rgba(24, 59, 52, 0.35);
+}
+.stage {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #e6ebe7;
+  aspect-ratio: 4 / 5;
+}
+.stage img,
+.stage video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  cursor: zoom-in;
+}
+.info {
+  display: grid;
+  gap: 18px;
+}
+.meta {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+.info h1 {
+  font-size: clamp(32px, 3.6vw, 48px);
+}
+.tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tag {
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border-strong);
+  font-size: 12px;
+  background: var(--c-surface);
+}
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.price {
+  font-size: 28px;
+  font-weight: 700;
+}
+.old {
+  color: var(--c-text-faint);
+  text-decoration: line-through;
+}
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.label button {
+  border: 0;
+  background: none;
+  color: var(--c-sale);
+  font: 500 13px var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+.swatches,
+.sizes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--c-surface);
+  box-shadow: 0 0 0 1px var(--c-border-strong);
+  cursor: pointer;
+}
+.swatchOn {
+  box-shadow: 0 0 0 2px var(--c-primary);
+}
+.size {
+  min-width: 52px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border-strong);
+  background: var(--c-surface);
+  font: 500 14px var(--font-sans);
+  cursor: pointer;
+  color: var(--c-text);
+}
+.sizeOn {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+.size:disabled {
+  color: var(--c-text-faint);
+  background: transparent;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+.stock {
+  font-size: 14px;
+  color: var(--c-text-muted);
+}
+.buy {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.qty {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+}
+.qty button {
+  width: 40px;
+  height: 100%;
+  border: 0;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+.qty span {
+  min-width: 28px;
+  text-align: center;
+}
+.delivery {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  font-size: 14px;
+}
+.delivery small {
+  display: block;
+  color: var(--c-text-muted);
+  font-size: 13px;
+}
+.added {
+  font-size: 14px;
+  color: var(--c-success);
+}
+.sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 56px;
+  padding-top: 32px;
+  border-top: 1px solid var(--c-border);
+}
+.sections h2 {
+  font-size: 30px;
+  margin-bottom: 16px;
+}
+.text {
+  color: var(--c-text-muted);
+  line-height: 1.7;
+  font-size: 15px;
+}
+.specs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.specs td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--c-border);
+}
+.specs td:first-child {
+  color: var(--c-text-muted);
+  width: 40%;
+}
+.specs td:last-child {
+  text-align: right;
+}
+.related {
+  display: grid;
+  gap: 12px;
+}
+.relCard {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  text-decoration: none;
+  color: inherit;
+}
+.relCard img,
+.relCard .noimg {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  background: var(--c-chip);
+}
+.relCard b {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 19px;
+  color: var(--c-primary);
+}
+.relCard small {
+  display: block;
+  color: var(--c-text-muted);
+  font-size: 13px;
+}
+.chart {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: center;
+}
+.chart th,
+.chart td {
+  border: 1px solid var(--c-border-strong);
+  padding: 10px 8px;
+}
+.chart th {
+  font-weight: 600;
+  background: var(--c-surface);
+}
+.zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 25, 22, 0.9);
+  display: grid;
+  place-items: center;
+  cursor: zoom-out;
+}
+.zoom img {
+  max-width: 96vw;
+  max-height: 92vh;
+  object-fit: contain;
+}
+@media (max-width: 900px) {
+  .layout,
+  .sections {
+    grid-template-columns: 1fr;
+  }
+  .gallery {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+  .thumbs {
+    grid-auto-flow: column;
+    grid-auto-columns: 64px;
+    order: 2;
+    overflow-x: auto;
+    max-height: none;
+  }
+  .thumb {
+    width: 64px;
+  }
+}
