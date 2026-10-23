@@ -15,7 +15,9 @@ ssh "$HOST" "set -e
   cd $DIR && C='docker compose -f docker-compose.prod.yml --env-file .env.production'
   \$C build 2>&1 | tail -3
   \$C up -d 2>&1 | tail -5
-  for i in \$(seq 1 30); do \$C ps --format '{{.Service}} {{.Status}}' | grep -q 'api.*healthy' && break; sleep 4; done
+  # Ждём, пока API и сайт пройдут healthcheck (до 2 минут)
+  for i in \$(seq 1 30); do [ \$(\$C ps --format '{{.Service}} {{.Status}}' | grep -cE '^(api|web) .*\\(healthy\\)') -eq 2 ] && break; sleep 4; done
   \$C ps --format 'table {{.Service}}\t{{.Status}}'
   docker image prune -f >/dev/null"
-echo "Готово: $REV"
+ssh "$HOST" "cd $DIR && docker compose -f docker-compose.prod.yml --env-file .env.production ps --format '{{.Service}} {{.Status}}'" | grep -E '^(api|web) ' | grep -vq '(healthy)' && { echo "ВНИМАНИЕ: сервис не прошёл проверку — смотрите логи: ssh $HOST 'cd $DIR && docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail 50 api web'" >&2; exit 1; }
+echo "Готово: $REV — https://$(ssh "$HOST" "grep ^DOMAIN= $DIR/.env.production | cut -d= -f2")"
