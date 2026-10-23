@@ -3,6 +3,7 @@ import { CANCELLABLE_SHIPMENT, RETURN_DAYS, formatRub, plural, type AddressInput
 import { Prisma, type Order, type Shipment, type ShipmentItem, type ShipmentStatus, type Supplier, type User } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SettingsService } from '../common/settings.service';
 import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
@@ -37,6 +38,7 @@ export class OrdersService {
     private readonly storage: StorageService,
     @Inject(PAYMENTS_PROVIDER) readonly payments: PaymentsProvider,
     private readonly notifications: NotificationsService,
+    private readonly settings: SettingsService,
   ) {}
 
   // ─── оформление ──────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ export class OrdersService {
     const goodsTotal = plan.reduce((s, p) => s + p.goods, 0);
     const deliveryTotal = plan.reduce((s, p) => s + p.price, 0);
     const now = new Date();
+    const { payMinutes } = await this.settings.get();
 
     const order = await this.prisma.$transaction(async (tx) => {
       // Резерв: списываем остаток сразу, условием «остатка хватает» (ТЗ §6.1).
@@ -112,7 +115,7 @@ export class OrdersService {
           recipientName: input.recipient.name,
           recipientPhone: input.recipient.phone,
           recipientEmail: input.recipient.email,
-          expiresAt: new Date(now.getTime() + config.orders.payMinutes * 60000),
+          expiresAt: new Date(now.getTime() + payMinutes * 60000),
           shipments: {
             create: plan.map((p, i) => ({
               no: i + 1,
@@ -308,7 +311,7 @@ export class OrdersService {
     for (const s of order.shipments) {
       await this.notifications.notify(s.supplierId, 'order_paid', {
         title: `Новый заказ № ${order.number}-${s.no}`,
-        body: `Оплачено отправление на ${formatRub(s.goodsTotal)}: ${s.items.map((i) => `${i.title}, ${i.size} × ${i.qty}`).join('; ')}. Подтвердите его в течение ${config.orders.confirmHours} ч.`,
+        body: `Оплачено отправление на ${formatRub(s.goodsTotal)}: ${s.items.map((i) => `${i.title}, ${i.size} × ${i.qty}`).join('; ')}. Подтвердите его в течение ${(await this.settings.get()).confirmHours} ч.`,
         link: `/supplier/orders/${s.id}`,
       });
     }
@@ -501,16 +504,17 @@ export class OrdersService {
 
   /** Раз в минуту: просроченные неоплаченные заказы и неподтверждённые за 48 ч отправления (ТЗ §6.3, §7.5). */
   async sweep(now = new Date()) {
+    const { confirmHours } = await this.settings.get();
     const expired = await this.prisma.order.findMany({ where: { status: 'pending_payment', expiresAt: { lt: now } }, select: { id: true }, take: 100 });
     for (const o of expired) await this.expire(o.id).catch((e) => this.logger.error(`expire ${o.id}: ${e.message}`));
     const stale = await this.prisma.shipment.findMany({
-      where: { status: 'new', paidAt: { lt: new Date(now.getTime() - config.orders.confirmHours * 3600000) } },
+      where: { status: 'new', paidAt: { lt: new Date(now.getTime() - confirmHours * 3600000) } },
       select: { id: true },
       take: 100,
     });
     // За сутки без подтверждения — напоминание поставщику, один раз.
     const overdue = await this.prisma.shipment.findMany({
-      where: { status: 'new', overdueNotifiedAt: null, paidAt: { lt: new Date(now.getTime() - 24 * 3600000), gt: new Date(now.getTime() - config.orders.confirmHours * 3600000) } },
+      where: { status: 'new', overdueNotifiedAt: null, paidAt: { lt: new Date(now.getTime() - 24 * 3600000), gt: new Date(now.getTime() - confirmHours * 3600000) } },
       include: { order: true },
       take: 100,
     });
@@ -518,12 +522,12 @@ export class OrdersService {
       await this.prisma.shipment.update({ where: { id: s.id }, data: { overdueNotifiedAt: now } });
       await this.notifications.notify(s.supplierId, 'order_overdue', {
         title: `Заказ № ${s.order.number}-${s.no} ждёт подтверждения больше суток`,
-        body: `Если не подтвердить его за ${config.orders.confirmHours} ч с момента оплаты, заказ отменится и деньги вернутся покупателю.`,
+        body: `Если не подтвердить его за ${confirmHours} ч с момента оплаты, заказ отменится и деньги вернутся покупателю.`,
         link: `/supplier/orders/${s.id}`,
       });
     }
     for (const s of stale) {
-      await this.cancelShipment(s.id, 'cancelled', `Поставщик не подтвердил заказ за ${config.orders.confirmHours} ч`).catch((e) => this.logger.error(`autocancel ${s.id}: ${e.message}`));
+      await this.cancelShipment(s.id, 'cancelled', `Поставщик не подтвердил заказ за ${confirmHours} ч`).catch((e) => this.logger.error(`autocancel ${s.id}: ${e.message}`));
     }
     return { expired: expired.length, autoCancelled: stale.length, overdue: overdue.length };
   }

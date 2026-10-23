@@ -4,7 +4,7 @@ import type { User } from '@prisma/client';
 import type { Request } from 'express';
 import { articleSaveSchema, collectionSaveSchema, rejectSchema, type ArticleSaveInput, type CollectionSaveInput } from '@aesculap/shared';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { SessionService } from '../auth/session.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
@@ -145,6 +145,7 @@ export class SupplierContentController {
 
 @Controller('admin/content')
 @Roles('admin')
+@Area('moderation')
 export class AdminContentController {
   constructor(private readonly content: ContentService) {}
 

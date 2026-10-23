@@ -4,7 +4,7 @@ import type { User } from '@prisma/client';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { AuditService } from '../common/audit.service';
 import { PrismaService } from '../common/prisma.service';
 import { ZodPipe } from '../common/zod.pipe';
@@ -111,6 +111,7 @@ export class SupplierOrdersController {
 /** Админка: подключение выплат после онбординга в ЮKassa (ТЗ §8). */
 @Controller('admin/payouts')
 @Roles('admin')
+@Area('payouts')
 export class AdminPayoutsController {
   constructor(
     private readonly prisma: PrismaService,

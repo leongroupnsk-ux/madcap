@@ -11,6 +11,7 @@ import { setupApp } from '../src/bootstrap';
 import { MailService } from '../src/common/mail.service';
 import { PrismaService } from '../src/common/prisma.service';
 import { RedisService } from '../src/common/redis.service';
+import { SettingsService } from '../src/common/settings.service';
 
 export const ORIGIN = 'http://localhost:4000';
 export const PASSWORD = 'correct-horse-1';
@@ -30,6 +31,8 @@ export async function resetDb(app: INestApplication) {
   await prisma.order.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.promotion.deleteMany();
+  await prisma.platformSetting.deleteMany();
+  app.get(SettingsService).invalidate();
   await prisma.importJob.deleteMany();
   await prisma.productRevision.deleteMany();
   await prisma.product.deleteMany();

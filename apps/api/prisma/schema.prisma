@@ -18,20 +18,22 @@ enum UserRole {
 }
 
 model User {
-  id              String    @id @default(uuid()) @db.Uuid
-  email           String    @unique
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique
   passwordHash    String
-  role            UserRole  @default(buyer)
+  role            UserRole   @default(buyer)
   phone           String?
   emailVerifiedAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   deletedAt       DateTime?
+  /// Роль сотрудника платформы (для role = admin); null — владелец со всеми правами (ТЗ §8)
+  staffRole       StaffRole?
   /// Блокировка администратором: вход и сессии недоступны
   blockedAt       DateTime?
   blockReason     String?
   /// Последняя активность: от неё считается срок хранения фото (12 месяцев, ТЗ §11)
-  lastActiveAt    DateTime  @default(now())
+  lastActiveAt    DateTime   @default(now())
   /// TOTP-секрет (base32); 2FA обязательна для владельца поставщика по желанию, для админа — рекомендуется
   totpSecret      String?
   totpEnabledAt   DateTime?
@@ -68,6 +70,14 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+/// Роли сотрудников админки (ТЗ §8)
+enum StaffRole {
+  owner
+  moderator
+  editor
+  support
 }
 
 enum AuthTokenType {
@@ -1058,4 +1068,14 @@ model NotificationSetting {
 
   @@id([userId, supplierId])
   @@map("notification_settings")
+}
+
+/// Настройки платформы, которые меняет админ без выкладки (ТЗ §8: комиссия по умолчанию, таймауты)
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.Uuid
+
+  @@map("platform_settings")
 }

@@ -6,7 +6,7 @@ import { profileUpdateSchema, type ProfileUpdate } from '@aesculap/shared';
 import { z } from 'zod';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { ZodPipe } from '../common/zod.pipe';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { SessionService } from '../auth/session.service';
 import { AuditService } from '../common/audit.service';
 import { PrismaService } from '../common/prisma.service';
@@ -113,6 +113,7 @@ export class MeController {
 /** Пользователи в админке (ТЗ §8): поиск, блокировка, выгрузка и удаление ПДн по запросу. */
 @Controller('admin/users')
 @Roles('admin')
+@Area('users')
 export class AdminUsersController {
   constructor(
     private readonly prisma: PrismaService,

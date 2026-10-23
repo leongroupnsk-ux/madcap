@@ -7,3 +7,4 @@ export * from './supplier.js';
 export * from './orders.js';
 export * from './promotions.js';
 export * from './dictionaries.js';
+export * from './staff.js';

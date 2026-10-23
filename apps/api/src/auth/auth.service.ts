@@ -19,6 +19,7 @@ export const publicUser = (u: User) => ({
   role: u.role,
   emailVerified: Boolean(u.emailVerifiedAt),
   phone: u.phone,
+  staffRole: u.role === 'admin' ? (u.staffRole ?? 'owner') : null,
   totpEnabled: Boolean(u.totpEnabledAt),
 });
 
@@ -112,6 +113,16 @@ export class AuthService {
     });
     await this.prisma.session.deleteMany({ where: { userId: user.id } });
     return user;
+  }
+
+  /** Приглашение сотрудника админки: ссылка на установку пароля (тот же механизм, что сброс), живёт 7 дней. */
+  async sendStaffInvite(user: User, roleLabel: string): Promise<void> {
+    const token = await this.issueToken(user.id, 'password_reset', 7 * 24 * 60);
+    await this.mail.send({
+      to: user.email,
+      subject: `Доступ в админку — ${config.brandName}`,
+      text: `Вас пригласили в админку ${config.brandName} с ролью «${roleLabel}».\nЧтобы задать пароль, перейдите по ссылке:\n${config.webOrigin}/reset-password?token=${token}\n\nПосле этого войдите на ${config.webOrigin}/admin. Ссылка действует 7 дней.`,
+    });
   }
 
   /** Письмо-приглашение сотруднику поставщика: ссылка на установку пароля, живёт 7 дней. */

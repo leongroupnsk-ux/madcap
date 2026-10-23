@@ -4,7 +4,7 @@ import type { User } from '@prisma/client';
 import { z } from 'zod';
 import { AuthModule } from '../auth/auth.module';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { JobsService } from '../common/jobs.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
@@ -14,6 +14,7 @@ const decideSchema = z.object({ reason: z.string().trim().max(500).optional() })
 
 @Controller('admin/promotions')
 @Roles('admin')
+@Area('promotions')
 class AdminPromotionsController {
   constructor(private readonly svc: PromotionsService) {}
 

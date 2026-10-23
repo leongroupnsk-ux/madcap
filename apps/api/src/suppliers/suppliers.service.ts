@@ -3,6 +3,7 @@ import { CONSENT_VERSIONS, type SupplierApplicationInput, type SupplierSettingsI
 import type { Supplier, SupplierMemberRole, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from '../auth/auth.service';
+import { SettingsService } from '../common/settings.service';
 import { AuditService } from '../common/audit.service';
 import { newToken } from '../common/crypto';
 import { MailService } from '../common/mail.service';
@@ -18,6 +19,7 @@ export class SuppliersService {
     private readonly mail: MailService,
     private readonly limits: RateLimitService,
     private readonly audit: AuditService,
+    private readonly settings: SettingsService,
   ) {}
 
   async apply(input: SupplierApplicationInput, ip: string) {
@@ -54,9 +56,12 @@ export class SuppliersService {
       throw new ConflictException({ message: `Поставщик с ИНН ${app.inn} уже подключён` });
     }
 
+    // Комиссия нового поставщика — из настроек платформы (ТЗ §8)
+    const commissionBp = Math.round((await this.settings.get()).defaultCommissionPct * 100);
     const { supplier, user, isNewUser } = await this.prisma.$transaction(async (tx) => {
       const supplier = await tx.supplier.create({
         data: {
+          commissionBp,
           legalName: app.company,
           inn: app.inn,
           status: 'active',

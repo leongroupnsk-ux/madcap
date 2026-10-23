@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } fr
 import type { User } from '@prisma/client';
 import { rejectSchema } from '@aesculap/shared';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { ModerationService } from '../products/moderation.service';
 import { SuppliersService } from '../suppliers/suppliers.service';
@@ -16,11 +16,13 @@ export class AdminController {
     private readonly moderation: ModerationService,
   ) {}
 
+  @Area('suppliers')
   @Get('applications')
   applications(@Query('status') status?: 'new' | 'approved' | 'rejected') {
     return this.suppliers.listApplications(status);
   }
 
+  @Area('suppliers')
   @Post('applications/:id/approve')
   @HttpCode(200)
   async approve(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User) {
@@ -28,40 +30,47 @@ export class AdminController {
     return { supplierId: supplier.id };
   }
 
+  @Area('suppliers')
   @Post('applications/:id/reject')
   @HttpCode(204)
   reject(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(rejectSchema)) body: { reason: string }, @CurrentUser() admin: User) {
     return this.suppliers.reject(id, body.reason, admin);
   }
 
+  @Area('moderation')
   @Get('moderation')
   queue() {
     return this.moderation.queue();
   }
 
+  @Area('moderation')
   @Get('moderation/products/:id')
   details(@Param('id', ParseUUIDPipe) id: string) {
     return this.moderation.details(id);
   }
 
+  @Area('moderation')
   @Post('moderation/products/:id/approve')
   @HttpCode(204)
   approveProduct(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User) {
     return this.moderation.approveProduct(id, admin);
   }
 
+  @Area('moderation')
   @Post('moderation/products/:id/reject')
   @HttpCode(204)
   rejectProduct(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(rejectSchema)) body: { reason: string }, @CurrentUser() admin: User) {
     return this.moderation.rejectProduct(id, body.reason, admin);
   }
 
+  @Area('moderation')
   @Post('moderation/revisions/:id/approve')
   @HttpCode(204)
   approveRevision(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User) {
     return this.moderation.approveRevision(id, admin);
   }
 
+  @Area('moderation')
   @Post('moderation/revisions/:id/reject')
   @HttpCode(204)
   rejectRevision(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(rejectSchema)) body: { reason: string }, @CurrentUser() admin: User) {

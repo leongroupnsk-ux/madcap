@@ -5,7 +5,7 @@ import {
 } from '@aesculap/shared';
 import { Prisma, type User } from '@prisma/client';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { AuditService } from '../common/audit.service';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
@@ -26,6 +26,7 @@ const inUse = (what: string) => new ConflictException({ message: `Нельзя �
 /** Каталог и справочники (ТЗ §8): категории, специальности и группы, цвета, бренды и таблицы размеров. */
 @Controller('admin/dictionaries')
 @Roles('admin')
+@Area('catalog')
 export class AdminDictionariesController {
   constructor(
     private readonly prisma: PrismaService,

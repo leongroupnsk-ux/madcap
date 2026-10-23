@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { STAFF_ROLES, canAccess } from '@aesculap/shared';
+import { NAV } from '@/lib/admin-nav';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import s from '@/components/supplier/cabinet.module.css';
@@ -19,16 +21,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className={s.brandSub}>Админка</span>
         </Link>
         <nav className={s.nav}>
-          <Link href="/admin/orders">Заказы и платежи</Link>
-          <Link href="/admin">Заявки поставщиков</Link>
-          <Link href="/admin/moderation">Модерация товаров</Link>
-          <Link href="/admin/content">Модерация контента</Link>
-          <Link href="/admin/dictionaries">Справочники</Link>
-          <Link href="/admin/promotions">Акции</Link>
-          <Link href="/admin/payouts">Выплаты поставщиков</Link>
-          <Link href="/admin/users">Пользователи</Link>
+          {NAV.filter((n) => canAccess(user.staffRole, n.area)).map((n) => (
+            <Link key={n.href} href={n.href}>
+              {n.label}
+            </Link>
+          ))}
         </nav>
-        <div className={s.sideFoot}>{user.email}</div>
+        <div className={s.sideFoot}>
+          {user.email}
+          <div style={{ opacity: 0.7 }}>{STAFF_ROLES[user.staffRole ?? 'owner']}</div>
+        </div>
       </aside>
       <div className={s.main}>
         <div className={s.content}>{children}</div>

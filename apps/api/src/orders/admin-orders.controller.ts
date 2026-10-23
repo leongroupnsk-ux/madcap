@@ -3,7 +3,7 @@ import { reasonSchema } from '@aesculap/shared';
 import type { User } from '@prisma/client';
 import { z } from 'zod';
 import { CurrentUser } from '../auth/auth.guard';
-import { Roles } from '../auth/roles.guard';
+import { Area, Roles } from '../auth/roles.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { AdminOrdersService } from './admin-orders.service';
 
@@ -19,6 +19,7 @@ const dateSchema = z.coerce.date();
 
 @Controller('admin/orders')
 @Roles('admin')
+@Area('orders')
 export class AdminOrdersController {
   constructor(private readonly svc: AdminOrdersService) {}
 
