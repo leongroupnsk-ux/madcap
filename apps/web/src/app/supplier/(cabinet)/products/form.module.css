@@ -218,3 +218,16 @@
     grid-column: auto !important;
   }
 }
+.mediaCell {
+  display: grid;
+  gap: 4px;
+  width: 104px;
+}
+.mediaColor {
+  width: 104px;
+  height: 28px;
+  font: 400 12px var(--font-sans);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  background: var(--c-surface);
+}

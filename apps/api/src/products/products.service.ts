@@ -348,6 +348,20 @@ export class ProductsService {
     await this.audit.log(actor.id, 'product.delete', 'product', id);
   }
 
+  /**
+   * Цвет фото (ТЗ §4.3: фото меняются по цвету). Это разметка, а не новый контент, поэтому применяется
+   * сразу, без модерации; выбрать можно только цвет одного из вариантов товара или «для всех цветов».
+   */
+  async setMediaColor(supplier: Supplier, id: string, mediaId: string, colorId: string | null, actor: User) {
+    const p = await this.load(supplier.id, id);
+    const m = p.media.find((x) => x.id === mediaId);
+    if (!m || m.type !== 'photo') throw new NotFoundException({ message: 'Фото не найдено' });
+    if (colorId && !p.variants.some((v) => v.colorId === colorId)) throw new BadRequestException({ message: 'У товара нет вариантов этого цвета' });
+    await this.prisma.productMedia.update({ where: { id: mediaId }, data: { colorId } });
+    await this.audit.log(actor.id, 'product.media_color', 'product', id, { mediaId, colorId });
+    return this.get(supplier.id, id);
+  }
+
   async addMedia(supplier: Supplier, id: string, file: { buffer: Buffer; mimetype: string }) {
     await this.load(supplier.id, id);
     if (file.mimetype === 'video/mp4') await this.media.addVideo(id, file.buffer);

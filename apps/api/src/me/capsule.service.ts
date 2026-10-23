@@ -5,6 +5,7 @@ import { PrismaService } from '../common/prisma.service';
 import { effective, shown } from '../promotions/price';
 import { StorageService } from '../common/storage.service';
 import { visibleWhere } from '../storefront/catalog.service';
+import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
 
 const DEFAULT_SLOTS: CapsuleSlot[] = ['top', 'pants', 'gown', 'shoes', 'accessory'];
 export /** Что можно не включать в капсулу ради бюджета — по порядку */
@@ -234,7 +235,7 @@ export class CapsuleService {
         items: {
           orderBy: { position: 'asc' },
           include: {
-            product: { include: { brand: true, media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 1 } } },
+            product: { include: { brand: true, media: PHOTOS } },
             variant: { include: { color: true } },
           },
         },
@@ -247,7 +248,7 @@ export class CapsuleService {
       pinned: it.pinned,
       alternatives: (it.alternatives as unknown[]).length,
       unavailable: !it.variant || it.variant.stock <= 0,
-      product: it.product && { id: it.product.id, slug: it.product.slug, title: it.product.title, brand: it.product.brand.name, image: it.product.media[0] ? this.storage.publicUrl(it.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null },
+      product: it.product && { id: it.product.id, slug: it.product.slug, title: it.product.title, brand: it.product.brand.name, image: this.storage.publicUrl(thumbKey(photosFor(it.product.media, it.variant?.colorId)[0])) },
       variant: it.variant && { id: it.variant.id, size: it.variant.size, heightRange: it.variant.heightRange, color: it.variant.color.name, colorHex: it.variant.color.hex, ...shown(it.variant), stock: it.variant.stock },
     }));
     const available = items.filter((i) => i.variant && !i.unavailable);
@@ -268,14 +269,14 @@ export class CapsuleService {
     const alts = item.alternatives as { productId: string; variantId: string }[];
     const variants = await this.prisma.productVariant.findMany({
       where: { id: { in: alts.map((a) => a.variantId) }, stock: { gt: 0 }, product: visibleWhere() },
-      include: { color: true, product: { include: { brand: true, media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 1 } } } },
+      include: { color: true, product: { include: { brand: true, media: PHOTOS } } },
     });
     return alts
       .map((a) => variants.find((v) => v.id === a.variantId))
       .filter((v) => v !== undefined)
       .map((v) => ({
         productId: v.productId, variantId: v.id, title: v.product.title, brand: v.product.brand.name, slug: v.product.slug,
-        image: v.product.media[0] ? this.storage.publicUrl(v.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null,
+        image: this.storage.publicUrl(thumbKey(photosFor(v.product.media, v.colorId)[0])),
         color: v.color.name, colorHex: v.color.hex, size: v.size, price: effective(v),
       }));
   }

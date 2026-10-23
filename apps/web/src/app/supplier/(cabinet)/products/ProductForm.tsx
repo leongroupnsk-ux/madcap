@@ -305,7 +305,22 @@ export function ProductForm({ dict, initial }: Props) {
               canAdd={photos.length < MAX_PHOTOS}
               onFile={upload}
               busy={busy === 'upload'}
+              colors={[...new Set(variants.map((v) => v.colorId))].map((id) => dict.colors.find((c) => c.id === id)).filter((c): c is (typeof dict.colors)[number] => !!c)}
+              onColor={async (mediaId, colorId) => {
+                if (!product) return;
+                try {
+                  const p = await api<Product>(`/supplier/products/${product.id}/media/${mediaId}/color`, { colorId }, 'PUT');
+                  setMedia(media.map((m) => ({ ...m, colorId: p.media.find((x) => x.id === m.id)?.colorId ?? m.colorId })));
+                } catch (e) {
+                  setMessage({ tone: 'error', text: isApiError(e) ? e.message : 'Не удалось сохранить цвет фото' });
+                }
+              }}
             />
+            {variants.some((v) => v.colorId !== variants[0]?.colorId) && (
+              <p className={s.muted} style={{ marginTop: 8 }}>
+                Укажите цвет у фото — покупатель увидит снимки выбранного цвета. Фото «для всех цветов» показываются, если своих нет. Сохранённые цвета вариантов — после «Сохранить».
+              </p>
+            )}
           </section>
           <section className={s.panel}>
             <div className={f.panelHead}>
@@ -495,13 +510,14 @@ function MediaGrid(props: {
   live: boolean;
   items: Media[]; mainId: string | null; disabled: boolean; onMain?: (id: string) => void; onRemove: (id: string) => void;
   onDragStart: (id: string) => void; onDrop: (id: string) => void; addLabel: string; accept: string; canAdd: boolean; onFile: (f: File) => void; busy: boolean;
+  colors?: { id: string; name: string; hex: string }[]; onColor?: (mediaId: string, colorId: string | null) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <div className={f.media}>
       {props.items.map((m) => (
+        <div key={m.id} className={f.mediaCell}>
         <div
-          key={m.id}
           className={`${f.tileMedia} ${m.id === props.mainId ? f.main : ''}`}
           draggable
           onDragStart={() => props.onDragStart(m.id)}
@@ -525,6 +541,17 @@ function MediaGrid(props: {
           >
             ×
           </button>
+        </div>
+          {props.onColor && props.colors && props.colors.length > 1 && (
+            <select className={f.mediaColor} value={m.colorId ?? ''} disabled={props.disabled} onChange={(e) => props.onColor!(m.id, e.target.value || null)} aria-label="Цвет на фото">
+              <option value="">Все цвета</option>
+              {props.colors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       ))}
       {props.canAdd && (

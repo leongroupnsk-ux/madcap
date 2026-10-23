@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { shown } from '../promotions/price';
 import { visibleWhere } from '../storefront/catalog.service';
+import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
 
 export type CheckedLine = {
   variantId: string;
@@ -65,14 +66,14 @@ export class CartService {
       include: {
         color: true,
         salePromotion: true,
-        product: { include: { brand: true, supplier: true, media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 1 } } },
+        product: { include: { brand: true, supplier: true, media: PHOTOS } },
       },
     });
     const out: CheckedLine[] = [];
     for (const l of lines) {
       const v = rows.find((r) => r.id === l.variantId);
       if (!v || out.some((o) => o.variantId === v.id)) continue;
-      const thumb = v.product.media[0] ? v.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp') : null;
+      const thumb = thumbKey(photosFor(v.product.media, v.colorId)[0]);
       out.push({
         variantId: v.id,
         qty: l.qty,

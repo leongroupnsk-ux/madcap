@@ -10,6 +10,8 @@ import { ProductsService, type ListQuery } from './products.service';
 
 const idsSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(500) });
 
+const mediaColorSchema = z.object({ colorId: z.string().uuid().nullable() });
+
 @Controller('supplier/products')
 @SupplierAccess('owner', 'catalog')
 export class ProductsController {
@@ -75,6 +77,17 @@ export class ProductsController {
   @HttpCode(204)
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
     return this.products.remove(ctx.supplier, id, user);
+  }
+
+  @Put(':id/media/:mediaId/color')
+  mediaColor(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('mediaId', ParseUUIDPipe) mediaId: string,
+    @Body(new ZodPipe(mediaColorSchema)) body: { colorId: string | null },
+    @CurrentSupplier() ctx: SupplierContext,
+    @CurrentUser() user: User,
+  ) {
+    return this.products.setMediaColor(ctx.supplier, id, mediaId, body.colorId, user);
   }
 
   @Post(':id/media')

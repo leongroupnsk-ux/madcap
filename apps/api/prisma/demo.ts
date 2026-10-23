@@ -41,13 +41,13 @@ function svg(kind: Kind, hex: string, angle: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="${bg}"/><ellipse cx="400" cy="760" rx="260" ry="18" fill="#0000000f"/><g fill="${hex}" transform="translate(400 400) scale(${shade}) translate(-400 -400)">${body[kind]}</g></svg>`;
 }
 
-async function photo(productId: string, kind: Kind, hex: string, angle: number) {
+async function photo(productId: string, kind: Kind, hex: string, angle: number, colorId: string | null = null, position = angle) {
   const id = randomUUID();
   const key = `public/products/${productId}/${id}.webp`;
   const img = sharp(Buffer.from(svg(kind, hex, angle)));
   await put(key, await img.clone().resize(1200, 1200).webp({ quality: 82 }).toBuffer());
   await put(key.replace(/\.webp$/, '_thumb.webp'), await img.clone().resize(600, 800, { fit: 'cover' }).webp({ quality: 78 }).toBuffer());
-  return { id, productId, type: 'photo' as const, storageKey: key, position: angle, isMain: angle === 0, approved: true, width: 1200, height: 1200 };
+  return { id, productId, type: 'photo' as const, storageKey: key, position, isMain: position === 0, approved: true, width: 1200, height: 1200, colorId };
 }
 
 async function cover(kind: Kind, hex: string) {
@@ -142,7 +142,13 @@ async function main() {
           i += 1;
         }
     }
-    await prisma.productMedia.createMany({ data: await Promise.all([0, 1, 2].map((a) => photo(p.id, item.kind, color.hex, a))) });
+    // Фото по цветам (ТЗ §4.3): у каждого цвета варианта — свои снимки
+    const twoColors = !(item.kind === 'gown' || item.kind === 'cap');
+    const shots = await Promise.all([
+      ...[0, 1, 2].map((a) => photo(p.id, item.kind, color.hex, a, twoColors ? color.id : null)),
+      ...(twoColors ? [0, 1].map((a) => photo(p.id, item.kind, second.hex, a, second.id, 3 + a)) : []),
+    ]);
+    await prisma.productMedia.createMany({ data: shots });
     created.push({ id: p.id, item });
   }
 

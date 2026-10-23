@@ -1,11 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ProductDetails } from '@/lib/catalog';
 import p from './product.module.css';
 
-export function Gallery({ media, title }: { media: ProductDetails['media']; title: string }) {
+/** Событие выбора цвета в блоке покупки — галерея показывает фото этого цвета (ТЗ §4.3). */
+export const COLOR_EVENT = 'product-color';
+
+export function Gallery({ media: all, title, initialColorId }: { media: ProductDetails['media']; title: string; initialColorId?: string | null }) {
+  const [colorId, setColorId] = useState(initialColorId ?? null);
+  useEffect(() => {
+    const on = (e: Event) => setColorId((e as CustomEvent<string>).detail);
+    window.addEventListener(COLOR_EVENT, on);
+    return () => window.removeEventListener(COLOR_EVENT, on);
+  }, []);
+  // Фото выбранного цвета, иначе общие; видео показываются всегда
+  const media = useMemo(() => {
+    const photos = all.filter((m) => m.type === 'photo');
+    const own = photos.filter((m) => colorId && m.colorId === colorId);
+    const common = photos.filter((m) => !m.colorId);
+    const shown = own.length ? [...own, ...common] : common.length ? common : photos;
+    return [...shown, ...all.filter((m) => m.type === 'video')];
+  }, [all, colorId]);
   const [i, setI] = useState(0);
+  useEffect(() => setI(0), [colorId]);
   const [zoom, setZoom] = useState(false);
   const [touchX, setTouchX] = useState<number | null>(null);
   const cur = media[i];

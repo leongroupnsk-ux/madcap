@@ -7,6 +7,7 @@ import { CATALOG_VERSION_KEY } from './catalog-cache';
 import { StorageService } from '../common/storage.service';
 import { effective, shown } from '../promotions/price';
 import { config } from '../config';
+import { PHOTOS, photosFor, thumbKey } from './media-pick';
 
 export type CatalogQuery = {
   category?: string;
@@ -240,7 +241,7 @@ export class CatalogService {
         brand: { select: { name: true } },
         category: { select: { slot: true } },
         specialties: { select: { specialtyId: true } },
-        media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 2 },
+        media: PHOTOS,
         variants: { where: { stock: { gt: 0 } }, include: { color: true, salePromotion: { select: { badge: true } } } },
       },
     });
@@ -259,7 +260,7 @@ export class CatalogService {
           slug: p.slug,
           title: p.title,
           brand: p.brand.name,
-          images: p.media.map((m) => this.storage.publicUrl(m.storageKey.replace(/\.webp$/, '_thumb.webp'))),
+          images: photosFor(p.media, best.colorId).slice(0, 2).map((m) => this.storage.publicUrl(thumbKey(m))),
           price: price.price,
           oldPrice: price.oldPrice,
           sale: p.variants.some((v) => v.oldPrice != null || v.salePrice != null),
@@ -347,6 +348,7 @@ export class CatalogService {
       media: p.media.map((m) => ({
         id: m.id,
         type: m.type,
+        colorId: m.colorId,
         url: this.storage.publicUrl(m.storageKey),
         thumbUrl: this.storage.publicUrl(m.type === 'photo' ? m.storageKey.replace(/\.webp$/, '_thumb.webp') : m.posterKey),
         posterUrl: this.storage.publicUrl(m.posterKey),
@@ -402,7 +404,7 @@ export class CatalogService {
     if (!ids.length) return [];
     const rows = await this.prisma.productVariant.findMany({
       where: { id: { in: ids.slice(0, 100) }, product: visibleWhere() },
-      include: { color: true, product: { include: { brand: true, supplier: true, media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 1 } } } },
+      include: { color: true, product: { include: { brand: true, supplier: true, media: PHOTOS } } },
     });
     return rows.map((v) => ({
       id: v.id,
@@ -412,7 +414,7 @@ export class CatalogService {
       color: v.color.name,
       ...shown(v),
       stock: v.stock,
-      product: { slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, supplier: v.product.supplier.legalName, image: v.product.media[0] ? this.storage.publicUrl(v.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null },
+      product: { slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, supplier: v.product.supplier.legalName, image: this.storage.publicUrl(thumbKey(photosFor(v.product.media, v.colorId)[0])) },
     }));
   }
 

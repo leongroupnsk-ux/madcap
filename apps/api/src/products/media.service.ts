@@ -40,6 +40,7 @@ export class MediaService implements OnModuleInit {
       thumbUrl: m.type === 'photo' ? this.storage.publicUrl(thumbKey(m.storageKey)) : this.storage.publicUrl(m.posterKey),
       posterUrl: this.storage.publicUrl(m.posterKey),
       isMain: m.isMain,
+      colorId: m.colorId,
       position: m.position,
       approved: m.approved,
       width: m.width,

@@ -233,6 +233,7 @@ model Color {
   colorFamily String
 
   variants ProductVariant[]
+  media    ProductMedia[]
 
   @@map("colors")
 }
@@ -442,6 +443,8 @@ model ProductMedia {
   posterKey  String?
   position   Int       @default(0)
   isMain     Boolean   @default(false)
+  /// Фото конкретного цвета; null — общее для всех цветов (ТЗ §4.3: фото меняются по цвету)
+  colorId    String?   @db.Uuid
   /// Медиа, добавленные к опубликованному товару, видны на витрине только после модерации ревизии
   approved   Boolean   @default(false)
   /// Ссылка-источник при импорте (для повторного синка без перекачки)
@@ -453,6 +456,7 @@ model ProductMedia {
   createdAt  DateTime  @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color   Color?  @relation(fields: [colorId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@map("product_media")

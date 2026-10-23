@@ -14,7 +14,7 @@ export type SupplierMe = {
   };
 };
 
-export type Media = { id: string; type: 'photo' | 'video'; url: string; thumbUrl: string | null; posterUrl: string | null; isMain: boolean; approved: boolean; durationS: number | null };
+export type Media = { id: string; type: 'photo' | 'video'; url: string; thumbUrl: string | null; posterUrl: string | null; isMain: boolean; approved: boolean; durationS: number | null; colorId?: string | null };
 
 export type Variant = {
   id?: string; sku: string; size: string; heightRange: string | null; colorId: string; price: number; oldPrice: number | null;

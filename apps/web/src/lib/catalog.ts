@@ -31,7 +31,7 @@ export type ProductDetails = {
   specialties: string[];
   promo?: { name: string; badge: string; endsAt: string } | null;
   seller: { name: string; inn: string; city: string | null; shipDays: number };
-  media: { id: string; type: 'photo' | 'video'; url: string; thumbUrl: string | null; posterUrl: string | null }[];
+  media: { id: string; type: 'photo' | 'video'; colorId: string | null; url: string; thumbUrl: string | null; posterUrl: string | null }[];
   variants: { id: string; sku: string; size: string; heightRange: string | null; color: { id: string; name: string; hex: string }; price: number; oldPrice: number | null; stock: number }[];
   articles: { slug: string; title: string; lead: string | null; coverUrl: string | null }[];
   collections: { slug: string; title: string; coverUrl: string | null; count: number }[];

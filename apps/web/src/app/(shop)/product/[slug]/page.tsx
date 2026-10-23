@@ -86,7 +86,7 @@ export default async function ProductPage({ params }: { params: P }) {
       </nav>
 
       <div className={p.layout}>
-        <Gallery media={product.media} title={product.title} />
+        <Gallery media={product.media} title={product.title} initialColorId={product.variants.find((v) => v.stock > 0)?.color.id ?? null} />
         <ProductBuy product={product} />
       </div>
 

@@ -2,10 +2,11 @@
 
 import { formatRub } from '@aesculap/shared';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, ButtonLink, Modal } from '@/components/ui';
 import { addToCart } from '@/lib/cart';
 import type { ProductDetails } from '@/lib/catalog';
+import { COLOR_EVENT } from './Gallery';
 import p from './product.module.css';
 
 /** Выбор цвета → размера → ростовки; недоступные сочетания неактивны (ТЗ §4.5). */
@@ -19,6 +20,9 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
     vs.find((v) => v.stock > 0) ??
     vs[0];
   const [colorId, setColorId] = useState(firstInStock.color.id);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(COLOR_EVENT, { detail: colorId }));
+  }, [colorId]);
   const ofColor = vs.filter((v) => v.color.id === colorId);
   const sizes = [...new Set(ofColor.map((v) => v.size))];
   const [size, setSize] = useState(firstInStock.size);

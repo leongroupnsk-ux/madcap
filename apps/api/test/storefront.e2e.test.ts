@@ -73,6 +73,36 @@ describe('витрина и журнал', () => {
     }
   });
 
+  it('фото по цвету: карточка, корзина и назначение цвета поставщиком', async () => {
+    const p = await product('Костюм двухцветный', {
+      variants: [
+        { size: 'M', color: 'Бирюзовый', price: 5000, stock: 2 },
+        { size: 'M', color: 'Белый', price: 4000, stock: 2 },
+      ],
+    });
+    const [teal, white] = await Promise.all([prisma.color.findUniqueOrThrow({ where: { name: 'Бирюзовый' } }), prisma.color.findUniqueOrThrow({ where: { name: 'Белый' } })]);
+    const shot = (key: string, colorId: string | null, position: number) => ({ productId: p.id, type: 'photo' as const, storageKey: `public/products/${p.id}/${key}.webp`, colorId, position, isMain: position === 0, approved: true });
+    await prisma.productMedia.createMany({ data: [shot('teal', teal.id, 0), shot('white', white.id, 1), shot('common', null, 2)] });
+
+    // Карточка — по самому дешёвому варианту (белый) и его фото
+    const card = (await anon().get('/api/catalog/products')).body.items.find((i: { title: string }) => i.title === 'Костюм двухцветный');
+    expect(card.images[0]).toContain('white_thumb');
+    const details = (await anon().get(`/api/catalog/products/${p.slug}`)).body;
+    expect(details.media.map((m: { colorId: string | null }) => m.colorId)).toEqual([teal.id, white.id, null]);
+    // Корзина — фото цвета варианта
+    const tealVariant = await prisma.productVariant.findFirstOrThrow({ where: { productId: p.id, colorId: teal.id } });
+    const check = (await anon().post('/api/cart/check').set('Origin', ORIGIN).send({ lines: [{ variantId: tealVariant.id, qty: 1 }] })).body;
+    expect(check.items[0].product.image).toContain('teal_thumb');
+
+    // Поставщик переназначает цвет: только из цветов вариантов товара
+    const common = await prisma.productMedia.findFirstOrThrow({ where: { productId: p.id, colorId: null } });
+    const other = await prisma.color.create({ data: { name: 'Графит-тест', hex: '#333333', colorFamily: 'dark' } });
+    expect((await sup.put(`/api/supplier/products/${p.id}/media/${common.id}/color`).set('Origin', ORIGIN).send({ colorId: other.id })).status).toBe(400);
+    const res = await sup.put(`/api/supplier/products/${p.id}/media/${common.id}/color`).set('Origin', ORIGIN).send({ colorId: teal.id }).expect(200);
+    expect(res.body.media.find((m: { id: string }) => m.id === common.id).colorId).toBe(teal.id);
+    await prisma.color.delete({ where: { id: other.id } });
+  });
+
   it('фильтры по варианту, полу, цене, распродаже; цена карточки — от подходящего варианта', async () => {
     await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Бирюзовый', price: 4590, oldPrice: 5290, stock: 3 }, { size: 'XL', color: 'Белый', price: 4990, stock: 1 }] });
     await product('Халат «Классика»', { category: 'halaty', gender: 'female', variants: [{ size: 'S', color: 'Белый', price: 3490, stock: 5 }] });
