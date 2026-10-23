@@ -16,6 +16,8 @@ export default defineConfig({
       STORAGE_LOCAL_DIR: './.storage-test',
       DELIVERY_DRIVER: 'fake',
       PAYMENTS_DRIVER: 'fake',
+      // Кэш каталога проверяется отдельным тестом; в остальных — свежие данные
+      CATALOG_CACHE: 'off',
     },
     include: ['test/**/*.test.ts'], fileParallelism: false, testTimeout: 20000 },
 });

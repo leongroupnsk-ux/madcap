@@ -7,7 +7,10 @@ import { StorageService } from '../common/storage.service';
 import { visibleWhere } from '../storefront/catalog.service';
 
 const DEFAULT_SLOTS: CapsuleSlot[] = ['top', 'pants', 'gown', 'shoes', 'accessory'];
-export const SLOT_LABEL: Record<string, string> = { top: 'Топ', pants: 'Брюки', gown: 'Халат', shoes: 'Обувь', accessory: 'Аксессуар' };
+export /** Что можно не включать в капсулу ради бюджета — по порядку */
+const OPTIONAL_SLOTS = ['accessory', 'shoes', 'gown'];
+
+const SLOT_LABEL: Record<string, string> = { top: 'Топ', pants: 'Брюки', gown: 'Халат', shoes: 'Обувь', accessory: 'Аксессуар' };
 const NEUTRAL_LIGHT = 'neutral-light';
 const MAX_VARIANTS = 3;
 const ALTERNATIVES = 4;
@@ -163,12 +166,26 @@ export class CapsuleService {
           chosen.set(slot, ranked.get(slot)!.filter((r) => r.price < cur.price).sort((a, b) => b.score - a.score || a.price - b.price)[0]);
         }
       }
+      // Не помещаемся даже в самых дешёвых вещах — убираем необязательные слоты, начиная с аксессуара.
+      const dropped: string[] = [];
+      if (budget && overBudget) {
+        for (const slot of OPTIONAL_SLOTS) {
+          if (total() <= budget * 100) break;
+          const c = chosen.get(slot);
+          if (c && c.score < 99) {
+            chosen.set(slot, null);
+            dropped.push(slot);
+          }
+        }
+        overBudget = total() > budget * 100;
+      }
       const items = slots.map((slot, position) => {
         const c = chosen.get(slot) ?? null;
         const alternatives = ranked.get(slot)!.filter((r) => r.productId !== c?.productId).slice(0, ALTERNATIVES).map((r) => ({ productId: r.productId, variantId: r.variantId }));
         return { slot, position, productId: c?.productId ?? null, variantId: c?.variantId ?? null, alternatives: alternatives as unknown as Prisma.InputJsonValue, pinned: c?.score === 99 };
       });
       const explanations = await this.explain(p, [...chosen.values()].filter((c): c is Pick => !!c), chosen, palette.length > 0, budget, overBudget);
+      if (dropped.length) explanations.push(`Чтобы уложиться в бюджет, без: ${dropped.map((d) => SLOT_LABEL[d]?.toLowerCase() ?? d).join(', ')} — их можно добавить вручную`);
       await this.prisma.$transaction(async (tx) => {
         const capsule = await tx.capsule.upsert({
           where: { userId_variantNo: { userId, variantNo } },

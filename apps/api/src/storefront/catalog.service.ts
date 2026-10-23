@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DEFAULT_SIZE_CHART, SIZES } from '@aesculap/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { RedisService } from '../common/redis.service';
+import { CATALOG_VERSION_KEY } from './catalog-cache';
 import { StorageService } from '../common/storage.service';
 import { effective, shown } from '../promotions/price';
 import { config } from '../config';
@@ -82,7 +84,29 @@ export class CatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly redis: RedisService,
   ) {}
+
+  /** Короткий кэш в Redis для тяжёлых расчётов выдачи (ТЗ §11: p95 каталога ≤ 300 мс). */
+  private async cached<T>(key: string, ttlS: number, load: () => Promise<T>): Promise<T> {
+    if (process.env.CATALOG_CACHE === 'off') return load();
+    const ver = (await this.redis.client.get(CATALOG_VERSION_KEY)) ?? '0';
+    const k = `catalog:v${ver}:${key}`;
+    // Одновременные промахи по одному ключу ждут один расчёт, а не считают его каждый (лавина на холодном кэше).
+    const running = this.inflight.get(k);
+    if (running) return running as Promise<T>;
+    const task = (async () => {
+      const hit = await this.redis.client.get(k);
+      if (hit) return JSON.parse(hit) as T;
+      const value = await load();
+      await this.redis.client.set(k, JSON.stringify(value), 'EX', ttlS);
+      return value;
+    })().finally(() => this.inflight.delete(k));
+    this.inflight.set(k, task);
+    return task;
+  }
+
+  private readonly inflight = new Map<string, Promise<unknown>>();
 
   async categories() {
     const all = await this.prisma.category.findMany({ orderBy: { position: 'asc' } });
@@ -101,17 +125,23 @@ export class CatalogService {
   /** id товаров по поисковой строке: подстрока, бренд, триграммы (опечатки) и та же строка в другой раскладке. */
   private async searchIds(q: string): Promise<string[]> {
     const variants = [...new Set([q.toLowerCase(), swapLayout(q)])].filter((v) => v.length >= 2);
-    const ids = new Set<string>();
-    for (const v of variants) {
-      const like = `%${v.replace(/[%_\\]/g, '\\$&')}%`;
-      const rows = await this.prisma.$queryRaw<{ id: string }[]>`
-        SELECT p.id FROM products p JOIN brands b ON b.id = p."brandId"
-        WHERE p."moderationStatus" = 'published'
-          AND (p.title ILIKE ${like} OR b.name ILIKE ${like} OR word_similarity(${v}, lower(p.title)) > 0.35)
-        LIMIT 2000`;
-      rows.forEach((r) => ids.add(r.id));
-    }
-    return [...ids];
+    return this.cached(`search:${variants.join('|')}`, 60, async () => {
+      const ids = new Set<string>();
+      for (const v of variants) {
+        const like = `%${v.replace(/[%_\\]/g, '\\$&')}%`;
+        // Оператор <% (word similarity) и ILIKE идут по GIN-индексу триграмм; порог — только для этой транзакции.
+        const rows = await this.prisma.$transaction(async (tx) => {
+          await tx.$executeRawUnsafe('SET LOCAL pg_trgm.word_similarity_threshold = 0.35');
+          return tx.$queryRaw<{ id: string }[]>`
+            SELECT p.id FROM products p
+            WHERE p."moderationStatus" = 'published'
+              AND (p.title ILIKE ${like} OR ${v} <% p.title OR p."brandId" IN (SELECT b.id FROM brands b WHERE b.name ILIKE ${like}))
+            LIMIT 2000`;
+        });
+        rows.forEach((r) => ids.add(r.id));
+      }
+      return [...ids];
+    });
   }
 
   private async baseWhere(query: CatalogQuery) {
@@ -154,16 +184,26 @@ export class CatalogService {
     };
     const priceRange: VariantFilter = { sizes, colors, heights, from, to, sale: query.sale === '1' };
 
-    const candidates = await this.prisma.product.findMany({ where: { AND: [productWhere, { variants: { some: variantWhere } }] }, select: { id: true, publishedAt: true } });
-    const ids = candidates.map((c) => c.id);
-    const pv = ids.length ? await this.prisma.productVariant.findMany({ where: { ...variantWhere, productId: { in: ids } }, select: { productId: true, price: true, salePrice: true } }) : [];
-    const minPrice = new Map<string, number>();
-    for (const v of pv) minPrice.set(v.productId, Math.min(minPrice.get(v.productId) ?? Infinity, effective(v)));
-    const published = new Map(candidates.map((c) => [c.id, c.publishedAt?.getTime() ?? 0]));
-    const sorted = [...ids].sort((a, b) => {
-      if (query.sort === 'price_asc') return minPrice.get(a)! - minPrice.get(b)!;
-      if (query.sort === 'price_desc') return minPrice.get(b)! - minPrice.get(a)!;
-      return published.get(b)! - published.get(a)!; // «Рекомендуемые» и «Новинки» — пока по дате публикации; продажи появятся на этапе 4
+    // Порядок выдачи кэшируется на 30 с: страницы одного запроса листаются без повторного расчёта.
+    const listKey = JSON.stringify({ ...query, page: undefined, perPage: undefined });
+    const sorted = await this.cached(`list:${listKey}`, 30, async () => {
+      const where: Prisma.ProductWhereInput = { AND: [productWhere, { variants: { some: variantWhere } }] };
+      if (query.sort !== 'price_asc' && query.sort !== 'price_desc') {
+        // «Рекомендуемые» и «Новинки» — по дате публикации, без выборки вариантов
+        const rows = await this.prisma.product.findMany({ where, select: { id: true }, orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }] });
+        return rows.map((r) => r.id);
+      }
+      // Минимальная цена с учётом акции считается в базе: отдельно по вариантам без акции и с акцией.
+      const vw: Prisma.ProductVariantWhereInput = { AND: [variantWhere, { product: productWhere }] };
+      const [plain, sale] = await Promise.all([
+        this.prisma.productVariant.groupBy({ by: ['productId'], where: { AND: [vw, { salePrice: null }] }, _min: { price: true } }),
+        this.prisma.productVariant.groupBy({ by: ['productId'], where: { AND: [vw, { salePrice: { not: null } }] }, _min: { salePrice: true } }),
+      ]);
+      const minPrice = new Map<string, number>();
+      for (const r of plain) minPrice.set(r.productId, r._min.price!);
+      for (const r of sale) minPrice.set(r.productId, Math.min(minPrice.get(r.productId) ?? Infinity, r._min.salePrice!));
+      const dir = query.sort === 'price_asc' ? 1 : -1;
+      return [...minPrice.entries()].sort((a, b) => dir * (a[1] - b[1]) || a[0].localeCompare(b[0])).map(([id]) => id);
     });
 
     const perPage = Math.min(60, Number(query.perPage) || PER_PAGE);
@@ -172,7 +212,8 @@ export class CatalogService {
     const page = Math.min(pages, Math.max(1, Number(query.page) || 1));
     const pageIds = sorted.slice((page - 1) * perPage, page * perPage);
 
-    const [items, facets] = await Promise.all([this.cards(pageIds, priceRange, fit), this.facets(base)]);
+    const facetKey = JSON.stringify({ category: query.category, q: query.q?.trim().toLowerCase() });
+    const [items, facets] = await Promise.all([this.cards(pageIds, priceRange, fit), this.cached(`facets:${facetKey}`, 120, () => this.facets(base))]);
     return {
       category: scope.category && {
         name: scope.category.name,
@@ -193,7 +234,8 @@ export class CatalogService {
   async cards(ids: string[], filter: VariantFilter = {}, fit: FitContext | null = null) {
     if (!ids.length) return [];
     const rows = await this.prisma.product.findMany({
-      where: { id: { in: ids } },
+      // Видимость проверяется заново: порядок выдачи мог прийти из кэша.
+      where: { AND: [{ id: { in: ids } }, visibleWhere()] },
       include: {
         brand: { select: { name: true } },
         category: { select: { slot: true } },
@@ -205,7 +247,7 @@ export class CatalogService {
     const byId = new Map(rows.map((r) => [r.id, r]));
     return ids
       .map((id) => byId.get(id))
-      .filter((p) => p !== undefined)
+      .filter((p): p is NonNullable<typeof p> => p !== undefined && p.variants.length > 0)
       .map((p) => {
         const matching = p.variants.filter((v) => matchesVariant(v, filter));
         const pool = matching.length ? matching : p.variants;
@@ -337,16 +379,22 @@ export class CatalogService {
 
   /** Главная (ТЗ §4.2): «Хиты недели» — пока свежие публикации; по продажам — после этапа 4. */
   async home(fit: FitContext | null = null) {
-    const hits = await this.prisma.product.findMany({ where: visibleWhere(), orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 15 });
-    // Раздел акций на главной (ТЗ §7.7): идущие акции с флагом onHomepage и их товары.
-    const now = new Date();
-    const promos = await this.prisma.promotion.findMany({ where: { onHomepage: true, startsAt: { lte: now }, endsAt: { gt: now } }, orderBy: { endsAt: 'asc' }, take: 2 });
+    // Состав главной кэшируется на минуту; карточки (цены, остатки, «Подходит вам») — всегда свежие.
+    const layout = await this.cached('home', 60, async () => {
+      const hits = await this.prisma.product.findMany({ where: visibleWhere(), orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 15 });
+      // Раздел акций на главной (ТЗ §7.7): идущие акции с флагом onHomepage и их товары.
+      const now = new Date();
+      const promos = await this.prisma.promotion.findMany({ where: { onHomepage: true, startsAt: { lte: now }, endsAt: { gt: now } }, orderBy: { endsAt: 'asc' }, take: 2 });
+      const promotions = [];
+      for (const p of promos) {
+        const ids = await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { variants: { some: { salePromotionId: p.id, stock: { gt: 0 } } } }] }, select: { id: true }, take: 8 });
+        if (ids.length) promotions.push({ name: p.name, badge: p.badge, description: p.description, endsAt: p.endsAt, ids: ids.map((x) => x.id) });
+      }
+      return { hits: hits.map((h) => h.id), promotions };
+    });
     const promotions = [];
-    for (const p of promos) {
-      const ids = await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { variants: { some: { salePromotionId: p.id, stock: { gt: 0 } } } }] }, select: { id: true }, take: 8 });
-      if (ids.length) promotions.push({ name: p.name, badge: p.badge, description: p.description, endsAt: p.endsAt, items: await this.cards(ids.map((x) => x.id), undefined, fit) });
-    }
-    return { hits: await this.cards(hits.map((h) => h.id), undefined, fit), promotions };
+    for (const { ids, ...p } of layout.promotions) promotions.push({ ...p, items: await this.cards(ids, undefined, fit) });
+    return { hits: await this.cards(layout.hits, undefined, fit), promotions };
   }
 
   /** Варианты для корзины гостя (ТЗ §6.1): актуальные цена и остаток. */

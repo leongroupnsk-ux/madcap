@@ -54,6 +54,25 @@ describe('витрина и журнал', () => {
     expect(list.total).toBe(0);
   });
 
+  it('кэш каталога: снятый с витрины товар пропадает сразу, остальное — свежие карточки', async () => {
+    process.env.CATALOG_CACHE = 'on';
+    try {
+      const p = await product('Костюм кэш', { variants: [{ size: 'M', color: 'Белый', price: 4590, stock: 3 }] });
+      await product('Халат кэш', { variants: [{ size: 'M', color: 'Белый', price: 3000, stock: 3 }] });
+      expect((await anon().get('/api/catalog/products')).body.total).toBe(2);
+      // Снятие с витрины через кабинет сбрасывает версию кэша
+      await sup.post(`/api/supplier/products/${p.id}/hide`).set('Origin', ORIGIN).expect(200);
+      let list = (await anon().get('/api/catalog/products')).body;
+      expect(list.total).toBe(1);
+      // Остаток обнулился в обход кабинета: порядок выдачи из кэша, но карточка без наличия не показывается
+      await prisma.productVariant.updateMany({ where: { product: { title: 'Халат кэш' } }, data: { stock: 0 } });
+      list = (await anon().get('/api/catalog/products')).body;
+      expect(list.items).toHaveLength(0);
+    } finally {
+      process.env.CATALOG_CACHE = 'off';
+    }
+  });
+
   it('фильтры по варианту, полу, цене, распродаже; цена карточки — от подходящего варианта', async () => {
     await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Бирюзовый', price: 4590, oldPrice: 5290, stock: 3 }, { size: 'XL', color: 'Белый', price: 4990, stock: 1 }] });
     await product('Халат «Классика»', { category: 'halaty', gender: 'female', variants: [{ size: 'S', color: 'Белый', price: 3490, stock: 5 }] });

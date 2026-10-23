@@ -12,7 +12,10 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "admin:create": "tsx scripts/create-admin.ts",
-    "db:demo": "tsx prisma/demo.ts"
+    "db:demo": "tsx prisma/demo.ts",
+    "load:seed": "tsx scripts/load-seed.ts",
+    "load:test": "tsx scripts/load-test.ts",
+    "capsule:bench": "tsx scripts/capsule-bench.ts"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
@@ -28,6 +31,7 @@
     "@types/nodemailer": "^6.4.24",
     "@types/sanitize-html": "^2.16.2",
     "@types/supertest": "^7.2.1",
+    "autocannon": "^8.0.0",
     "prisma": "^6.19.3",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",
