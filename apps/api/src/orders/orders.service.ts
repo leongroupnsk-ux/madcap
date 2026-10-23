@@ -349,9 +349,11 @@ export class OrdersService {
    * Отмена оплаченного отправления с возвратом денег сплит-платежа: товары — из перечисления поставщику,
    * доставка — из доли платформы (ТЗ §6.6, §7.5).
    */
-  async cancelShipment(shipmentId: string, status: Extract<ShipmentStatus, 'cancelled' | 'rejected'>, reason: string) {
+  /** force — отмена поддержкой уже переданного в СДЭК отправления (возврат посылки СДЭК оформляется вручную). */
+  async cancelShipment(shipmentId: string, status: Extract<ShipmentStatus, 'cancelled' | 'rejected'>, reason: string, opts: { force?: boolean } = {}) {
     const s = await this.prisma.shipment.findUniqueOrThrow({ where: { id: shipmentId }, include: { items: true, supplier: true, order: true } });
-    if (!CANCELLABLE_SHIPMENT.includes(s.status)) throw new BadRequestException({ message: 'Отправление уже передано в доставку' });
+    const allowed = opts.force ? [...CANCELLABLE_SHIPMENT, 'handed_over', 'in_transit', 'ready_for_pickup'] : CANCELLABLE_SHIPMENT;
+    if (!allowed.includes(s.status)) throw new BadRequestException({ message: opts.force ? 'Доставленное или отменённое отправление не отменить — оформите возврат' : 'Отправление уже передано в доставку' });
     const moved = await this.prisma.$transaction(async (tx) => {
       const r = await tx.shipment.updateMany({ where: { id: s.id, status: s.status }, data: { status, ...(status === 'rejected' ? { rejectReason: reason } : {}) } });
       if (r.count === 0) return false;
@@ -360,7 +362,7 @@ export class OrdersService {
       return true;
     });
     if (!moved) return;
-    if (s.order.status === 'paid') await this.refund(s, s.items.map((i) => ({ item: i, qty: i.qty })), true, reason, `cancel:${s.id}`);
+    if (s.order.status === 'paid') await this.refund(s, s.items.filter((i) => i.qty > i.returnedQty).map((i) => ({ item: i, qty: i.qty - i.returnedQty })), true, reason, `cancel:${s.id}`);
     const left = await this.prisma.shipment.count({ where: { orderId: s.orderId, status: { notIn: ['cancelled', 'rejected'] } } });
     if (left === 0) await this.prisma.order.update({ where: { id: s.orderId }, data: { status: 'cancelled', cancelledAt: new Date(), cancelReason: reason } });
     await this.mail.send({

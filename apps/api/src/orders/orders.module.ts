@@ -3,6 +3,8 @@ import { AuthModule } from '../auth/auth.module';
 import { JobsService } from '../common/jobs.service';
 import { DeliveryModule } from '../delivery/delivery.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { AdminOrdersController } from './admin-orders.controller';
+import { AdminOrdersService } from './admin-orders.service';
 import { CartService } from './cart.service';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
@@ -11,8 +13,8 @@ import { SupplierOrdersService } from './supplier-orders.service';
 
 @Module({
   imports: [AuthModule, DeliveryModule, PaymentsModule],
-  controllers: [OrdersController, SupplierOrdersController, AdminPayoutsController],
-  providers: [CartService, OrdersService, SupplierOrdersService],
+  controllers: [OrdersController, SupplierOrdersController, AdminPayoutsController, AdminOrdersController],
+  providers: [CartService, OrdersService, SupplierOrdersService, AdminOrdersService],
   exports: [OrdersService, SupplierOrdersService],
 })
 export class OrdersModule implements OnApplicationBootstrap {

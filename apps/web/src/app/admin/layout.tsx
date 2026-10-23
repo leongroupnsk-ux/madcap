@@ -19,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <span className={s.brandSub}>Админка</span>
         </Link>
         <nav className={s.nav}>
+          <Link href="/admin/orders">Заказы и платежи</Link>
           <Link href="/admin">Заявки поставщиков</Link>
           <Link href="/admin/moderation">Модерация товаров</Link>
           <Link href="/admin/content">Модерация контента</Link>

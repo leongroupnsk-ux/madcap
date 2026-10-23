@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../src/common/prisma.service';
 import { OrdersService } from '../src/orders/orders.service';
+import { FakePaymentsProvider } from '../src/payments/fake.provider';
 import { SupplierOrdersService } from '../src/orders/supplier-orders.service';
 import { ORIGIN, agent, bootApp, mails, makeSupplier, makeUser, resetDb, type Agent } from './helpers';
 
@@ -254,6 +255,38 @@ describe('заказ, оплата, доставка, возвраты и вып
 
     await agent(app).post('/api/delivery/cdek-webhook').send({ type: 'ORDER_STATUS', uuid: '00000000-0000-0000-0000-000000000000', attributes: { code: 'DELIVERED' } }).expect(200);
     expect(await prisma.webhookEvent.count({ where: { source: 'cdek' } })).toBe(0);
+  });
+
+  it('админка заказов: поиск, сверка находит потерянный вебхук, ручная отмена и частичный возврат', async () => {
+    const { number, confirmationUrl } = await order();
+    // Платёж прошёл, но вебхук «потерялся»: меняем статус только в платёжке
+    await (app.get(OrdersService).payments as FakePaymentsProvider).settle(payId(confirmationUrl), 'card');
+    expect((await buyer.get(`/api/orders/${number}`)).body.status).toBe('pending_payment');
+
+    expect((await buyer.get('/api/admin/orders')).status).toBe(403);
+    const found = (await admin.get('/api/admin/orders?q=999 123-45-67')).body;
+    expect(found.map((o: any) => o.number)).toContain(number);
+    const rec = (await admin.get('/api/admin/orders/reconcile')).body;
+    expect(rec.mismatches).toEqual([{ number, problem: expect.stringMatching(/потерян вебхук/) }]);
+    await admin.post(`/api/admin/orders/${number}/sync-payment`).set('Origin', ORIGIN).expect(200);
+    expect((await admin.get('/api/admin/orders/reconcile')).body.mismatches).toEqual([]);
+
+    // Отправление 1 уже у СДЭК — поставщик не отменит, поддержка может
+    const sA = await shipmentOf(supA.supplierId);
+    for (const step of ['confirm', 'pack', 'waybill']) await supA.agent.post(`/api/supplier/orders/${sA.id}/${step}`).set('Origin', ORIGIN).expect(200);
+    const cancelled = await admin.post(`/api/admin/orders/${number}/shipments/1/cancel`).set('Origin', ORIGIN).send({ reason: 'Покупатель отказался, СДЭК вернёт посылку' }).expect(200);
+    expect(cancelled.body.shipments[0].status).toBe('cancelled');
+
+    // Отправление 2: частичный возврат за брак и доставка — только один раз
+    const view = (await admin.get(`/api/admin/orders/${number}`)).body;
+    const itemB = view.shipments[1].items[0];
+    const refunded = await admin.post(`/api/admin/orders/${number}/shipments/2/refund`).set('Origin', ORIGIN).send({ items: [{ itemId: itemB.id, qty: 1 }], withDelivery: true, reason: 'Брак шва' }).expect(200);
+    expect(refunded.body.shipments[1].items[0].returnedQty).toBe(1);
+    expect((await admin.post(`/api/admin/orders/${number}/shipments/2/refund`).set('Origin', ORIGIN).send({ items: [], withDelivery: true, reason: 'Ещё раз' })).status).toBe(400);
+    expect((await admin.post(`/api/admin/orders/${number}/shipments/2/refund`).set('Origin', ORIGIN).send({ items: [{ itemId: itemB.id, qty: 1 }], reason: 'Сверх' })).status).toBe(400);
+    const sB = await shipmentOf(supB.supplierId);
+    expect(refunded.body.refunds.at(-1).amount).toBe(300000 + sB.deliveryPrice);
+    expect(await prisma.auditLog.count({ where: { action: { in: ['order.cancel.admin', 'order.refund.admin', 'order.payment.sync'] } } })).toBe(3);
   });
 
   it('гонка за остатком: заказ сверх наличия отклоняется, резерв не создаётся', async () => {
