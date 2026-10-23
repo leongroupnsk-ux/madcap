@@ -19,7 +19,29 @@ export type Facets = {
 export type CatalogList = {
   category: { name: string; slug: string; parent: { name: string; slug: string } | null; children: { name: string; slug: string }[] } | null;
   total: number; page: number; pages: number; perPage: number; items: Card[]; facets: Facets;
+  /** У покупателя есть профиль для «Подходит вам» */
+  personal?: boolean;
 };
+
+/** Заголовок каталога из макета; перенос строки — как в кадре .Catalog */
+export const CATALOG_TITLE = 'Медицинская одежда\nбез случайных вещей.';
+
+export type CategoryTree = { name: string; slug: string; children: { name: string; slug: string }[] }[];
+export type Chip = { href: string; label: string; active: boolean };
+
+/**
+ * Чипы категорий (кадры .Catalog и .Catalog-rope): «Все» и разделы каталога одной строкой;
+ * у открытого раздела сразу за ним идут его подразделы, выбранный чип — тёмный.
+ */
+export function categoryChips(tree: CategoryTree, current?: { slug: string; parentSlug?: string | null }): Chip[] {
+  const chips: Chip[] = [{ href: '/catalog', label: 'Все', active: !current }];
+  for (const c of tree) {
+    chips.push({ href: `/catalog/${c.slug}`, label: c.name, active: current?.slug === c.slug });
+    if (current && (current.slug === c.slug || current.parentSlug === c.slug))
+      for (const ch of c.children) chips.push({ href: `/catalog/${ch.slug}`, label: ch.name, active: current.slug === ch.slug });
+  }
+  return chips;
+}
 
 export type ProductDetails = {
   fits?: boolean;

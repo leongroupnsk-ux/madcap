@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogView } from '@/components/shop/CatalogView';
-import { fetchCatalog, SITE_URL } from '@/lib/catalog';
+import { CATALOG_TITLE, categoryChips, fetchCatalog, SITE_URL, type CategoryTree } from '@/lib/catalog';
 import { serverApi } from '@/lib/server-api';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
@@ -21,27 +21,21 @@ export async function generateMetadata({ params, searchParams }: { params: P; se
   };
 }
 
+/** Раздел каталога — кадр .Catalog-rope: тот же заголовок, раздел — в надзаголовке и выбранном чипе. */
 export default async function CategoryPage({ params, searchParams }: { params: P; searchParams: SP }) {
   const { slug } = await params;
   const sp = await searchParams;
-  const res = await fetchCatalog({ ...sp, category: slug });
+  const [res, tree] = await Promise.all([fetchCatalog({ ...sp, category: slug }), serverApi<CategoryTree>('/catalog/categories')]);
   if (!res.data?.category) notFound();
   const cat = res.data.category;
-  const parent = cat.parent ?? { name: cat.name, slug: cat.slug };
-  // Чипы: подкатегории родителя; у категории без подкатегорий — соседние разделы каталога.
-  const siblings = cat.parent ? ((await fetchCatalog({ category: cat.parent.slug, perPage: '1' })).data?.category?.children ?? []) : cat.children;
-  const topLevel = !cat.parent && !siblings.length ? ((await serverApi<{ name: string; slug: string }[]>('/catalog/categories')).data ?? []) : null;
-  const chips = topLevel
-    ? [{ href: '/catalog', label: 'Все', active: false }, ...topLevel.map((c) => ({ href: `/catalog/${c.slug}`, label: c.name, active: c.slug === slug }))]
-    : [{ href: `/catalog/${parent.slug}`, label: 'Все', active: !cat.parent }, ...siblings.map((c) => ({ href: `/catalog/${c.slug}`, label: c.name, active: c.slug === slug }))];
   return (
     <CatalogView
       data={res.data}
       basePath={`/catalog/${slug}`}
       params={sp}
-      title={cat.name}
+      title={CATALOG_TITLE}
       crumbs={[{ href: '/catalog', label: 'Каталог' }, ...(cat.parent ? [{ href: `/catalog/${cat.parent.slug}`, label: cat.parent.name }] : []), { href: `/catalog/${cat.slug}`, label: cat.name }]}
-      chips={chips}
+      chips={categoryChips(tree.data ?? [], { slug: cat.slug, parentSlug: cat.parent?.slug })}
     />
   );
 }

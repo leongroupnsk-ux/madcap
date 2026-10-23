@@ -21,7 +21,7 @@ psql -d postgres -c "CREATE ROLE aesculap LOGIN PASSWORD 'aesculap' CREATEDB" -c
 pnpm --filter @aesculap/shared build
 pnpm db:migrate
 pnpm db:seed
-pnpm db:demo   # демо-витрина: 2 поставщика (Москва и СПб), 18 товаров, статьи, подборка
+pnpm db:demo   # демо-витрина: 2 поставщика (Москва и СПб), 25 товаров с фото из макета, статьи, подборка
 pnpm dev
 ```
 

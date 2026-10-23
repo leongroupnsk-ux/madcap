@@ -1,13 +1,13 @@
 /**
- * Демо-наполнение витрины для разработки и показа: поставщик «МедТекс (демо)», товары из прототипа,
- * статьи и подборка. Фото — нарисованные иллюстрации (SVG → WebP), не реальные снимки.
+ * Демо-наполнение витрины для разработки и показа: поставщики «МедТекс (демо)» и «Форма+ (демо)», товары из макета Figma,
+ * статьи и подборка. Фото — снимки из макета (prisma/demo-assets, WebP), кладутся в хранилище как загруженные поставщиком.
  * Запуск: pnpm --filter @aesculap/api db:demo. Повторный запуск пересоздаёт демо-данные.
  */
 import { PrismaClient, type Gender } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { repriceSales } from '../src/promotions/price';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import sharp from 'sharp';
 
@@ -31,57 +31,76 @@ const put = async (key: string, data: Buffer) => {
   await writeFile(full, data);
 };
 
-type Kind = 'suit' | 'top' | 'pants' | 'gown' | 'shoes' | 'cap';
-function svg(kind: Kind, hex: string, angle: number): string {
-  const shade = angle === 1 ? 0.92 : angle === 2 ? 0.84 : 1;
-  const bg = ['#EEF1EE', '#E9EEEA', '#F1EFEA'][angle % 3];
-  const body: Record<Kind, string> = {
-    top: `<path d="M210 190 L330 150 Q400 200 470 150 L590 190 L640 330 L560 360 L545 300 L545 640 L255 640 L255 300 L240 360 L160 330 Z"/><path d="M360 160 L400 230 L440 160" fill="none" stroke="#0002" stroke-width="6"/><rect x="290" y="420" width="90" height="70" rx="6" fill="#0001"/>`,
-    pants: `<path d="M260 140 L540 140 L575 690 L455 690 L400 330 L345 690 L225 690 Z"/><rect x="260" y="140" width="280" height="40" fill="#0002"/>`,
-    suit: `<path d="M220 110 L330 80 Q400 120 470 80 L580 110 L620 220 L555 240 L545 200 L545 420 L255 420 L255 200 L245 240 L180 220 Z"/><path d="M265 430 L535 430 L560 720 L455 720 L400 520 L345 720 L240 720 Z" opacity="0.92"/>`,
-    gown: `<path d="M240 120 L340 90 L400 160 L460 90 L560 120 L620 320 L560 340 L560 720 L240 720 L240 340 L180 320 Z" fill="#FFFFFF" stroke="#C9D0CC" stroke-width="4"/><path d="M340 90 L400 260 L460 90" fill="none" stroke="#C9D0CC" stroke-width="5"/><circle cx="400" cy="330" r="7" fill="#C9D0CC"/><circle cx="400" cy="420" r="7" fill="#C9D0CC"/><circle cx="400" cy="510" r="7" fill="#C9D0CC"/>`,
-    shoes: `<path d="M150 470 Q160 380 260 370 L420 360 Q520 360 600 430 Q650 470 640 520 L170 530 Q140 520 150 470 Z"/><rect x="160" y="520" width="490" height="34" rx="14" fill="#9AA29E"/><circle cx="330" cy="420" r="9" fill="#0002"/><circle cx="380" cy="415" r="9" fill="#0002"/><circle cx="430" cy="415" r="9" fill="#0002"/>`,
-    cap: `<path d="M210 450 Q200 230 400 220 Q600 230 590 450 Z"/><rect x="200" y="440" width="400" height="60" rx="20" opacity="0.85"/>`,
-  };
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><rect width="800" height="800" fill="${bg}"/><ellipse cx="400" cy="760" rx="260" ry="18" fill="#0000000f"/><g fill="${hex}" transform="translate(400 400) scale(${shade}) translate(-400 -400)">${body[kind]}</g></svg>`;
-}
+/** Фото товаров из макета Figma «МедКапсула» (кадры .Main, .Catalog, .Catalog-rope), WebP до 1600 px. */
+const ASSETS = resolve(__dirname, 'demo-assets');
+type Crop = { left: number; top: number; width: number; height: number };
+type Shot = { file: string; thumbCrop?: Crop; crop?: Crop };
+/** Кадрирование превью «Костюма «Хирург»» как в карточке каталога макета (фото увеличено на 131%). */
+const HIRURG_CARD: Crop = { left: 119, top: 117, width: 782, height: 907 };
+/** Поясная сумка — фрагмент снимка «Топ «Комфорт»». */
+const POUCH: Crop = { left: 250, top: 830, width: 420, height: 460 };
 
-async function photo(productId: string, kind: Kind, hex: string, angle: number, colorId: string | null = null, position = angle) {
+async function photo(productId: string, shot: Shot, position: number, colorId: string | null) {
   const id = randomUUID();
   const key = `public/products/${productId}/${id}.webp`;
-  const img = sharp(Buffer.from(svg(kind, hex, angle)));
-  await put(key, await img.clone().resize(1200, 1200).webp({ quality: 82 }).toBuffer());
-  await put(key.replace(/\.webp$/, '_thumb.webp'), await img.clone().resize(600, 800, { fit: 'cover' }).webp({ quality: 78 }).toBuffer());
-  return { id, productId, type: 'photo' as const, storageKey: key, position, isMain: position === 0, approved: true, width: 1200, height: 1200, colorId };
+  const src = await readFile(resolve(ASSETS, `${shot.file}.webp`));
+  const base = shot.crop ? sharp(src).extract(shot.crop) : sharp(src);
+  const full = await base.clone().resize(1600, 1600, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 84 }).toBuffer({ resolveWithObject: true });
+  await put(key, full.data);
+  // Превью под пропорции карточки товара (251 × 274 в макете)
+  const thumbSrc = shot.thumbCrop ? sharp(src).extract(shot.thumbCrop) : base.clone();
+  await put(key.replace(/\.webp$/, '_thumb.webp'), await thumbSrc.resize(640, 700, { fit: 'cover' }).webp({ quality: 80 }).toBuffer());
+  return { id, productId, type: 'photo' as const, storageKey: key, position, isMain: position === 0, approved: true, width: full.info.width, height: full.info.height, sizeBytes: full.data.length, colorId };
 }
 
-async function cover(kind: Kind, hex: string) {
+async function cover(file: string) {
   const key = `public/content/${randomUUID()}.webp`;
-  await put(key, await sharp(Buffer.from(svg(kind, hex, 0))).resize(1600, 900, { fit: 'cover' }).webp({ quality: 80 }).toBuffer());
+  await put(key, await sharp(await readFile(resolve(ASSETS, `${file}.webp`))).resize(1600, 900, { fit: 'cover', position: 'attention' }).webp({ quality: 80 }).toBuffer());
   return key;
 }
 
-type Item = { title: string; brand: string; category: string; kind: Kind; gender: Gender; color: string; price: number; oldPrice?: number; sizes: string[]; heights?: string[]; fabric?: string; specialties: string[] };
+type Item = {
+  title: string; brand: string; category: string; gender: Gender; color: string; price: number; oldPrice?: number; sizes: string[]; heights?: string[];
+  fabric?: string; specialties: string[]; photos: Shot[];
+  /** Один цвет (халаты); иначе добавляется второй цвет — для подбора капсулы по палитре */
+  oneColor?: boolean; second?: string;
+  /** Участвует в демо-акции «Неделя хирурга» */
+  promo?: boolean;
+};
 
+const H = ['170–176', '176–182'];
+/**
+ * Товары из макета: первые 15 — сетка кадра .Catalog в том же порядке (выдача «Рекомендуемые» — по дате публикации),
+ * затем футболки из .Catalog-rope и вещи для слотов капсулы (брюки в цветах топов, аксессуар) — на тех же фото.
+ */
 const ITEMS: Item[] = [
-  { title: 'Костюм «Хирург»', brand: 'МедТекс', category: 'kostyumy', kind: 'suit', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176', '176–182'], fabric: '65% ПЭ · 35% хлопок', specialties: ['Хирург', 'Стоматолог-хирург'] },
-  { title: 'Халат женский «Классика»', brand: 'Форма+', category: 'halaty', kind: 'gown', gender: 'female', color: 'Белый', price: 3490, oldPrice: 4290, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], fabric: '100% хлопок', specialties: ['Терапевт', 'Педиатр'] },
-  { title: 'Брюки джоггеры', brand: 'МедТекс', category: 'bryuki', kind: 'pants', gender: 'unisex', color: 'Тёмно-синий', price: 2290, oldPrice: 2690, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], fabric: '72% ПЭ · 23% вискоза · 5% эластан', specialties: ['Медсестра', 'Терапевт'] },
-  { title: 'Сабо ортопедические', brand: 'ПрофиМед', category: 'kroksy', kind: 'shoes', gender: 'unisex', color: 'Белый', price: 3990, sizes: ['37', '38', '39', '40', '41'], specialties: ['Хирург', 'Операционная медсестра'] },
-  { title: 'Костюм женский «Аврора»', brand: 'Аврора Мед', category: 'kostyumy', kind: 'suit', gender: 'female', color: 'Лаванда', price: 3890, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], fabric: '65% ПЭ · 35% хлопок', specialties: ['Косметолог', 'Педиатр'] },
-  { title: 'Костюм «Премиум»', brand: 'МедТекс', category: 'kostyumy', kind: 'suit', gender: 'unisex', color: 'Графит', price: 4890, sizes: ['M', 'L', 'XL'], heights: ['170–176', '176–182'], fabric: 'Микрофибра с антибактериальной пропиткой', specialties: ['Главный врач', 'Заведующий отделением'] },
-  { title: 'Брюки «Актив»', brand: 'LITTO', category: 'bryuki', kind: 'pants', gender: 'unisex', color: 'Оливковый', price: 3490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Хирург'] },
-  { title: 'Топ «Актив»', brand: 'ART MED', category: 'topy', kind: 'top', gender: 'female', color: 'Персиковый', price: 2990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт'] },
-  { title: 'Халат «Доктор»', brand: 'МедТекс', category: 'halaty', kind: 'gown', gender: 'unisex', color: 'Молочный', price: 6290, sizes: ['M', 'L', 'XL'], heights: ['170–176'], specialties: ['Терапевт', 'Кардиолог'] },
-  { title: 'Костюм «Базис»', brand: 'LITTO', category: 'kostyumy', kind: 'suit', gender: 'unisex', color: 'Серый', price: 3990, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'] },
-  { title: 'Топ «Комфорт»', brand: 'МедТекс', category: 'topy', kind: 'top', gender: 'unisex', color: 'Бирюзовый', price: 4590, sizes: ['M', 'L'], heights: ['170–176'], specialties: ['Медсестра'] },
-  { title: 'Сабо «Принт»', brand: 'AVEMED', category: 'kroksy', kind: 'shoes', gender: 'female', color: 'Тёмно-синий', price: 3290, oldPrice: 3790, sizes: ['36', '37', '38', '39'], specialties: ['Педиатр', 'Детская медсестра'] },
-  { title: 'Халат «Классик»', brand: 'ART MED', category: 'halaty', kind: 'gown', gender: 'male', color: 'Белый', price: 5890, sizes: ['L', 'XL', 'XXL'], heights: ['176–182', '182–188'], specialties: ['Терапевт', 'Невролог'] },
-  { title: 'Топ «Элит»', brand: 'LITTO', category: 'topy', kind: 'top', gender: 'male', color: 'Голубой', price: 2490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Врач УЗИ', 'Анестезиолог'] },
-  { title: 'Костюм «Стиль»', brand: 'МедТекс', category: 'kostyumy', kind: 'suit', gender: 'female', color: 'Лаванда', price: 4190, oldPrice: 4790, sizes: ['XS', 'S', 'M'], heights: ['164–170'], specialties: ['Косметолог', 'Дерматолог'] },
-  { title: 'Шапочка-колпак', brand: 'МедТекс', category: 'golovnye-ubory', kind: 'cap', gender: 'unisex', color: 'Бирюзовый', price: 490, sizes: ['M'], specialties: ['Хирург', 'Операционная медсестра'] },
-  { title: 'Костюм «Стоматолог»', brand: 'Форма+', category: 'kostyumy', kind: 'suit', gender: 'unisex', color: 'Мятный', price: 4190, oldPrice: 4990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт', 'Ассистент'] },
-  { title: 'Блуза «Комфорт»', brand: 'Форма+', category: 'topy', kind: 'top', gender: 'female', color: 'Мятный', price: 2990, oldPrice: 3590, sizes: ['XS', 'S', 'M'], heights: ['164–170'], specialties: ['Стоматолог-терапевт', 'Ассистент'] },
+  { title: 'Костюм «Хирург»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: H, fabric: '65% ПЭ · 35% хлопок', specialties: ['Хирург', 'Стоматолог-хирург'], photos: [{ file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }, { file: 'kostyum-hirurg-b' }] },
+  { title: 'Костюм «Премиум»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Шалфей', price: 4890, sizes: ['M', 'L', 'XL'], heights: H, fabric: 'Микрофибра с антибактериальной пропиткой', specialties: ['Главный врач', 'Заведующий отделением'], photos: [{ file: 'kostyum-premium' }], promo: true },
+  { title: 'Халат женский «Классика»', brand: 'Форма+', category: 'halaty', gender: 'female', color: 'Белый', price: 3490, oldPrice: 4290, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], fabric: '100% хлопок', specialties: ['Терапевт', 'Педиатр'], photos: [{ file: 'halat-klassika' }], oneColor: true },
+  { title: 'Брюки джоггеры', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Тёмно-синий', price: 2290, oldPrice: 2690, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], fabric: '72% ПЭ · 23% вискоза · 5% эластан', specialties: ['Медсестра', 'Терапевт'], photos: [{ file: 'bryuki-joggery' }] },
+  { title: 'Сабо ортопедические', brand: 'ПрофиМед', category: 'kroksy', gender: 'unisex', color: 'Белый', price: 3990, sizes: ['37', '38', '39', '40', '41'], fabric: 'EVA, антискользящая подошва', specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'sabo-belye' }] },
+  { title: 'Костюм женский «Аврора»', brand: 'Аврора Мед', category: 'kostyumy', gender: 'female', color: 'Лаванда', price: 3890, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
+  { title: 'Брюки «Актив»', brand: 'LITTO', category: 'bryuki', gender: 'unisex', color: 'Оливковый', price: 3490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Хирург'], photos: [{ file: 'bryuki-aktiv' }] },
+  { title: 'Топ «Актив»', brand: 'ART MED', category: 'topy', gender: 'female', color: 'Персиковый', price: 2990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт'], photos: [{ file: 'top-aktiv' }, { file: 'top-aktiv-b' }] },
+  { title: 'Халат «Доктор»', brand: 'МедТекс', category: 'halaty', gender: 'unisex', color: 'Молочный', price: 6290, sizes: ['M', 'L', 'XL'], heights: ['170–176'], specialties: ['Терапевт', 'Кардиолог'], photos: [{ file: 'halat-doktor' }, { file: 'halat-doktor-b' }], oneColor: true },
+  { title: 'Костюм «Базис»', brand: 'LITTO', category: 'kostyumy', gender: 'unisex', color: 'Серый', price: 3990, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis' }, { file: 'kostyum-bazis-b' }] },
+  { title: 'Топ «Комфорт»', brand: 'МедТекс', category: 'topy', gender: 'unisex', color: 'Бирюзовый', price: 4590, sizes: ['M', 'L'], heights: ['170–176'], specialties: ['Медсестра'], photos: [{ file: 'top-komfort' }, { file: 'top-komfort-b' }] },
+  { title: 'Сабо ортопедические', brand: 'AVEMED', category: 'kroksy', gender: 'female', color: 'Тёмно-синий', price: 3290, oldPrice: 3790, sizes: ['36', '37', '38', '39'], fabric: 'EVA, принт', specialties: ['Педиатр', 'Детская медсестра'], photos: [{ file: 'sabo-print' }] },
+  { title: 'Халат «Классик»', brand: 'ART MED', category: 'halaty', gender: 'male', color: 'Белый', price: 5890, sizes: ['L', 'XL', 'XXL'], heights: ['176–182', '182–188'], specialties: ['Терапевт', 'Невролог'], photos: [{ file: 'halat-klassik' }], oneColor: true },
+  { title: 'Топ «Элит»', brand: 'LITTO', category: 'topy', gender: 'male', color: 'Голубой', price: 2490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Врач УЗИ', 'Анестезиолог'], photos: [{ file: 'top-elit' }, { file: 'top-elit-b' }] },
+  { title: 'Костюм «Стиль»', brand: 'МедТекс', category: 'kostyumy', gender: 'female', color: 'Лаванда', price: 4190, oldPrice: 4790, sizes: ['XS', 'S', 'M'], heights: ['164–170'], specialties: ['Косметолог', 'Дерматолог'], photos: [{ file: 'kostyum-stil' }] },
+  // Кадр .Catalog-rope (Каталог → Футболки)
+  { title: 'Футболка «Хирург»', brand: 'МедТекс', category: 'futbolki', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }, { file: 'kostyum-hirurg-b' }] },
+  { title: 'Футболка «Стиль»', brand: 'МедТекс', category: 'futbolki', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Медсестра'], photos: [{ file: 'kostyum-premium' }, { file: 'kostyum-hirurg-b' }] },
+  { title: 'Футболка «Аврора»', brand: 'Аврора Мед', category: 'futbolki', gender: 'female', color: 'Лаванда', price: 3890, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
+  { title: 'Футболка «Базис»', brand: 'LITTO', category: 'futbolki', gender: 'unisex', color: 'Серый', price: 3990, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis' }, { file: 'kostyum-bazis-b' }] },
+  // Вещи для слотов капсулы: брюки в цветах топов и аксессуар — на фото макета
+  { title: 'Брюки «Хирург»', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Бирюзовый', price: 2490, sizes: ['S', 'M', 'L', 'XL'], heights: H, specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'kostyum-hirurg-b' }, { file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }], promo: true },
+  { title: 'Брюки «Аврора»', brand: 'Аврора Мед', category: 'bryuki', gender: 'female', color: 'Лаванда', price: 2390, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
+  { title: 'Брюки «Базис»', brand: 'LITTO', category: 'bryuki', gender: 'unisex', color: 'Серый', price: 2190, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis-b' }] },
+  { title: 'Костюм «Стоматолог»', brand: 'Форма+', category: 'kostyumy', gender: 'unisex', color: 'Мятный', price: 4190, oldPrice: 4990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт', 'Ассистент'], photos: [{ file: 'top-komfort' }, { file: 'top-elit-b' }] },
+  { title: 'Блуза «Комфорт»', brand: 'Форма+', category: 'topy', gender: 'female', color: 'Мятный', price: 2990, oldPrice: 3590, sizes: ['XS', 'S', 'M'], heights: ['164–170'], specialties: ['Стоматолог-терапевт', 'Ассистент'], photos: [{ file: 'top-elit-b' }] },
+  { title: 'Сумка поясная «Смена»', brand: 'МедТекс', category: 'aksessuary', gender: 'unisex', color: 'Графит', second: 'Тёмно-синий', price: 1490, sizes: ['ONE'], fabric: 'Нейлон с водоотталкивающей пропиткой', specialties: ['Медсестра', 'Хирург'], photos: [{ file: 'top-komfort', crop: POUCH }], promo: true },
 ];
 
 const slug = (s: string) =>
@@ -90,9 +109,13 @@ const slug = (s: string) =>
 async function main() {
   // Повторный запуск: убираем прежних демо-поставщиков целиком (каскадом товары, статьи, подборки, их заказы).
   for (const [inn, legalName] of [[DEMO_INN, 'ООО «МедТекс» (демо)'], [DEMO_INN_2, 'ООО «Форма+» (демо)']]) {
-    const old = await prisma.supplier.findFirst({ where: { inn, legalName }, include: { products: { select: { id: true } } } });
+    const old = await prisma.supplier.findFirst({
+      where: { inn, legalName },
+      include: { products: { select: { id: true } }, articles: { select: { coverKey: true } }, collections: { select: { coverKey: true } } },
+    });
     if (old) {
       for (const p of old.products) await rm(resolve(ROOT, 'public/products', p.id), { recursive: true, force: true });
+      for (const c of [...old.articles, ...old.collections]) if (c.coverKey) await rm(resolve(ROOT, c.coverKey), { force: true });
       await prisma.order.deleteMany({ where: { shipments: { some: { supplierId: old.id } } } });
       await prisma.product.deleteMany({ where: { supplierId: old.id } });
       await prisma.supplier.delete({ where: { id: old.id } });
@@ -123,43 +146,43 @@ async function main() {
     const brand = await prisma.brand.upsert({ where: { name: item.brand }, update: {}, create: { name: item.brand, slug: slug(item.brand) || `brand-${n}` } });
     const category = categories.find((c) => c.slug === item.category)!;
     const color = colorHex.get(item.color)!;
-    const second = colors.find((c) => c.name === (color.name === 'Белый' ? 'Графит' : 'Белый'))!;
+    if (!category || !color) throw new Error(`Нет категории ${item.category} или цвета ${item.color} — сначала pnpm db:seed`);
+    const second = colors.find((c) => c.name === (item.second ?? (color.name === 'Белый' ? 'Графит' : 'Белый')))!;
     const p = await prisma.product.create({
       data: {
         supplierId: SPB_BRANDS.includes(item.brand) ? supplierSpb.id : supplier.id, brandId: brand.id, categoryId: category.id, title: item.title, slug: `${slug(item.title)}-${n + 1}`,
         gender: item.gender, fabric: item.fabric ?? '65% ПЭ · 35% хлопок', treatment: 'Антибактериальная', washing: 'до 60° · 600+ циклов',
-        description: `${item.title} — эластичная медицинская одежда для активного рабочего дня. Мягкая ткань сохраняет аккуратную посадку и легко комбинируется с другими вещами капсулы.`,
+        description:
+          item.category === 'kroksy' || item.category === 'aksessuary'
+            ? `${item.title} — лёгкая и прочная вещь для долгой смены: легко моется, не скользит и дополняет капсулу.`
+            : `${item.title} — эластичная медицинская одежда для активного рабочего дня. Мягкая ткань сохраняет аккуратную посадку и легко комбинируется с другими вещами капсулы.`,
         moderationStatus: 'published', publishedAt: new Date(Date.now() - n * 3600_000), source: 'manual',
         specialties: { create: specialties.filter((s) => item.specialties.includes(s.name)).map((s) => ({ specialtyId: s.id })) },
       },
     });
     const heights = item.heights ?? [null];
     let i = 0;
-    for (const c of item.kind === 'gown' || item.kind === 'cap' ? [color] : [color, second]) {
+    for (const c of item.oneColor ? [color] : [color, second]) {
       for (const size of item.sizes)
         for (const h of heights) {
           await prisma.productVariant.create({
             data: {
               productId: p.id, sku: `DM-${n + 1}-${String(i).padStart(2, '0')}-${size}`, size, heightRange: h, colorId: c.id,
-              price: item.price * 100, oldPrice: item.oldPrice ? item.oldPrice * 100 : null, stock: (i * 7) % 13, weightG: 600, lengthMm: 300, widthMm: 250, heightMm: 50,
+              price: item.price * 100, oldPrice: item.oldPrice ? item.oldPrice * 100 : null, stock: (i * 7 + 3) % 13, weightG: 600, lengthMm: 300, widthMm: 250, heightMm: 50,
             },
           });
           i += 1;
         }
     }
-    // Фото по цветам (ТЗ §4.3): у каждого цвета варианта — свои снимки
-    const twoColors = !(item.kind === 'gown' || item.kind === 'cap');
-    const shots = await Promise.all([
-      ...[0, 1, 2].map((a) => photo(p.id, item.kind, color.hex, a, twoColors ? color.id : null)),
-      ...(twoColors ? [0, 1].map((a) => photo(p.id, item.kind, second.hex, a, second.id, 3 + a)) : []),
-    ]);
+    // Фото привязаны к цвету со снимка (ТЗ §4.3); у второго цвета своих снимков нет — витрина покажет эти же
+    const shots = await Promise.all(item.photos.map((shot, a) => photo(p.id, shot, a, item.oneColor ? null : color.id)));
     await prisma.productMedia.createMany({ data: shots });
     created.push({ id: p.id, item });
   }
 
   const pick = (pred: (i: Item) => boolean) => created.filter((c) => pred(c.item)).map((c) => c.id);
-  const article = (title: string, lead: string, body: string, kind: Kind, hex: string, productIds: string[]) =>
-    cover(kind, hex).then((coverKey) =>
+  const article = (title: string, lead: string, body: string, coverFile: string, productIds: string[]) =>
+    cover(coverFile).then((coverKey) =>
       prisma.article.create({
         data: { supplierId: supplier.id, slug: `${slug(title)}-demo`, title, lead, coverKey, body, status: 'published', publishedAt: new Date(), products: { create: productIds.map((productId, position) => ({ productId, position })) } },
       }),
@@ -168,18 +191,18 @@ async function main() {
     'Как выбрать форму для долгой смены',
     'Практические советы о посадке, ткани и рабочем ритме.',
     '<p>Ткань, обработка, режим стирки, крой и карманы — разбираем, на что смотреть при выборе костюма для смены.</p><h2>Ткань</h2><p>Смесовая ткань 65/35 с антибактериальной пропиткой выдерживает 600+ циклов стирки при 60° — это ключевое требование операционной.</p><h2>Посадка</h2><p>Свободный крой не сковывает движения, а эластан в брюках сохраняет форму к концу смены.</p><ul><li>Проверьте глубину карманов под телефон и ручки.</li><li>Выбирайте ростовку, а не только размер.</li></ul>',
-    'suit', '#2A9D8F', pick((i) => i.kind === 'suit').slice(0, 3),
+    'top-komfort', pick((i) => i.category === 'kostyumy').slice(0, 3),
   );
   await article(
     'Уход за формой: стирка при 60°',
     'Как сохранить цвет и посадку после сотен стирок.',
     '<p>Медицинская одежда стирается чаще обычной — правильный режим продлевает её жизнь вдвое.</p><h2>Температура</h2><p>60° убивают большинство бактерий и не разрушают смесовые ткани. Белый халат можно стирать при 90°, если позволяет ярлык.</p><h2>Сушка</h2><p>Сушите на плечиках — так меньше гладить.</p>',
-    'gown', '#F2EEE3', pick((i) => i.kind === 'gown'),
+    'halat-doktor-b', pick((i) => i.category === 'halaty'),
   );
   await prisma.collection.create({
     data: {
       supplierId: supplier.id, slug: 'podborka-forma-dlya-stomatologii-demo', title: 'Подборка: форма для стоматологии', description: 'Собранный комплект для спокойной рабочей смены.',
-      coverKey: await cover('top', '#A8DCC1'), status: 'published', publishedAt: new Date(Date.now() - 60_000),
+      coverKey: await cover('top-aktiv'), status: 'published', publishedAt: new Date(Date.now() - 60_000),
       products: { create: pick((i) => i.specialties.some((s) => s.startsWith('Стоматолог'))).map((productId, position) => ({ productId, position })) },
     },
   });
@@ -200,7 +223,8 @@ async function main() {
       applyFrom: new Date(now - 86400_000), applyTo: new Date(now + 6 * 86400_000), startsAt: new Date(now + 7 * 86400_000), endsAt: new Date(now + 21 * 86400_000),
     },
   });
-  const surgical = await prisma.product.findMany({ where: { id: { in: pick((i) => i.specialties.includes('Хирург')) } } });
+  // В акции — вещи вне сетки макета, чтобы цены и плашки каталога совпадали с макетом
+  const surgical = await prisma.product.findMany({ where: { id: { in: pick((i) => !!i.promo) } } });
   for (const p of surgical) {
     await prisma.promotionProduct.create({ data: { promotionId: running.id, productId: p.id, supplierId: p.supplierId, discountPct: 20, status: 'approved', decidedAt: new Date() } });
   }

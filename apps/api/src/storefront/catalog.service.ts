@@ -22,6 +22,8 @@ export type CatalogQuery = {
   priceFrom?: string;
   priceTo?: string;
   sale?: string;
+  /** «Только подходящее вам» (панель фильтров макета): товары, подходящие профилю покупателя */
+  fit?: string;
   sort?: string;
   page?: string;
   perPage?: string;
@@ -209,11 +211,22 @@ export class CatalogService {
       return [...minPrice.entries()].sort((a, b) => dir * (a[1] - b[1]) || a[0].localeCompare(b[0])).map(([id]) => id);
     });
 
+    // «Только подходящее вам» — поверх общего (кэшируемого) порядка, по профилю конкретного покупателя
+    let ordered = sorted;
+    if (query.fit === '1' && fit) {
+      const rows = await this.prisma.product.findMany({
+        where: { id: { in: sorted } },
+        select: { id: true, gender: true, category: { select: { slot: true } }, specialties: { select: { specialtyId: true } }, variants: { where: { stock: { gt: 0 } }, select: { size: true, heightRange: true, stock: true } } },
+      });
+      const ok = new Set(rows.filter((r) => fitsProduct(r, fit)).map((r) => r.id));
+      ordered = sorted.filter((id) => ok.has(id));
+    }
+
     const perPage = Math.min(60, Number(query.perPage) || PER_PAGE);
-    const total = sorted.length;
+    const total = ordered.length;
     const pages = Math.max(1, Math.ceil(total / perPage));
     const page = Math.min(pages, Math.max(1, Number(query.page) || 1));
-    const pageIds = sorted.slice((page - 1) * perPage, page * perPage);
+    const pageIds = ordered.slice((page - 1) * perPage, page * perPage);
 
     const facetKey = JSON.stringify({ category: query.category, q: query.q?.trim().toLowerCase() });
     const [items, facets] = await Promise.all([this.cards(pageIds, priceRange, fit), this.cached(`facets:${facetKey}`, 120, () => this.facets(base))]);
@@ -230,6 +243,8 @@ export class CatalogService {
       perPage,
       items,
       facets,
+      /** Есть профиль для «Подходит вам» — можно включать фильтр «Только подходящее вам» */
+      personal: fit !== null,
     };
   }
 

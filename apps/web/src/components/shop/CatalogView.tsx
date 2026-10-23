@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import type { CatalogList } from '@/lib/catalog';
+import { Fragment } from 'react';
+import type { CatalogList, Chip } from '@/lib/catalog';
 import { toQuery } from '@/lib/catalog';
 import c from './catalog.module.css';
 import { FiltersPanel, LoadMore, SortSelect } from './CatalogControls';
@@ -11,11 +12,12 @@ type Props = {
   params: Record<string, string | string[] | undefined>;
   title: string;
   crumbs: { href: string; label: string }[];
-  chips: { href: string; label: string; active: boolean }[];
+  chips: Chip[];
 };
 
-const FILTER_KEYS = ['gender', 'size', 'color', 'brand', 'specialty', 'height', 'priceFrom', 'priceTo', 'sale'];
+const FILTER_KEYS = ['gender', 'size', 'color', 'brand', 'specialty', 'height', 'priceFrom', 'priceTo', 'sale', 'fit'];
 
+/** Каталог, раздел и поиск — кадры .Catalog / .Catalog-rope макета: надзаголовок, заголовок, чипы с сортировкой, сетка. */
 export function CatalogView({ data, basePath, params, title, crumbs, chips }: Props) {
   const active = FILTER_KEYS.reduce((n, k) => n + (params[k] ? (Array.isArray(params[k]) ? params[k]!.length : 1) : 0), 0);
   const pageHref = (page: number) => {
@@ -24,30 +26,30 @@ export function CatalogView({ data, basePath, params, title, crumbs, chips }: Pr
     return s ? `${basePath}?${s}` : basePath;
   };
   return (
-    <div className="container">
+    <div className={`container ${c.page}`}>
+      <nav className={`eyebrow ${c.crumbs}`} aria-label="Хлебные крошки">
+        {crumbs.map((b, i) => (
+          <Fragment key={b.href}>
+            {i > 0 && <span aria-hidden> → </span>}
+            <Link href={b.href}>{b.label}</Link>
+          </Fragment>
+        ))}
+      </nav>
       <div className={c.head}>
-        <div>
-          <nav className={c.crumbs} aria-label="Хлебные крошки">
-            {crumbs.map((b, i) => (
-              <span key={b.href}>
-                {i > 0 && ' — '}
-                <Link href={b.href}>{b.label}</Link>
-              </span>
-            ))}
-          </nav>
-          <h1>{title}</h1>
-        </div>
-        <FiltersPanel facets={data.facets} active={active} />
+        <h1>{title}</h1>
+        <FiltersPanel facets={data.facets} active={active} personal={!!data.personal} />
       </div>
 
       <div className={c.toolbar}>
-        <div className={c.chips}>
-          {chips.map((ch) => (
-            <Link key={ch.href} href={ch.href} className={`${c.chip} ${ch.active ? c.chipOn : ''}`}>
-              {ch.label}
-            </Link>
-          ))}
-        </div>
+        {chips.length > 0 && (
+          <div className={c.chips}>
+            {chips.map((ch) => (
+              <Link key={ch.href} href={ch.href} className={`${c.chip} ${ch.active ? c.chipOn : ''}`} aria-current={ch.active ? 'page' : undefined}>
+                {ch.label}
+              </Link>
+            ))}
+          </div>
+        )}
         <SortSelect />
       </div>
 
@@ -62,7 +64,7 @@ export function CatalogView({ data, basePath, params, title, crumbs, chips }: Pr
         <>
           <LoadMore initial={data.items} page={data.page} pages={data.pages} />
           {data.pages > 1 && (
-            <nav className={c.pager} aria-label="Страницы" style={{ marginTop: 16 }}>
+            <nav className={c.pager} aria-label="Страницы">
               {Array.from({ length: data.pages }, (_, i) => i + 1).map((p) =>
                 p === data.page ? (
                   <span key={p} aria-current="page">

@@ -89,7 +89,7 @@ export function Alert({ tone, children }: { tone: 'error' | 'success'; children:
   );
 }
 
-function useEscape(onClose: () => void) {
+export function useEscape(onClose: () => void) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', onKey);

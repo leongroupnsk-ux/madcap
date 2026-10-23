@@ -1,14 +1,17 @@
 'use client';
 
+import { plural } from '@aesculap/shared';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { Button, Drawer } from '@/components/ui';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useEscape } from '@/components/ui';
 import type { Card, CatalogList, Facets } from '@/lib/catalog';
 import c from './catalog.module.css';
 import { ProductCard } from './ProductCard';
 import s from './shop.module.css';
 
-const GENDER = { female: 'Женский', male: 'Мужской', unisex: 'Унисекс' } as const;
+const GENDER = { male: 'Мужской', female: 'Женский', unisex: 'Унисекс' } as const;
+const GENDER_ORDER = ['male', 'female', 'unisex'] as const;
 
 function useParamsNav() {
   const router = useRouter();
@@ -22,6 +25,10 @@ function useParamsNav() {
   return { params, go, path };
 }
 
+/** Раздел каталога из адреса: /catalog/<slug> — API получает его параметром category. */
+const categoryOf = (path: string) => (path.startsWith('/catalog/') ? path.split('/')[2] : undefined);
+
+/** «Сортировка: Рекомендуемые ▾» — выпадающий список-пилюля из макета. */
 export function SortSelect() {
   const { params, go } = useParamsNav();
   return (
@@ -46,12 +53,37 @@ export function SortSelect() {
   );
 }
 
-/** Панель «Фильтры» (ТЗ §4.4): выбор копится локально и применяется кнопкой — фильтры попадают в URL. */
-export function FiltersPanel({ facets, active }: { facets: Facets; active: number }) {
-  const { params, go } = useParamsNav();
+/**
+ * Панель «Фильтры» — кадр filter макета (ТЗ §4.4): выбор копится локально, кнопка показывает,
+ * сколько товаров найдётся, и применяет фильтры — они попадают в URL.
+ */
+export function FiltersPanel({ facets, active, personal }: { facets: Facets; active: number; personal: boolean }) {
+  const { params, go, path } = useParamsNav();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => new URLSearchParams(params));
+  const [found, setFound] = useState<number | null>(null);
   useEffect(() => setDraft(new URLSearchParams(params)), [params]);
+
+  // Счётчик на кнопке «Показать N товаров»: та же выдача с текущим черновиком фильтров
+  useEffect(() => {
+    if (!open) return;
+    const q = new URLSearchParams(draft);
+    q.delete('page');
+    q.set('perPage', '1');
+    const category = categoryOf(path);
+    if (category) q.set('category', category);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`/api/catalog/products?${q}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? (r.json() as Promise<CatalogList>) : null))
+        .then((d) => setFound(d ? d.total : null))
+        .catch(() => undefined);
+    }, 250);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [draft, open, path]);
 
   const has = (k: string, v: string) => draft.getAll(k).includes(v);
   const toggle = (k: string, v: string) => {
@@ -67,13 +99,15 @@ export function FiltersPanel({ facets, active }: { facets: Facets; active: numbe
     else next.delete(k);
     setDraft(next);
   };
-  const Opt = ({ k, v, label, count, swatch }: { k: string; v: string; label: string; count?: number; swatch?: string }) => (
-    <button type="button" className={`${c.opt} ${has(k, v) ? c.optOn : ''}`} onClick={() => toggle(k, v)} aria-pressed={has(k, v)}>
+  const close = () => setOpen(false);
+  const Opt = ({ k, v, label, swatch }: { k: string; v: string; label: string; swatch?: string }) => (
+    <button type="button" className={`${c.opt} ${swatch ? c.optColor : ''} ${has(k, v) ? c.optOn : ''}`} onClick={() => toggle(k, v)} aria-pressed={has(k, v)}>
       {swatch && <span className={c.swatch} style={{ background: swatch }} />}
       {label}
-      {count !== undefined && <small>{count}</small>}
     </button>
   );
+  const genders = GENDER_ORDER.filter((g) => facets.genders.some((x) => x.value === g));
+  const fitOn = draft.get('fit') === '1';
 
   return (
     <>
@@ -81,108 +115,152 @@ export function FiltersPanel({ facets, active }: { facets: Facets; active: numbe
         Фильтры{active > 0 && <span className={c.count}>{active}</span>}
       </button>
       {open && (
-        <Drawer eyebrow="Каталог" title="Фильтры" onClose={() => setOpen(false)}>
-          {facets.genders.length > 0 && (
+        <FilterSheet onClose={close}>
+          <div className={c.sheetBody}>
+            {genders.length > 0 && (
+              <div className={c.group}>
+                <h3>Пол</h3>
+                <div className={c.opts}>
+                  {genders.map((g) => (
+                    <Opt key={g} k="gender" v={g} label={GENDER[g]} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {facets.sizes.length > 0 && (
+              <div className={c.group}>
+                <h3>Размер</h3>
+                <div className={c.opts}>
+                  {facets.sizes.map((f) => (
+                    <Opt key={f.value} k="size" v={f.value} label={f.value} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {facets.heights.length > 0 && (
+              <div className={c.group}>
+                <h3>Ростовка</h3>
+                <div className={c.opts}>
+                  {facets.heights.map((f) => (
+                    <Opt key={f.value} k="height" v={f.value} label={f.value} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {facets.colors.length > 0 && (
+              <div className={c.group}>
+                <h3>Цвет</h3>
+                <div className={`${c.opts} ${c.optsColor}`}>
+                  {facets.colors.map((f) => (
+                    <Opt key={f.id} k="color" v={f.id} label={f.name} swatch={f.hex} />
+                  ))}
+                </div>
+              </div>
+            )}
             <div className={c.group}>
-              <h3>Пол</h3>
+              <h3>Цена</h3>
+              <div className={c.range}>
+                <label>
+                  От
+                  <input inputMode="numeric" placeholder={Math.floor(facets.price.min / 100).toLocaleString('ru-RU')} value={draft.get('priceFrom') ?? ''} onChange={(e) => setOne('priceFrom', e.target.value.replace(/\D/g, ''))} />
+                </label>
+                <label>
+                  До
+                  <input inputMode="numeric" placeholder={Math.ceil(facets.price.max / 100).toLocaleString('ru-RU')} value={draft.get('priceTo') ?? ''} onChange={(e) => setOne('priceTo', e.target.value.replace(/\D/g, ''))} />
+                </label>
+              </div>
               <div className={c.opts}>
-                {facets.genders.map((g) => (
-                  <Opt key={g.value} k="gender" v={g.value} label={GENDER[g.value]} count={g.count} />
-                ))}
+                <Opt k="sale" v="1" label="Только со скидкой" />
               </div>
             </div>
-          )}
-          {facets.sizes.length > 0 && (
-            <div className={c.group}>
-              <h3>Размер</h3>
-              <div className={c.opts}>
-                {facets.sizes.map((f) => (
-                  <Opt key={f.value} k="size" v={f.value} label={f.value} />
-                ))}
+            {facets.specialties.length > 0 && (
+              <div className={c.group}>
+                <h3>Специальность</h3>
+                <div className={c.opts}>
+                  {facets.specialties.map((f) => (
+                    <Opt key={f.id} k="specialty" v={f.id} label={f.name} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          {facets.heights.length > 0 && (
-            <div className={c.group}>
-              <h3>Ростовка</h3>
-              <div className={c.opts}>
-                {facets.heights.map((f) => (
-                  <Opt key={f.value} k="height" v={f.value} label={f.value} />
-                ))}
+            )}
+            {facets.brands.length > 0 && (
+              <div className={c.group}>
+                <h3>Бренд</h3>
+                <div className={c.opts}>
+                  {facets.brands.map((f) => (
+                    <Opt key={f.slug} k="brand" v={f.slug} label={f.name} />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          {facets.colors.length > 0 && (
-            <div className={c.group}>
-              <h3>Цвет</h3>
-              <div className={c.opts}>
-                {facets.colors.map((f) => (
-                  <Opt key={f.id} k="color" v={f.id} label={f.name} swatch={f.hex} />
-                ))}
-              </div>
-            </div>
-          )}
-          <div className={c.group}>
-            <h3>Цена, ₽</h3>
-            <div className={c.range}>
-              <label>
-                от
-                <input inputMode="numeric" placeholder={String(Math.floor(facets.price.min / 100))} value={draft.get('priceFrom') ?? ''} onChange={(e) => setOne('priceFrom', e.target.value.replace(/\D/g, ''))} />
-              </label>
-              <label>
-                до
-                <input inputMode="numeric" placeholder={String(Math.ceil(facets.price.max / 100))} value={draft.get('priceTo') ?? ''} onChange={(e) => setOne('priceTo', e.target.value.replace(/\D/g, ''))} />
-              </label>
-            </div>
-            <div className={c.opts} style={{ marginTop: 12 }}>
-              <Opt k="sale" v="1" label="Только со скидкой" />
-            </div>
+            )}
+            {personal ? (
+              <button type="button" className={`${c.fitCard} ${fitOn ? c.fitOn : ''}`} role="switch" aria-checked={fitOn} onClick={() => setOne('fit', fitOn ? '' : '1')}>
+                <span>
+                  <b>Только подходящее вам</b>
+                  <small>По размеру, цветам и предпочтениям</small>
+                </span>
+                <span className={c.fitMark} aria-hidden />
+              </button>
+            ) : (
+              <Link href="/quiz" className={c.fitCard} onClick={close}>
+                <span>
+                  <b>Только подходящее вам</b>
+                  <small>Пройдите подбор — покажем вещи по размеру и предпочтениям</small>
+                </span>
+                <span className={c.fitArrow} aria-hidden>
+                  →
+                </span>
+              </Link>
+            )}
           </div>
-          {facets.specialties.length > 0 && (
-            <div className={c.group}>
-              <h3>Специальность</h3>
-              <div className={c.opts}>
-                {facets.specialties.map((f) => (
-                  <Opt key={f.id} k="specialty" v={f.id} label={f.name} count={f.count} />
-                ))}
-              </div>
-            </div>
-          )}
-          {facets.brands.length > 0 && (
-            <div className={c.group}>
-              <h3>Бренд</h3>
-              <div className={c.opts}>
-                {facets.brands.map((f) => (
-                  <Opt key={f.slug} k="brand" v={f.slug} label={f.name} count={f.count} />
-                ))}
-              </div>
-            </div>
-          )}
-          <div className={c.drawerActions}>
-            <Button
-              variant="outline"
+          <div className={c.sheetFoot}>
+            <button
+              type="button"
+              className={c.reset}
               onClick={() => {
                 const keep = new URLSearchParams();
                 ['q', 'sort'].forEach((k) => params.get(k) && keep.set(k, params.get(k)!));
-                setOpen(false);
+                close();
                 go(keep);
               }}
             >
-              Сбросить
-            </Button>
-            <Button
-              block
+              Сбросить всё
+            </button>
+            <button
+              type="button"
+              className={c.apply}
               onClick={() => {
-                setOpen(false);
+                close();
                 go(draft);
               }}
             >
-              Показать товары
-            </Button>
+              {found === null ? 'Показать товары' : found === 0 ? 'Ничего не найдено' : `Показать ${found} ${plural(found, 'товар', 'товара', 'товаров')}`} →
+            </button>
           </div>
-        </Drawer>
+        </FilterSheet>
       )}
     </>
+  );
+}
+
+/** Боковая панель фильтров: шапка, прокручиваемые группы и закреплённые кнопки внизу. */
+function FilterSheet({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  useEscape(onClose);
+  return (
+    <div className={c.overlay} onClick={onClose}>
+      <aside className={c.sheet} role="dialog" aria-modal="true" aria-label="Фильтры" onClick={(e) => e.stopPropagation()}>
+        <div className={c.sheetHead}>
+          <div>
+            <div className={`eyebrow ${c.sheetEyebrow}`}>Каталог</div>
+            <h2>Фильтры</h2>
+          </div>
+          <button type="button" className={c.close} onClick={onClose} aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+        {children}
+      </aside>
+    </div>
   );
 }
 
@@ -198,18 +276,19 @@ export function LoadMore({ initial, page, pages }: { initial: Card[]; page: numb
     setLast(page);
   }, [initial, page]);
 
-  const category = path.startsWith('/catalog/') ? path.split('/')[2] : undefined;
+  const category = categoryOf(path);
   return (
     <>
-      <div className={s.grid}>
+      <div className={`${s.grid} ${c.grid}`}>
         {items.map((p, i) => (
           <ProductCard key={p.id} p={p} priority={i < 5} />
         ))}
       </div>
       {last < pages && (
         <div className={c.more}>
-          <Button
-            variant="outline"
+          <button
+            type="button"
+            className={c.moreBtn}
             disabled={busy}
             onClick={async () => {
               setBusy(true);
@@ -224,7 +303,7 @@ export function LoadMore({ initial, page, pages }: { initial: Card[]; page: numb
             }}
           >
             {busy ? 'Загружаем…' : 'Показать ещё'}
-          </Button>
+          </button>
         </div>
       )}
     </>
