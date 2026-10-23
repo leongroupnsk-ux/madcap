@@ -107,12 +107,12 @@ export class SupplierContentController {
 
   @Post('articles')
   createArticle(@Body(new ZodPipe(articleSaveSchema)) body: ArticleSaveInput, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
-    return this.content.saveArticle(ctx.supplier, null, body, user);
+    return this.content.saveArticle(ctx.supplier.id, null, body, user);
   }
 
   @Put('articles/:id')
   saveArticle(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(articleSaveSchema)) body: ArticleSaveInput, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
-    return this.content.saveArticle(ctx.supplier, id, body, user);
+    return this.content.saveArticle(ctx.supplier.id, id, body, user);
   }
 
   @Get('collections/:id')
@@ -122,12 +122,12 @@ export class SupplierContentController {
 
   @Post('collections')
   createCollection(@Body(new ZodPipe(collectionSaveSchema)) body: CollectionSaveInput, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
-    return this.content.saveCollection(ctx.supplier, null, body, user);
+    return this.content.saveCollection(ctx.supplier.id, null, body, user);
   }
 
   @Put('collections/:id')
   saveCollection(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(collectionSaveSchema)) body: CollectionSaveInput, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
-    return this.content.saveCollection(ctx.supplier, id, body, user);
+    return this.content.saveCollection(ctx.supplier.id, id, body, user);
   }
 
   @Post(':kind/:id/submit')
@@ -139,7 +139,75 @@ export class SupplierContentController {
   @Delete(':kind/:id')
   @HttpCode(204)
   remove(@Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string, @CurrentSupplier() ctx: SupplierContext) {
-    return this.content.remove(ctx.supplier, kindOf(kind), id);
+    return this.content.remove(ctx.supplier.id, kindOf(kind), id);
+  }
+}
+
+/** Журнал редакции площадки (ТЗ §8: «статьи редакции»): те же материалы, автор — площадка, публикация без модерации */
+@Controller('admin/editorial')
+@Roles('admin')
+@Area('editorial')
+export class AdminEditorialController {
+  constructor(private readonly content: ContentService) {}
+
+  @Get()
+  list() {
+    return this.content.supplierList(null);
+  }
+
+  @Post('image')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1048576, files: 1 } }))
+  image(@UploadedFile() file: Express.Multer.File | undefined) {
+    if (!file) throw new BadRequestException({ message: 'Выберите файл' });
+    return this.content.uploadImage(file);
+  }
+
+  @Get('articles/:id')
+  getArticle(@Param('id', ParseUUIDPipe) id: string) {
+    return this.content.getArticle(null, id);
+  }
+
+  @Post('articles')
+  createArticle(@Body(new ZodPipe(articleSaveSchema)) body: ArticleSaveInput, @CurrentUser() user: User) {
+    return this.content.saveArticle(null, null, body, user);
+  }
+
+  @Put('articles/:id')
+  saveArticle(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(articleSaveSchema)) body: ArticleSaveInput, @CurrentUser() user: User) {
+    return this.content.saveArticle(null, id, body, user);
+  }
+
+  @Get('collections/:id')
+  getCollection(@Param('id', ParseUUIDPipe) id: string) {
+    return this.content.getCollection(null, id);
+  }
+
+  @Post('collections')
+  createCollection(@Body(new ZodPipe(collectionSaveSchema)) body: CollectionSaveInput, @CurrentUser() user: User) {
+    return this.content.saveCollection(null, null, body, user);
+  }
+
+  @Put('collections/:id')
+  saveCollection(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(collectionSaveSchema)) body: CollectionSaveInput, @CurrentUser() user: User) {
+    return this.content.saveCollection(null, id, body, user);
+  }
+
+  @Post(':kind/:id/publish')
+  @HttpCode(200)
+  publish(@Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.content.publishEditorial(kindOf(kind), id, true, user);
+  }
+
+  @Post(':kind/:id/unpublish')
+  @HttpCode(200)
+  unpublish(@Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+    return this.content.publishEditorial(kindOf(kind), id, false, user);
+  }
+
+  @Delete(':kind/:id')
+  @HttpCode(204)
+  remove(@Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.content.remove(null, kindOf(kind), id);
   }
 }
 

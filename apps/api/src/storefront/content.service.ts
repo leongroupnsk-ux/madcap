@@ -57,7 +57,8 @@ export class ContentService {
 
   // ─── кабинет поставщика ──────────────────────────────────────────────
 
-  async supplierList(supplierId: string) {
+  /** owner — id поставщика или null для редакции площадки */
+  async supplierList(supplierId: string | null) {
     const [articles, collections] = await Promise.all([
       this.prisma.article.findMany({ where: { supplierId }, include: { _count: { select: { products: true } } }, orderBy: { updatedAt: 'desc' } }),
       this.prisma.collection.findMany({ where: { supplierId }, include: { _count: { select: { products: true } } }, orderBy: { updatedAt: 'desc' } }),
@@ -68,79 +69,97 @@ export class ContentService {
     ].sort((a, b) => +b.updatedAt - +a.updatedAt);
   }
 
-  private async ownProducts(supplierId: string, ids: string[]) {
-    const own = await this.prisma.product.count({ where: { supplierId, id: { in: ids } } });
-    if (own !== new Set(ids).size) throw new BadRequestException({ message: 'Можно привязать только свои товары' });
+  /** Поставщик привязывает только свои товары, редакция — любые опубликованные */
+  private async ownProducts(supplierId: string | null, ids: string[]) {
+    const own = await this.prisma.product.count({ where: { id: { in: ids }, ...(supplierId ? { supplierId } : { moderationStatus: 'published' }) } });
+    if (own !== new Set(ids).size) throw new BadRequestException({ message: supplierId ? 'Можно привязать только свои товары' : 'Можно привязать только опубликованные товары' });
   }
 
-  async getArticle(supplierId: string, id: string) {
+  async getArticle(supplierId: string | null, id: string) {
     const a = await this.prisma.article.findFirst({ where: { id, supplierId }, include: { products: { orderBy: { position: 'asc' } } } });
     if (!a) throw new NotFoundException();
     return { id: a.id, title: a.title, lead: a.lead ?? '', coverKey: a.coverKey, coverUrl: this.storage.publicUrl(a.coverKey), body: a.body, status: a.status, rejectReason: a.rejectReason, productIds: a.products.map((p) => p.productId), slug: a.slug };
   }
 
-  async getCollection(supplierId: string, id: string) {
+  async getCollection(supplierId: string | null, id: string) {
     const c = await this.prisma.collection.findFirst({ where: { id, supplierId }, include: { products: { orderBy: { position: 'asc' } } } });
     if (!c) throw new NotFoundException();
     return { id: c.id, title: c.title, description: c.description ?? '', coverKey: c.coverKey, coverUrl: this.storage.publicUrl(c.coverKey), status: c.status, rejectReason: c.rejectReason, productIds: c.products.map((p) => p.productId), slug: c.slug };
   }
 
   /** Правка опубликованного материала снова отправляет его на модерацию — так проще, чем ревизии, и статей мало. */
-  async saveArticle(supplier: Supplier, id: string | null, input: ArticleSaveInput, actor: User) {
-    await this.ownProducts(supplier.id, input.productIds);
+  async saveArticle(owner: string | null, id: string | null, input: ArticleSaveInput, actor: User) {
+    await this.ownProducts(owner, input.productIds);
     const data = { title: input.title, lead: input.lead || null, coverKey: input.coverKey, body: cleanHtml(input.body) };
     let article: Article;
     if (!id) {
-      article = await this.prisma.article.create({ data: { ...data, supplierId: supplier.id, slug: `${slugify(input.title) || 'statya'}-${shortId()}` } });
+      article = await this.prisma.article.create({ data: { ...data, supplierId: owner, slug: `${slugify(input.title) || 'statya'}-${shortId()}` } });
     } else {
-      const current = await this.prisma.article.findFirst({ where: { id, supplierId: supplier.id } });
+      const current = await this.prisma.article.findFirst({ where: { id, supplierId: owner } });
       if (!current) throw new NotFoundException();
-      article = await this.prisma.article.update({ where: { id }, data: { ...data, ...(current.status === 'published' ? { status: 'pending', submittedAt: new Date() } : {}) } });
+      // Правка опубликованного у поставщика — снова на модерацию; редакция правит без модерации
+      article = await this.prisma.article.update({ where: { id }, data: { ...data, ...(owner && current.status === 'published' ? { status: 'pending', submittedAt: new Date() } : {}) } });
     }
     await this.prisma.articleProduct.deleteMany({ where: { articleId: article.id } });
     await this.prisma.articleProduct.createMany({ data: input.productIds.map((productId, position) => ({ articleId: article.id, productId, position })) });
     await this.audit.log(actor.id, 'content.article.save', 'article', article.id);
-    return this.getArticle(supplier.id, article.id);
+    return this.getArticle(owner, article.id);
   }
 
-  async saveCollection(supplier: Supplier, id: string | null, input: CollectionSaveInput, actor: User) {
-    await this.ownProducts(supplier.id, input.productIds);
+  async saveCollection(owner: string | null, id: string | null, input: CollectionSaveInput, actor: User) {
+    await this.ownProducts(owner, input.productIds);
     const data = { title: input.title, description: input.description || null, coverKey: input.coverKey };
     let collection: Collection;
     if (!id) {
-      collection = await this.prisma.collection.create({ data: { ...data, supplierId: supplier.id, slug: `${slugify(input.title) || 'podborka'}-${shortId()}` } });
+      collection = await this.prisma.collection.create({ data: { ...data, supplierId: owner, slug: `${slugify(input.title) || 'podborka'}-${shortId()}` } });
     } else {
-      const current = await this.prisma.collection.findFirst({ where: { id, supplierId: supplier.id } });
+      const current = await this.prisma.collection.findFirst({ where: { id, supplierId: owner } });
       if (!current) throw new NotFoundException();
-      collection = await this.prisma.collection.update({ where: { id }, data: { ...data, ...(current.status === 'published' ? { status: 'pending', submittedAt: new Date() } : {}) } });
+      collection = await this.prisma.collection.update({ where: { id }, data: { ...data, ...(owner && current.status === 'published' ? { status: 'pending', submittedAt: new Date() } : {}) } });
     }
     await this.prisma.collectionProduct.deleteMany({ where: { collectionId: collection.id } });
     await this.prisma.collectionProduct.createMany({ data: input.productIds.map((productId, position) => ({ collectionId: collection.id, productId, position })) });
     await this.audit.log(actor.id, 'content.collection.save', 'collection', collection.id);
-    return this.getCollection(supplier.id, collection.id);
+    return this.getCollection(owner, collection.id);
   }
 
-  async submit(supplier: Supplier, kind: Kind, id: string, actor: User) {
+  /** Требования к материалу перед публикацией — одинаковые для поставщика и редакции */
+  private async ready(owner: string | null, kind: Kind, id: string) {
     if (kind === 'article') {
-      const a = await this.prisma.article.findFirst({ where: { id, supplierId: supplier.id } });
+      const a = await this.prisma.article.findFirst({ where: { id, supplierId: owner } });
       if (!a) throw new NotFoundException();
       if (plain(a.body).length < 200) throw new BadRequestException({ message: 'Статья слишком короткая: нужно хотя бы 200 символов текста' });
       if (!a.coverKey) throw new BadRequestException({ message: 'Добавьте обложку' });
-      await this.prisma.article.update({ where: { id }, data: { status: 'pending', submittedAt: new Date(), rejectReason: null } });
     } else {
-      const c = await this.prisma.collection.findFirst({ where: { id, supplierId: supplier.id }, include: { _count: { select: { products: true } } } });
+      const c = await this.prisma.collection.findFirst({ where: { id, supplierId: owner }, include: { _count: { select: { products: true } } } });
       if (!c) throw new NotFoundException();
       if (c._count.products < 3) throw new BadRequestException({ message: 'В подборке должно быть хотя бы 3 товара' });
       if (!c.coverKey) throw new BadRequestException({ message: 'Добавьте обложку' });
-      await this.prisma.collection.update({ where: { id }, data: { status: 'pending', submittedAt: new Date(), rejectReason: null } });
     }
+  }
+
+  async submit(supplier: Supplier, kind: Kind, id: string, actor: User) {
+    await this.ready(supplier.id, kind, id);
+    const data = { status: 'pending' as const, submittedAt: new Date(), rejectReason: null };
+    if (kind === 'article') await this.prisma.article.update({ where: { id }, data });
+    else await this.prisma.collection.update({ where: { id }, data });
     await this.audit.log(actor.id, `content.${kind}.submit`, kind, id);
   }
 
-  async remove(supplier: Supplier, kind: Kind, id: string) {
+  /** Редакция площадки публикует сама, без модерации (ТЗ §8: «статьи редакции») */
+  async publishEditorial(kind: Kind, id: string, publish: boolean, actor: User) {
+    if (publish) await this.ready(null, kind, id);
+    const data = publish ? { status: 'published' as const, publishedAt: new Date(), rejectReason: null } : { status: 'draft' as const };
+    const res = kind === 'article' ? await this.prisma.article.updateMany({ where: { id, supplierId: null }, data }) : await this.prisma.collection.updateMany({ where: { id, supplierId: null }, data });
+    if (!res.count) throw new NotFoundException();
+    await this.audit.log(actor.id, `content.editorial.${publish ? 'publish' : 'unpublish'}`, kind, id);
+    return kind === 'article' ? this.getArticle(null, id) : this.getCollection(null, id);
+  }
+
+  async remove(owner: string | null, kind: Kind, id: string) {
     const res = kind === 'article'
-      ? await this.prisma.article.deleteMany({ where: { id, supplierId: supplier.id } })
-      : await this.prisma.collection.deleteMany({ where: { id, supplierId: supplier.id } });
+      ? await this.prisma.article.deleteMany({ where: { id, supplierId: owner } })
+      : await this.prisma.collection.deleteMany({ where: { id, supplierId: owner } });
     if (!res.count) throw new NotFoundException();
   }
 

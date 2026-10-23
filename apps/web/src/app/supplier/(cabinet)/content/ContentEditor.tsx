@@ -28,7 +28,11 @@ const TOOLS: [string, string, string?][] = [
 const STATUS: Record<string, string> = { draft: 'Черновик', pending: 'На модерации', published: 'Опубликовано', rejected: 'Отклонено' };
 
 /** Редактор статьи или подборки (ТЗ §7.6). HTML дополнительно чистится на сервере. */
-export function ContentEditor({ kind, initial }: { kind: Kind; initial?: ContentItem }) {
+/** Где работает редактор: кабинет поставщика (модерация) или редакция площадки (публикация сразу) */
+export type EditorSpace = { api: string; page: string; editorial?: boolean };
+const SUPPLIER_SPACE: EditorSpace = { api: '/supplier/content', page: '/supplier/content' };
+
+export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind: Kind; initial?: ContentItem; space?: EditorSpace }) {
   const router = useRouter();
   const isArticle = kind === 'article';
   const path = isArticle ? 'articles' : 'collections';
@@ -50,6 +54,13 @@ export function ContentEditor({ kind, initial }: { kind: Kind; initial?: Content
 
   useEffect(() => {
     const t = setTimeout(() => {
+      if (space.editorial) {
+        // Редакция привязывает любые опубликованные товары
+        api<{ id: string; title: string; brand: string; image: string | null }[]>(`/admin/storefront/products?q=${encodeURIComponent(q)}`)
+          .then((r) => setProducts(r.map((p) => ({ id: p.id, title: p.title, sku: p.brand, thumbUrl: p.image, moderationStatus: 'published' }))))
+          .catch(() => undefined);
+        return;
+      }
       api<{ items: ProductRow[] }>(`/supplier/products?q=${encodeURIComponent(q)}`).then((r) => setProducts(r.items)).catch(() => undefined);
     }, 250);
     return () => clearTimeout(t);
@@ -73,9 +84,9 @@ export function ContentEditor({ kind, initial }: { kind: Kind; initial?: Content
       : { title, description: lead, coverKey: cover.key, productIds: selected };
 
   const save = async () => {
-    const saved = item ? await api<ContentItem>(`/supplier/content/${path}/${item.id}`, payload(), 'PUT') : await api<ContentItem>(`/supplier/content/${path}`, payload());
+    const saved = item ? await api<ContentItem>(`${space.api}/${path}/${item.id}`, payload(), 'PUT') : await api<ContentItem>(`${space.api}/${path}`, payload());
     if (!item) {
-      router.replace(`/supplier/content/${path}/${saved.id}`);
+      router.replace(`${space.page}/${path}/${saved.id}`);
       return saved;
     }
     setItem(saved);
@@ -85,12 +96,12 @@ export function ContentEditor({ kind, initial }: { kind: Kind; initial?: Content
 
   return (
     <>
-      <Link href="/supplier/content" className={s.link}>
+      <Link href={space.page} className={s.link}>
         ← К контенту
       </Link>
       <div className={s.head} style={{ marginTop: 12 }}>
         <div>
-          <div className="eyebrow">Контент поставщика</div>
+          <div className="eyebrow">{space.editorial ? 'Журнал редакции' : 'Контент поставщика'}</div>
           <h1>{item ? (isArticle ? 'Статья' : 'Подборка') : isArticle ? 'Новая статья' : 'Новая подборка'}</h1>
           {item && (
             <div style={{ marginTop: 8 }}>
@@ -112,26 +123,56 @@ export function ContentEditor({ kind, initial }: { kind: Kind; initial?: Content
             }>
             Сохранить черновик
           </Button>
-          <Button
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                const saved = await save();
-                await api(`/supplier/content/${path}/${saved.id}/submit`, {});
-                setItem({ ...saved, status: 'pending' });
-                setMsg({ tone: 'success', text: 'Отправлено на модерацию' });
-              })
-            }
-          >
-            Отправить на модерацию
-          </Button>
+          {space.editorial ? (
+            item?.status === 'published' ? (
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    setItem(await api<ContentItem>(`${space.api}/${kind}/${item.id}/unpublish`, {}));
+                    setMsg({ tone: 'success', text: 'Снято с публикации' });
+                  })
+                }
+              >
+                Снять с публикации
+              </Button>
+            ) : (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const saved = await save();
+                    setItem(await api<ContentItem>(`${space.api}/${kind}/${saved.id}/publish`, {}));
+                    setMsg({ tone: 'success', text: 'Опубликовано в журнале' });
+                  })
+                }
+              >
+                Опубликовать
+              </Button>
+            )
+          ) : (
+            <Button
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  const saved = await save();
+                  await api(`/supplier/content/${path}/${saved.id}/submit`, {});
+                  setItem({ ...saved, status: 'pending' });
+                  setMsg({ tone: 'success', text: 'Отправлено на модерацию' });
+                })
+              }
+            >
+              Отправить на модерацию
+            </Button>
+          )}
         </div>
       </div>
 
       <div style={{ display: 'grid', gap: 16 }}>
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {item?.status === 'rejected' && item.rejectReason && <Alert tone="error">Модерация отклонила материал: {item.rejectReason}</Alert>}
-        {item?.status === 'published' && <Alert tone="success">Опубликовано. Правки снова отправят материал на модерацию.</Alert>}
+        {item?.status === 'published' && <Alert tone="success">{space.editorial ? 'Опубликовано. Правки видны в журнале сразу после сохранения.' : 'Опубликовано. Правки снова отправят материал на модерацию.'}</Alert>}
 
         <section className={s.panel}>
           <label className={e.field}>
@@ -157,7 +198,7 @@ export function ContentEditor({ kind, initial }: { kind: Kind; initial?: Content
                   void run(async () => {
                     const form = new FormData();
                     form.append('file', file);
-                    setCover(await api<{ key: string; url: string }>('/supplier/content/image', form));
+                    setCover(await api<{ key: string; url: string }>(`${space.api}/image`, form));
                   });
                 }}
               />
