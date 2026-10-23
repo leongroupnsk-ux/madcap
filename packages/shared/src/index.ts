@@ -6,3 +6,4 @@ export * from './profile.js';
 export * from './supplier.js';
 export * from './orders.js';
 export * from './promotions.js';
+export * from './dictionaries.js';
