@@ -60,6 +60,11 @@ class SupplierPromotionsController {
     return this.svc.supplierList(ctx.supplier);
   }
 
+  @Get('product/:productId')
+  forProduct(@CurrentSupplier() ctx: SupplierContext, @Param('productId', ParseUUIDPipe) productId: string) {
+    return this.svc.forProduct(ctx.supplier, productId);
+  }
+
   @Get(':id')
   products(@CurrentSupplier() ctx: SupplierContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.svc.supplierProducts(ctx.supplier, id);

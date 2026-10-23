@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/supplier/Badge';
+import { ProductPromotions } from './ProductPromotions';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Chip, Drawer } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
@@ -443,6 +444,8 @@ export function ProductForm({ dict, initial }: Props) {
             </ul>
           )}
         </section>
+
+        {product && (status === 'published' || status === 'pending') && <ProductPromotions productId={product.id} />}
 
         {product && (
           <section className={s.panel}>

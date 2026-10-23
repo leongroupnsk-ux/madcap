@@ -78,6 +78,11 @@ describe('акции, уведомления, дашборд', () => {
     expect(low.body.errors[productId]).toMatch(/меньше минимальной/);
     const applied = await sup.agent.post(`/api/supplier/promotions/${id}/products`).set('Origin', ORIGIN).send({ items: [{ productId, discountPct: 20 }] }).expect(200);
     expect(applied.body.items[0]).toMatchObject({ status: 'pending', price: 500000, salePrice: 400000 });
+    // Блок «Акции» в форме товара
+    const block = (await sup.agent.get(`/api/supplier/promotions/product/${productId}`)).body;
+    expect(block[0]).toMatchObject({ name: 'Неделя хирурга', status: 'pending', discountPct: 20, salePrice: 400000, acceptsApplications: true });
+    const stranger = await makeSupplier(app, admin, 'other@sup.ru', '7736050003');
+    expect((await stranger.agent.get(`/api/supplier/promotions/product/${productId}`)).status).toBe(404);
 
     const apps = (await admin.get('/api/admin/promotions/applications')).body;
     expect(apps).toHaveLength(1);

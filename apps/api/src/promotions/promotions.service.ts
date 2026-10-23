@@ -156,6 +156,26 @@ export class PromotionsService {
     };
   }
 
+  /** Блок «Акции» в форме товара (ТЗ §7.3): открытые и идущие акции и участие этого товара. */
+  async forProduct(supplier: Supplier, productId: string) {
+    const product = await this.prisma.product.findFirst({ where: { id: productId, supplierId: supplier.id }, include: { variants: true, promotions: true } });
+    if (!product) throw new NotFoundException({ message: 'Товар не найден' });
+    const now = new Date();
+    const promos = await this.prisma.promotion.findMany({ where: { endsAt: { gt: now }, applyFrom: { lte: now } }, orderBy: { startsAt: 'asc' } });
+    const price = product.variants.length ? Math.min(...product.variants.map((v) => v.price)) : 0;
+    return promos.map((p) => {
+      const part = product.promotions.find((x) => x.promotionId === p.id);
+      return {
+        ...this.view(p),
+        price,
+        discountPct: part?.discountPct ?? null,
+        salePrice: part ? salePriceOf(price, part.discountPct) : null,
+        status: !part ? 'none' : part.discountPct < p.minDiscountPct ? 'below_min' : part.status,
+        rejectReason: part?.rejectReason ?? null,
+      };
+    });
+  }
+
   async apply(supplier: Supplier, promotionId: string, items: { productId: string; discountPct: number }[], actor: User) {
     const p = await this.prisma.promotion.findUnique({ where: { id: promotionId } });
     if (!p) throw new NotFoundException();
