@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PlatformSettings } from '@aesculap/shared';
+import { DEFAULT_STOREFRONT, type PlatformSettings, type StorefrontSettings } from '@aesculap/shared';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 
@@ -36,5 +36,17 @@ export class SettingsService {
     await this.prisma.platformSetting.upsert({ where: { key: KEY }, update: { value, updatedBy: actorId }, create: { key: KEY, value, updatedBy: actorId } });
     this.cache = null;
     return this.get();
+  }
+
+  /** Настройки витрины (ТЗ §8) — отдельный ключ, без кэша процесса: главная и так кэшируется в Redis */
+  async storefront(): Promise<StorefrontSettings> {
+    const row = await this.prisma.platformSetting.findUnique({ where: { key: 'storefront' } });
+    const v = (row?.value as Partial<StorefrontSettings> | undefined) ?? {};
+    return { ...DEFAULT_STOREFRONT, ...v, hero: { ...DEFAULT_STOREFRONT.hero, ...v.hero }, premium: { ...DEFAULT_STOREFRONT.premium, ...v.premium }, capsuleOfWeek: { ...DEFAULT_STOREFRONT.capsuleOfWeek, ...v.capsuleOfWeek } };
+  }
+
+  async setStorefront(value: StorefrontSettings, actorId: string) {
+    await this.prisma.platformSetting.upsert({ where: { key: 'storefront' }, update: { value, updatedBy: actorId }, create: { key: 'storefront', value, updatedBy: actorId } });
+    return this.storefront();
   }
 }

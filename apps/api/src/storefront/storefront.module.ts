@@ -1,3 +1,4 @@
+import { AdminStorefrontController } from './admin-storefront.controller';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MeModule } from '../me/me.module';
@@ -8,7 +9,7 @@ import { AdminContentController, StorefrontController, SupplierContentController
 
 @Module({
   imports: [AuthModule, SuppliersModule, MeModule],
-  controllers: [StorefrontController, SupplierContentController, AdminContentController],
+  controllers: [StorefrontController, SupplierContentController, AdminContentController, AdminStorefrontController],
   providers: [CatalogService, ContentService],
   exports: [CatalogService],
 })

@@ -103,6 +103,35 @@ describe('витрина и журнал', () => {
     await prisma.color.delete({ where: { id: other.id } });
   });
 
+  it('витрина: хиты по продажам, закреплённые хиты, «Капсула недели», тексты главной; доступ редактора', async () => {
+    const a1 = await product('Хит продаж', { variants: [{ size: 'M', color: 'Белый', price: 3000, stock: 9 }], publishedAt: new Date(Date.now() - 86400000) });
+    const b1 = await product('Новинка', { variants: [{ size: 'M', color: 'Белый', price: 3000, stock: 9 }] });
+    // Продажа за неделю: оплаченное отправление с позицией «Хита продаж»
+    const buyer = await prisma.user.create({ data: { email: 'b@example.ru', passwordHash: 'x' } });
+    const v = await prisma.productVariant.findFirstOrThrow({ where: { productId: a1.id } });
+    await prisma.order.create({
+      data: {
+        number: '700001', userId: buyer.id, status: 'paid', paymentStatus: 'succeeded', goodsTotal: 1, deliveryTotal: 0, total: 1, recipientName: 'Б', recipientPhone: '+79990000000', recipientEmail: 'b@example.ru', expiresAt: new Date(),
+        shipments: { create: { no: 1, supplierId, status: 'new', paidAt: new Date(), deliveryType: 'pvz', tariffCode: 136, cityCode: 44, address: 'М', deliveryPrice: 0, periodMin: 1, periodMax: 2, goodsTotal: 1, commissionBp: 1000, commission: 0,
+          items: { create: { variantId: v.id, title: 'Хит продаж', brand: 'Б', sku: 'S', size: 'M', color: 'Белый', price: 1, qty: 5 } } } },
+      },
+    });
+    let home = (await anon().get('/api/catalog/home')).body;
+    expect(home.hits.map((h: { title: string }) => h.title).slice(0, 2)).toEqual(['Хит продаж', 'Новинка']);
+    expect(home.hero.title).toMatch(/Рабочая капсула/);
+    expect(home.capsuleOfWeek).toBeNull();
+
+    const cur = (await admin.get('/api/admin/storefront')).body.settings;
+    const next = { ...cur, hero: { ...cur.hero, title: 'Форма для всей смены', accent: 'смены' }, hitsProductIds: [b1.id, a1.id], capsuleOfWeek: { title: 'Капсула стоматолога', text: 'Пять вещей', productIds: [a1.id, b1.id] } };
+    await admin.put('/api/admin/storefront').set('Origin', ORIGIN).send(next).expect(200);
+    home = (await anon().get('/api/catalog/home')).body;
+    expect(home.hero.title).toBe('Форма для всей смены');
+    expect(home.hits.slice(0, 2).map((h: { title: string }) => h.title)).toEqual(['Новинка', 'Хит продаж']);
+    expect(home.capsuleOfWeek).toMatchObject({ title: 'Капсула стоматолога' });
+    expect(home.capsuleOfWeek.items).toHaveLength(2);
+    expect((await sup.get('/api/admin/storefront')).status).toBe(403);
+  });
+
   it('фильтры по варианту, полу, цене, распродаже; цена карточки — от подходящего варианта', async () => {
     await product('Костюм «Хирург»', { variants: [{ size: 'M', color: 'Бирюзовый', price: 4590, oldPrice: 5290, stock: 3 }, { size: 'XL', color: 'Белый', price: 4990, stock: 1 }] });
     await product('Халат «Классика»', { category: 'halaty', gender: 'female', variants: [{ size: 'S', color: 'Белый', price: 3490, stock: 5 }] });

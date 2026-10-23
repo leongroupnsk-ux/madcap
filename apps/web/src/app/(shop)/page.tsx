@@ -1,3 +1,4 @@
+import { DEFAULT_STOREFRONT, type StorefrontSettings } from '@aesculap/shared';
 import Link from 'next/link';
 import { ProductGrid } from '@/components/shop/ProductCard';
 import h from '@/components/shop/home.module.css';
@@ -10,7 +11,19 @@ import { serverApi } from '@/lib/server-api';
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const home = (await serverApi<{ hits: Card[]; promotions: { name: string; badge: string; description: string; endsAt: string; items: Card[] }[] }>('/catalog/home')).data;
+  const home = (
+    await serverApi<{
+      hits: Card[];
+      promotions: { name: string; badge: string; description: string; endsAt: string; items: Card[] }[];
+      hero: StorefrontSettings['hero'];
+      premium: StorefrontSettings['premium'];
+      capsuleOfWeek: { title: string; text: string; items: Card[] } | null;
+    }>('/catalog/home')
+  ).data;
+  const hero = home?.hero ?? DEFAULT_STOREFRONT.hero;
+  const premium = home?.premium ?? DEFAULT_STOREFRONT.premium;
+  // Выделенное слово заголовка — курсивом, как в макете
+  const [before, after] = hero.accent && hero.title.includes(hero.accent) ? hero.title.split(hero.accent, 2) : [hero.title, null];
   const hits = home?.hits ?? [];
   const promotions = home?.promotions ?? [];
   const collage = hits.filter((p) => p.images[0]).slice(0, 3);
@@ -20,14 +33,20 @@ export default async function HomePage() {
         <div className={h.heroRow}>
           <section className={h.hero}>
             <div className={h.heroText}>
-              <div className="eyebrow">Персональный подбор</div>
+              {hero.eyebrow && <div className="eyebrow">{hero.eyebrow}</div>}
               <h1>
-                Рабочая капсула под <em>Вашу</em> специальность
+                {before}
+                {after !== null && (
+                  <>
+                    <em>{hero.accent}</em>
+                    {after}
+                  </>
+                )}
               </h1>
-              <p>Анкета за 5 минут: специальность, размеры и рост, дресс-код клиники и бюджет. Соберём комплект формы из 5 вещей.</p>
+              {hero.text && <p>{hero.text}</p>}
               <div className={h.heroCta}>
                 <ButtonLink href="/quiz/1" variant="accent">
-                  Подобрать капсулу
+                  {hero.cta}
                 </ButtonLink>
                 <ButtonLink href="/#how" variant="outline">
                   Как это работает
@@ -42,10 +61,10 @@ export default async function HomePage() {
           </section>
           <section className={h.premium}>
             <span className={h.mark}>{BRAND.mark} premium</span>
-            <h2>Больше, чем униформа</h2>
-            <p>Продуманный дизайн, исключительный комфорт. Создано для тех, кто меняет мир к лучшему.</p>
+            <h2>{premium.title}</h2>
+            {premium.text && <p>{premium.text}</p>}
             <Link href="/premium" className={h.premiumBtn}>
-              Премиум коллекция
+              {premium.cta}
             </Link>
           </section>
         </div>
@@ -64,6 +83,19 @@ export default async function HomePage() {
             <ProductGrid items={pr.items} />
           </section>
         ))}
+
+        {home?.capsuleOfWeek && (
+          <section style={{ marginBottom: 40 }}>
+            <div className={s.sectionHead}>
+              <h2>{home.capsuleOfWeek.title || 'Капсула недели'}</h2>
+              <Link href="/quiz/1" className={s.more}>
+                Подобрать свою →
+              </Link>
+            </div>
+            {home.capsuleOfWeek.text && <p style={{ color: 'var(--c-text-muted)', margin: '-8px 0 16px' }}>{home.capsuleOfWeek.text}</p>}
+            <ProductGrid items={home.capsuleOfWeek.items} />
+          </section>
+        )}
 
         {hits.length > 0 && (
           <>

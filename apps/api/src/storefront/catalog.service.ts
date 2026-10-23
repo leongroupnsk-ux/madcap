@@ -3,6 +3,7 @@ import { DEFAULT_SIZE_CHART, SIZES } from '@aesculap/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis.service';
+import { SettingsService } from '../common/settings.service';
 import { CATALOG_VERSION_KEY } from './catalog-cache';
 import { StorageService } from '../common/storage.service';
 import { effective, shown } from '../promotions/price';
@@ -86,6 +87,7 @@ export class CatalogService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly redis: RedisService,
+    private readonly settings: SettingsService,
   ) {}
 
   /** Короткий кэш в Redis для тяжёлых расчётов выдачи (ТЗ §11: p95 каталога ≤ 300 мс). */
@@ -383,7 +385,29 @@ export class CatalogService {
   async home(fit: FitContext | null = null) {
     // Состав главной кэшируется на минуту; карточки (цены, остатки, «Подходит вам») — всегда свежие.
     const layout = await this.cached('home', 60, async () => {
-      const hits = await this.prisma.product.findMany({ where: visibleWhere(), orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 15 });
+      const sf = await this.settings.storefront();
+      const visibleIds = async (ids: string[]) => {
+        if (!ids.length) return [];
+        const ok = new Set((await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { id: { in: ids } }] }, select: { id: true } })).map((x) => x.id));
+        return ids.filter((id) => ok.has(id));
+      };
+      // «Хиты недели» (ТЗ §4.2): закреплённые редактором, иначе — продажи за 7 дней, добираем новинками
+      let hitIds = await visibleIds(sf.hitsProductIds);
+      if (!hitIds.length) {
+        const sold = await this.prisma.$queryRaw<{ productId: string }[]>`
+          SELECT v."productId" FROM shipment_items si
+          JOIN product_variants v ON v.id = si."variantId"
+          JOIN shipments sh ON sh.id = si."shipmentId"
+          WHERE sh."paidAt" > now() - interval '7 days' AND sh.status NOT IN ('cancelled', 'rejected')
+          GROUP BY v."productId" ORDER BY sum(si.qty - si."returnedQty") DESC LIMIT 15`;
+        hitIds = await visibleIds(sold.map((x) => x.productId));
+      }
+      if (hitIds.length < 10) {
+        const fresh = await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { id: { notIn: hitIds } }] }, orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 10 - hitIds.length });
+        hitIds = [...hitIds, ...fresh.map((x) => x.id)];
+      }
+      const capsuleIds = await visibleIds(sf.capsuleOfWeek.productIds);
+      const hits = hitIds.map((id) => ({ id }));
       // Раздел акций на главной (ТЗ §7.7): идущие акции с флагом onHomepage и их товары.
       const now = new Date();
       const promos = await this.prisma.promotion.findMany({ where: { onHomepage: true, startsAt: { lte: now }, endsAt: { gt: now } }, orderBy: { endsAt: 'asc' }, take: 2 });
@@ -392,11 +416,17 @@ export class CatalogService {
         const ids = await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { variants: { some: { salePromotionId: p.id, stock: { gt: 0 } } } }] }, select: { id: true }, take: 8 });
         if (ids.length) promotions.push({ name: p.name, badge: p.badge, description: p.description, endsAt: p.endsAt, ids: ids.map((x) => x.id) });
       }
-      return { hits: hits.map((h) => h.id), promotions };
+      return { hits: hits.map((h) => h.id), promotions, hero: sf.hero, premium: sf.premium, capsule: capsuleIds.length >= 2 ? { title: sf.capsuleOfWeek.title, text: sf.capsuleOfWeek.text, ids: capsuleIds } : null };
     });
     const promotions = [];
     for (const { ids, ...p } of layout.promotions) promotions.push({ ...p, items: await this.cards(ids, undefined, fit) });
-    return { hits: await this.cards(layout.hits, undefined, fit), promotions };
+    return {
+      hits: await this.cards(layout.hits, undefined, fit),
+      promotions,
+      hero: layout.hero,
+      premium: layout.premium,
+      capsuleOfWeek: layout.capsule && { title: layout.capsule.title, text: layout.capsule.text, items: await this.cards(layout.capsule.ids, undefined, fit) },
+    };
   }
 
   /** Варианты для корзины гостя (ТЗ §6.1): актуальные цена и остаток. */
