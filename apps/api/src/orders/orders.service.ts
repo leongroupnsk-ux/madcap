@@ -73,13 +73,15 @@ export class OrdersService {
     const groups = this.group(checked);
     const suppliers = await this.prisma.supplier.findMany({ where: { id: { in: [...groups.keys()] } } });
 
+    // Аварийный режим (сбой сплита ЮKassa): оплату принимает платформа, поставщикам — реестром (ТЗ §8)
+    const settlement = await this.settings.payoutsMode();
     const plan: { supplier: Supplier; items: CheckedLine[]; address: AddressInput; tariffCode: number; price: number; periodMin: number; periodMax: number; goods: number }[] = [];
     for (const [supplierId, items] of groups) {
       const supplier = suppliers.find((s) => s.id === supplierId)!;
       const address = input.delivery[supplierId];
       if (!address) throw new BadRequestException({ message: `Выберите доставку для отправления от «${supplier.legalName}»` });
       if (!supplier.cdekCityCode) throw new BadRequestException({ message: `Поставщик «${supplier.legalName}» не указал склад отгрузки` });
-      if (this.payments.name === 'yookassa' && !supplier.yookassaAccountId) throw new BadRequestException({ message: `Поставщик «${supplier.legalName}» временно не принимает оплату` });
+      if (this.payments.name === 'yookassa' && (settlement === 'split' ? !supplier.yookassaAccountId : !supplier.payoutAccount)) throw new BadRequestException({ message: `Поставщик «${supplier.legalName}» временно не принимает оплату` });
       if (address.type === 'pvz') {
         // Пункт выдачи должен быть в городе, по которому считается тариф; адрес пункта берём из СДЭК, а не от клиента.
         const point = (await this.delivery.points(address.cityCode)).find((pt) => pt.code === address.pvzCode);
@@ -116,6 +118,7 @@ export class OrdersService {
           recipientPhone: input.recipient.phone,
           recipientEmail: input.recipient.email,
           expiresAt: new Date(now.getTime() + payMinutes * 60000),
+          settlement,
           shipments: {
             create: plan.map((p, i) => ({
               no: i + 1,
@@ -212,7 +215,7 @@ export class OrdersService {
       returnUrl: `${config.webOrigin}/orders/${order.number}/result`,
       metadata: { orderId: order.id, orderNumber: order.number },
       receipt: this.receipt(order, order.shipments),
-      transfers: order.shipments.map((s) => this.transfer(s, s.goodsTotal, s.commission, order.number)),
+      transfers: order.settlement === 'split' ? order.shipments.map((s) => this.transfer(s, s.goodsTotal, s.commission, order.number)) : [],
     });
     await this.prisma.order.update({ where: { id: order.id }, data: { paymentId: p.id, paymentStatus: 'pending', confirmationUrl: p.confirmationUrl } });
     return p.confirmationUrl;
@@ -265,7 +268,7 @@ export class OrdersService {
         if (r.count === 0) return false;
         for (const s of order.shipments) {
           await tx.shipment.update({ where: { id: s.id }, data: { status: 'new', paidAt: now, events: { create: { status: 'new', note: 'Оплата получена' } } } });
-          await tx.payout.create({ data: { shipmentId: s.id, supplierId: s.supplierId, kind: 'sale', amountGoods: s.goodsTotal, commission: s.commission, transferred: s.goodsTotal - s.commission } });
+          await tx.payout.create({ data: { shipmentId: s.id, supplierId: s.supplierId, kind: 'sale', amountGoods: s.goodsTotal, commission: s.commission, transferred: s.goodsTotal - s.commission, manual: order.settlement === 'registry' } });
         }
         return true;
       });
@@ -283,7 +286,7 @@ export class OrdersService {
             paymentId,
             amount: state.amount,
             description: `Возврат лишнего платежа по заказу ${order.number}`,
-            sources: order.shipments.map((s) => this.transfer(s, s.goodsTotal, s.commission, order.number)),
+            sources: order.settlement === 'split' ? order.shipments.map((s) => this.transfer(s, s.goodsTotal, s.commission, order.number)) : [],
             receipt: this.receipt(order, order.shipments),
           });
           await this.prisma.refund.create({
@@ -385,12 +388,12 @@ export class OrdersService {
       paymentId: s.order.paymentId!,
       amount,
       description: `Заказ ${s.order.number}-${s.no}: ${reason}`,
-      sources: [this.transfer(s, goods, commission, s.order.number)],
+      sources: s.order.settlement === 'split' ? [this.transfer(s, goods, commission, s.order.number)] : [],
       receipt: this.receipt(s.order, [{ ...s, deliveryPrice: withDelivery ? s.deliveryPrice : 0, items: lines.map((l) => ({ ...l.item, qty: l.qty })) }]),
     });
     await this.prisma.$transaction([
       this.prisma.refund.create({ data: { orderId: s.orderId, shipmentId: s.id, amount, goodsAmount: goods, commission, reason, providerRefundId: res.id, idempotenceKey: key, status: res.status } }),
-      this.prisma.payout.create({ data: { shipmentId: s.id, supplierId: s.supplierId, kind: 'refund', amountGoods: -goods, commission: -commission, transferred: -(goods - commission) } }),
+      this.prisma.payout.create({ data: { shipmentId: s.id, supplierId: s.supplierId, kind: 'refund', amountGoods: -goods, commission: -commission, transferred: -(goods - commission), manual: s.order.settlement === 'registry' } }),
     ]);
   }
 

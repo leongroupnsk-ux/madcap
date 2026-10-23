@@ -29,6 +29,7 @@ export async function resetDb(app: INestApplication) {
   const prisma = app.get(PrismaService);
   await prisma.auditLog.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.payoutRegistry.deleteMany();
   await prisma.webhookEvent.deleteMany();
   await prisma.promotion.deleteMany();
   // Материалы редакции не привязаны к поставщику и каскадом не удаляются

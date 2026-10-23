@@ -7,6 +7,7 @@ import { AdminOrdersController } from './admin-orders.controller';
 import { AdminOrdersService } from './admin-orders.service';
 import { CartService } from './cart.service';
 import { OrdersController } from './orders.controller';
+import { PayoutRegistryService } from './payout-registry.service';
 import { OrdersService } from './orders.service';
 import { AdminPayoutsController, SupplierOrdersController } from './supplier-orders.controller';
 import { SupplierOrdersService } from './supplier-orders.service';
@@ -14,7 +15,7 @@ import { SupplierOrdersService } from './supplier-orders.service';
 @Module({
   imports: [AuthModule, DeliveryModule, PaymentsModule],
   controllers: [OrdersController, SupplierOrdersController, AdminPayoutsController, AdminOrdersController],
-  providers: [CartService, OrdersService, SupplierOrdersService, AdminOrdersService],
+  providers: [CartService, OrdersService, SupplierOrdersService, AdminOrdersService, PayoutRegistryService],
   exports: [OrdersService, SupplierOrdersService],
 })
 export class OrdersModule implements OnApplicationBootstrap {

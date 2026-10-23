@@ -311,4 +311,53 @@ describe('заказ, оплата, доставка, возвраты и вып
     await admin.post(`/api/admin/payouts/${supA.supplierId}/activate`).set('Origin', ORIGIN).send({ accountId: 'acc-new' }).expect(200);
     expect((await supA.agent.get('/api/supplier/payouts')).body).toMatchObject({ payoutStatus: 'active', accountId: 'acc-new' });
   });
+
+  it('аварийный режим: оплата без сплита, выплаты поставщикам реестром', async () => {
+    const fake = app.get(OrdersService).payments as FakePaymentsProvider;
+    expect((await supA.agent.put('/api/admin/payouts/registry/mode').set('Origin', ORIGIN).send({ mode: 'registry', reason: 'Сплит недоступен' })).status).toBe(403);
+    expect((await admin.put('/api/admin/payouts/registry/mode').set('Origin', ORIGIN).send({ mode: 'registry', reason: '' })).status).toBe(400);
+    await admin.put('/api/admin/payouts/registry/mode').set('Origin', ORIGIN).send({ mode: 'registry', reason: 'ЮKassa: сбой сплитования' }).expect(200);
+
+    const { number, confirmationUrl } = await order();
+    expect((await fake.load(payId(confirmationUrl))).request.transfers).toEqual([]);
+    await pay(confirmationUrl);
+    expect(await prisma.payout.count({ where: { manual: true } })).toBe(2);
+    let ov = (await admin.get('/api/admin/payouts/registry')).body;
+    expect(ov.mode.mode).toBe('registry');
+    expect(ov.pending.suppliers).toEqual([]);
+    expect(ov.pending.waiting.rows).toBe(2);
+
+    // A доставлен; B отменён покупателем — возврат без sources, итог B = 0
+    const sA = await shipmentOf(supA.supplierId);
+    await prisma.shipment.update({ where: { id: sA.id }, data: { status: 'delivered' } });
+    await buyer.post(`/api/orders/${number}/cancel`).set('Origin', ORIGIN).expect(200);
+    expect((await fake.load(payId(confirmationUrl))).refunds[0].sources).toEqual([]);
+    ov = (await admin.get('/api/admin/payouts/registry')).body;
+    const byId = (id: string) => ov.pending.suppliers.find((x: any) => x.supplierId === id);
+    expect(byId(supA.supplierId)).toMatchObject({ amount: 720000, problem: 'Нет банковских реквизитов' });
+    expect(byId(supB.supplierId)).toMatchObject({ amount: 0, problem: expect.stringMatching(/не положительный/) });
+    expect((await admin.post('/api/admin/payouts/registry').set('Origin', ORIGIN)).status).toBe(400);
+
+    await prisma.supplier.update({ where: { id: supA.supplierId }, data: { payoutLegalName: 'ООО "Тест; А"', payoutInn: '7707083893', payoutBik: '044525225', payoutAccount: '40702810900000012345' } });
+    ov = (await admin.post('/api/admin/payouts/registry').set('Origin', ORIGIN).expect(201)).body;
+    const reg = ov.registries[0];
+    expect(reg).toMatchObject({ total: 720000, rows: 1, paidAt: null });
+    expect(ov.pending.suppliers.map((x: any) => x.supplierId)).toEqual([supB.supplierId]);
+    const csv = await admin.get(`/api/admin/payouts/registry/${reg.id}/csv`).expect(200);
+    expect(csv.text).toContain('"ООО ""Тест; А""";7707083893;044525225;40702810900000012345;7200,00;');
+    expect(csv.text).toContain(`${number}-1`);
+
+    await admin.post(`/api/admin/payouts/registry/${reg.id}/paid`).set('Origin', ORIGIN).expect(200);
+    expect((await admin.post(`/api/admin/payouts/registry/${reg.id}/paid`).set('Origin', ORIGIN)).status).toBe(400);
+    expect((await admin.post(`/api/admin/payouts/registry/${reg.id}/cancel`).set('Origin', ORIGIN)).status).toBe(400);
+    const report = await supA.agent.get(`/api/supplier/payouts/report?month=${new Date().toISOString().slice(0, 7)}`).expect(200);
+    expect(report.text).toContain(`Реестр ${reg.number}, оплачен`);
+
+    // Обратно на сплит: новые заказы снова с transfers
+    await admin.put('/api/admin/payouts/registry/mode').set('Origin', ORIGIN).send({ mode: 'split', reason: 'ЮKassa восстановила сплит' }).expect(200);
+    await prisma.productVariant.update({ where: { id: va }, data: { stock: 5 } });
+    const next = await order();
+    expect((await fake.load(payId(next.confirmationUrl))).request.transfers).toHaveLength(2);
+    expect(await prisma.auditLog.count({ where: { action: { startsWith: 'payouts.' } } })).toBe(5);
+  });
 });

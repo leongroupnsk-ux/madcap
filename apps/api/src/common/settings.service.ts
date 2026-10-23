@@ -60,4 +60,16 @@ export class SettingsService {
     await this.prisma.platformSetting.upsert({ where: { key: 'capsule' }, update: { value, updatedBy: actorId }, create: { key: 'capsule', value, updatedBy: actorId } });
     return this.capsuleWeights();
   }
+
+  /** Режим выплат: split — сплит ЮKassa; registry — аварийный, платформа платит поставщикам реестром (ТЗ §8) */
+  async payoutsMode(): Promise<'split' | 'registry'> {
+    const row = await this.prisma.platformSetting.findUnique({ where: { key: 'payouts' } });
+    return (row?.value as { mode?: 'split' | 'registry' } | undefined)?.mode ?? 'split';
+  }
+
+  async setPayoutsMode(mode: 'split' | 'registry', reason: string, actorId: string) {
+    const value = { mode, reason, since: new Date().toISOString() };
+    await this.prisma.platformSetting.upsert({ where: { key: 'payouts' }, update: { value, updatedBy: actorId }, create: { key: 'payouts', value, updatedBy: actorId } });
+    return value;
+  }
 }

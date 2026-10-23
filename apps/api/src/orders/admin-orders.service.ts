@@ -79,7 +79,7 @@ export class AdminOrdersService implements OnApplicationBootstrap {
   async view(number: string) {
     const o = await this.load(number);
     return {
-      number: o.number, status: o.status, paymentStatus: o.paymentStatus, paymentId: o.paymentId, paymentMethod: o.paymentMethod, createdAt: o.createdAt, paidAt: o.paidAt,
+      number: o.number, status: o.status, paymentStatus: o.paymentStatus, paymentId: o.paymentId, paymentMethod: o.paymentMethod, settlement: o.settlement, createdAt: o.createdAt, paidAt: o.paidAt,
       expiresAt: o.expiresAt, cancelReason: o.cancelReason, goodsTotal: o.goodsTotal, deliveryTotal: o.deliveryTotal, total: o.total,
       customer: { email: o.user.email, name: o.recipientName, phone: o.recipientPhone, recipientEmail: o.recipientEmail, deleted: Boolean(o.user.deletedAt) },
       refunds: o.refunds.map((r) => ({ id: r.id, amount: r.amount, reason: r.reason, status: r.status, providerRefundId: r.providerRefundId, createdAt: r.createdAt })),

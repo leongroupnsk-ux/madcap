@@ -15,7 +15,7 @@ type Shipment = {
   returns: { status: string; amount: number; reason: string }[];
 };
 type Order = {
-  number: string; status: string; paymentStatus: string; paymentId: string | null; paymentMethod: string | null; createdAt: string; paidAt: string | null; expiresAt: string; cancelReason: string | null;
+  number: string; status: string; paymentStatus: string; paymentId: string | null; paymentMethod: string | null; settlement: 'split' | 'registry'; createdAt: string; paidAt: string | null; expiresAt: string; cancelReason: string | null;
   goodsTotal: number; deliveryTotal: number; total: number; customer: { email: string; name: string; phone: string; recipientEmail: string; deleted: boolean };
   refunds: { id: string; amount: number; reason: string; status: string; providerRefundId: string | null; createdAt: string }[]; shipments: Shipment[];
 };
@@ -62,6 +62,7 @@ export default function AdminOrderPage() {
           <div className={s.muted}>
             {ORDER_STATUS_LABEL[o.status]} · оплата: {o.paymentStatus}
             {o.paymentMethod && ` · ${o.paymentMethod}`}
+            {o.settlement === 'registry' && ' · без сплита, поставщикам — реестром'}
             {o.cancelReason && ` · ${o.cancelReason}`}
           </div>
         </div>

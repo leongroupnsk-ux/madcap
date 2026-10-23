@@ -780,6 +780,8 @@ model Order {
   paidAt          DateTime?
   cancelledAt     DateTime?
   cancelReason    String?
+  /// split — деньги поставщикам переводит ЮKassa; registry — аварийный режим, платформа платит реестром (ТЗ §8)
+  settlement      Settlement    @default(split)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -790,6 +792,11 @@ model Order {
   @@index([userId, createdAt])
   @@index([status, expiresAt])
   @@map("orders")
+}
+
+enum Settlement {
+  split
+  registry
 }
 
 enum ShipmentStatus {
@@ -905,13 +912,33 @@ model Payout {
   amountGoods Int
   commission  Int
   transferred Int
+  /// Заказ в аварийном режиме: перечисляет платформа по реестру, а не ЮKassa
+  manual      Boolean    @default(false)
+  registryId  String?    @db.Uuid
   createdAt   DateTime   @default(now())
 
-  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
-  supplier Supplier @relation(fields: [supplierId], references: [id])
+  shipment Shipment        @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  supplier Supplier        @relation(fields: [supplierId], references: [id])
+  registry PayoutRegistry? @relation(fields: [registryId], references: [id])
 
   @@index([supplierId, createdAt])
+  @@index([manual, registryId])
   @@map("payouts")
+}
+
+/// Реестр ручных выплат поставщикам в аварийном режиме (ТЗ §8)
+model PayoutRegistry {
+  id        String    @id @default(uuid()) @db.Uuid
+  number    Int       @unique @default(autoincrement())
+  total     Int
+  createdBy String    @db.Uuid
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+  paidBy    String?   @db.Uuid
+
+  payouts Payout[]
+
+  @@map("payout_registries")
 }
 
 enum RefundStatus {

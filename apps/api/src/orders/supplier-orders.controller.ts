@@ -9,9 +9,11 @@ import { AuditService } from '../common/audit.service';
 import { PrismaService } from '../common/prisma.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
+import { PayoutRegistryService } from './payout-registry.service';
 import { SupplierOrdersService } from './supplier-orders.service';
 
 const optionalReason = z.object({ reason: z.string().trim().max(500).optional() });
+const modeSchema = z.object({ mode: z.enum(['split', 'registry']), reason: z.string().trim().min(5, 'Опишите причину').max(500) });
 const activateSchema = z.object({ accountId: z.string().trim().min(3, 'Укажите ID получателя ЮKassa').max(64) });
 
 @Controller('supplier')
@@ -116,7 +118,43 @@ export class AdminPayoutsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly registry: PayoutRegistryService,
   ) {}
+
+  /** Аварийный режим и реестры ручных выплат (ТЗ §8) */
+  @Get('registry')
+  overview() {
+    return this.registry.overview();
+  }
+
+  @Put('registry/mode')
+  mode(@Body(new ZodPipe(modeSchema)) body: z.infer<typeof modeSchema>, @CurrentUser() admin: User) {
+    return this.registry.setMode(body.mode, body.reason, admin);
+  }
+
+  @Post('registry')
+  createRegistry(@CurrentUser() admin: User) {
+    return this.registry.create(admin);
+  }
+
+  @Get('registry/:id/csv')
+  async registryCsv(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User, @Res({ passthrough: true }) res: Response) {
+    const r = await this.registry.csv(id, admin);
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${r.name}"`, 'Cache-Control': 'no-store' });
+    return r.csv;
+  }
+
+  @Post('registry/:id/paid')
+  @HttpCode(200)
+  paid(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User) {
+    return this.registry.markPaid(id, admin);
+  }
+
+  @Post('registry/:id/cancel')
+  @HttpCode(200)
+  cancelRegistry(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() admin: User) {
+    return this.registry.remove(id, admin);
+  }
 
   @Get()
   async list() {

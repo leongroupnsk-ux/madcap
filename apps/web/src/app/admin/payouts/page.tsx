@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
+import { Registry } from './Registry';
 
 type Row = {
   id: string; legalName: string; inn: string; payoutStatus: 'not_connected' | 'in_review' | 'active'; accountId: string | null;
@@ -88,6 +89,7 @@ export default function AdminPayoutsPage() {
           </tbody>
         </table>
       </div>
+      <Registry />
     </>
   );
 }

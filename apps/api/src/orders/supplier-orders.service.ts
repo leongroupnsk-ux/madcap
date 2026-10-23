@@ -254,12 +254,13 @@ export class SupplierOrdersService {
     if (!m) throw new BadRequestException({ message: 'Месяц в формате ГГГГ-ММ' });
     const from = new Date(Number(m[1]), Number(m[2]) - 1, 1);
     const to = new Date(Number(m[1]), Number(m[2]), 1);
-    const rows = await this.prisma.payout.findMany({ where: { supplierId: supplier.id, createdAt: { gte: from, lt: to } }, include: { shipment: { include: { order: true } } }, orderBy: { createdAt: 'asc' } });
+    const rows = await this.prisma.payout.findMany({ where: { supplierId: supplier.id, createdAt: { gte: from, lt: to } }, include: { shipment: { include: { order: true } }, registry: true }, orderBy: { createdAt: 'asc' } });
+    const how = (p: (typeof rows)[number]) => (!p.manual ? 'ЮKassa' : p.registry ? `Реестр ${p.registry.number}${p.registry.paidAt ? `, оплачен ${p.registry.paidAt.toLocaleDateString('ru-RU')}` : ''}` : 'Ожидает реестра');
     const rub = (k: number) => (k / 100).toFixed(2).replace('.', ',');
     const lines = [
       `Отчёт агента;${supplier.legalName};ИНН ${supplier.inn};${month}`,
-      'Дата;Отправление;Операция;Сумма товаров;Вознаграждение агента;Перечислено принципалу',
-      ...rows.map((p) => [p.createdAt.toLocaleDateString('ru-RU'), `${p.shipment.order.number}-${p.shipment.no}`, p.kind === 'sale' ? 'Продажа' : 'Возврат', rub(p.amountGoods), rub(p.commission), rub(p.transferred)].join(';')),
+      'Дата;Отправление;Операция;Сумма товаров;Вознаграждение агента;Перечислено принципалу;Способ перечисления',
+      ...rows.map((p) => [p.createdAt.toLocaleDateString('ru-RU'), `${p.shipment.order.number}-${p.shipment.no}`, p.kind === 'sale' ? 'Продажа' : 'Возврат', rub(p.amountGoods), rub(p.commission), rub(p.transferred), how(p)].join(';')),
       ['Итого', '', '', rub(rows.reduce((s, p) => s + p.amountGoods, 0)), rub(rows.reduce((s, p) => s + p.commission, 0)), rub(rows.reduce((s, p) => s + p.transferred, 0))].join(';'),
     ];
     return { csv: `﻿${lines.join('\r\n')}\r\n`, name: `otchet-agenta-${month}.csv` };

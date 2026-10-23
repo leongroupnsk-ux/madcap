@@ -72,7 +72,8 @@ export class YooKassaProvider implements PaymentsProvider {
         description: p.description.slice(0, 128),
         metadata: p.metadata,
         receipt: receiptBody(p.receipt),
-        transfers: p.transfers.map(transferBody),
+        // Аварийный режим: без transfers деньги остаются платформе, поставщикам — реестром
+        ...(p.transfers.length ? { transfers: p.transfers.map(transferBody) } : {}),
       },
       p.idempotenceKey,
     );
@@ -88,7 +89,7 @@ export class YooKassaProvider implements PaymentsProvider {
     const res = await this.call<any>(
       'POST',
       '/refunds',
-      { payment_id: r.paymentId, amount: money(r.amount), description: r.description.slice(0, 250), sources: r.sources.map(transferBody), receipt: receiptBody(r.receipt) },
+      { payment_id: r.paymentId, amount: money(r.amount), description: r.description.slice(0, 250), ...(r.sources.length ? { sources: r.sources.map(transferBody) } : {}), receipt: receiptBody(r.receipt) },
       r.idempotenceKey,
     );
     return { id: res.id as string, status: res.status };
