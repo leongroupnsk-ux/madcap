@@ -3,6 +3,7 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
+/* Карточка товара — компонент product-card макета */
 .card {
   display: flex;
   flex-direction: column;
@@ -11,7 +12,7 @@
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  border: 1px solid #dfe6e1;
+  border: 1px solid var(--c-border-soft);
   transition: box-shadow 0.15s;
 }
 .card:hover {
@@ -19,8 +20,8 @@
 }
 .media {
   position: relative;
-  aspect-ratio: 3 / 4;
-  background: #e6ebe7;
+  aspect-ratio: 251 / 274;
+  background: var(--c-surface-soft);
   overflow: hidden;
 }
 .media img {
@@ -39,58 +40,77 @@
 }
 .badges {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 12px;
+  left: 12px;
+  right: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   z-index: 1;
 }
 .badgeSale,
 .badgeFit {
-  font-size: 11px;
-  padding: 3px 9px;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 700;
+  padding: 4px 10px;
   border-radius: var(--r-pill);
+  white-space: nowrap;
 }
 .badgeSale {
   background: var(--c-sale);
   color: #fff;
 }
 .badgeFit {
-  background: var(--c-chip);
+  background: rgba(224, 238, 231, 0.95);
   color: var(--c-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 .body {
-  padding: 12px 14px 16px;
-  display: grid;
-  gap: 4px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
 }
 .brand {
   font-size: 10px;
-  letter-spacing: 0.14em;
+  line-height: 15px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--c-text-muted);
+  color: var(--c-text-faint);
 }
 .title {
+  margin-top: 4px;
   font-family: var(--font-serif);
   font-size: 18px;
-  line-height: 1.15;
+  line-height: 20px;
   color: var(--c-primary);
 }
 .meta {
+  margin-top: 8px;
   font-size: 12px;
+  line-height: 16px;
   color: var(--c-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .price {
-  margin-top: 6px;
-  font-weight: 700;
-  font-size: 15px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--c-primary);
   white-space: nowrap;
 }
 .old {
-  margin-left: 8px;
   font-weight: 400;
   font-size: 12px;
-  color: var(--c-text-faint);
+  line-height: 16px;
+  color: var(--c-text-strike);
   text-decoration: line-through;
 }
 .sectionHead {
@@ -98,17 +118,20 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 16px;
-  margin: 48px 0 20px;
+  margin: 0 0 28px;
 }
 .sectionHead h2 {
-  font-size: clamp(32px, 4vw, 44px);
+  font-size: clamp(32px, 3.5vw, 48px);
+  line-height: 1;
 }
 .more {
   color: var(--c-primary);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
+  line-height: 20px;
   text-decoration: underline;
-  text-underline-offset: 4px;
+  text-underline-offset: 3px;
+  white-space: nowrap;
 }
 @media (max-width: 1100px) {
   .grid {

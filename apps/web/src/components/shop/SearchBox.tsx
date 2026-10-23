@@ -80,7 +80,7 @@ export function SearchBox() {
         onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
       />
       <button type="submit" aria-label="Найти">
-        ⌕
+        <img src="/design/icons/search.svg" alt="" width={16} height={16} />
       </button>
       {open && data && (
         <div className={s.panel} role="listbox">

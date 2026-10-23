@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { DEFAULT_STOREFRONT, type MenuItem } from '@aesculap/shared';
-import { BRAND } from '@/lib/brand';
 import { serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
 import { CartCount } from './CartCount';
 import { CartSync } from './CartSync';
+import { Logo } from './Logo';
 import { SearchBox } from './shop/SearchBox';
 import s from './site.module.css';
 
@@ -15,11 +15,11 @@ export async function SiteHeader() {
     <header className={s.header}>
       <CartSync userId={user?.id ?? null} />
       <div className={`container ${s.top}`}>
-        <Link href="/" className={s.logo}>
-          {BRAND.mark}
+        <Link href="/" className={s.logo} aria-label="На главную">
+          <Logo />
         </Link>
         <Link href="/catalog" className={s.catalogBtn}>
-          <span aria-hidden>▦</span> Каталог
+          <img src="/design/icons/catalog.svg" alt="" width={16} height={16} /> Каталог
         </Link>
         <Suspense>
           <SearchBox />
@@ -43,13 +43,18 @@ export async function SiteHeader() {
           </Link>
         </nav>
       </div>
-      <nav className={`container ${s.cats}`} aria-label="Категории">
-        {menu.map((c) => (
-          <Link key={`${c.href}-${c.label}`} href={c.href} className={c.tone ? s[c.tone] : undefined}>
-            {c.label}
+      <div className={s.catsBar}>
+        <nav className={`container ${s.cats}`} aria-label="Категории">
+          {menu.map((c) => (
+            <Link key={`${c.href}-${c.label}`} href={c.href} className={c.tone ? s[c.tone] : /^\/(journal|suppliers)/.test(c.href) ? s.accent : undefined}>
+              {c.label}
+            </Link>
+          ))}
+          <Link href="/map" className={s.platform}>
+            Карта платформы
           </Link>
-        ))}
-      </nav>
+        </nav>
+      </div>
     </header>
   );
 }
