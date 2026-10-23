@@ -8,7 +8,8 @@ type SitemapData = {
   collections: { slug: string; updatedAt: string }[];
 };
 
-export const revalidate = 3600;
+// Собирается по запросу (в Docker при сборке API недоступен); ответ API кэшируется на час.
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const api = process.env.API_INTERNAL_URL ?? 'http://localhost:4100';

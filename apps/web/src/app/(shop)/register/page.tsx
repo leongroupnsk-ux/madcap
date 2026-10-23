@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { safeNext } from '@/lib/safe-next';
 import { redirect } from 'next/navigation';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { getSessionUser } from '@/lib/session';
@@ -8,7 +9,7 @@ export const metadata: Metadata = { title: 'Создать аккаунт', robo
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
-  const target = next?.startsWith('/') && !next.startsWith('//') ? next : null;
+  const target = safeNext(next);
   if (await getSessionUser()) redirect(target ?? '/account');
   return (
     <AuthCard title="Создать аккаунт">

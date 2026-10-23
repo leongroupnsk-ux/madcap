@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	encode zstd gzip
+	# Заголовки безопасности ставит Next.js (next.config.ts); здесь — только транспорт
+	header -Server
+	# Загрузки: видео до 100 МБ, файлы импорта — до 20 МБ
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy web:4000
+}
+
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

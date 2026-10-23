@@ -1,0 +1,80 @@
+# Продакшен на одном сервере (ТЗ §11: данные — на серверах в РФ).
+#   cp .env.production.example .env.production   # заполнить ключи
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Caddy сам получает и продлевает сертификат Let's Encrypt для DOMAIN (HTTPS + HSTS).
+name: aesculap
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aesculap
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD}
+      POSTGRES_DB: aesculap
+    volumes: [pgdata:/var/lib/postgresql/data]
+    # Наружу не публикуется; бэкапы — с хоста через 127.0.0.1
+    ports: ['127.0.0.1:5432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aesculap']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      DATABASE_URL: postgresql://aesculap:${POSTGRES_PASSWORD}@postgres:5432/aesculap?connection_limit=30
+      REDIS_URL: redis://redis:6379/0
+      WEB_ORIGIN: https://${DOMAIN:?задайте DOMAIN}
+      SITE_URL: https://${DOMAIN}
+    volumes: [storage:/data/storage]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args: { API_INTERNAL_URL: http://api:4100 }
+    restart: unless-stopped
+    # Сайту ключи оплаты и доставки не нужны — только адрес API и реквизиты для юридических страниц
+    environment:
+      API_INTERNAL_URL: http://api:4100
+      SITE_URL: https://${DOMAIN}
+      OPERATOR_NAME: ${OPERATOR_NAME:-}
+      OPERATOR_INN: ${OPERATOR_INN:-}
+      OPERATOR_OGRN: ${OPERATOR_OGRN:-}
+      OPERATOR_ADDRESS: ${OPERATOR_ADDRESS:-}
+      OPERATOR_EMAIL: ${OPERATOR_EMAIL:-}
+    depends_on:
+      api: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [web]
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:
+  caddydata:

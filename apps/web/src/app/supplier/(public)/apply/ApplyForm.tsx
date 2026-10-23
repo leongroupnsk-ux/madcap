@@ -43,7 +43,7 @@ export function ApplyForm() {
       <Field label="Email" name="email" type="email" placeholder="sales@company.ru" error={errors.email} />
       <Field label="Ассортимент" name="assortment" placeholder="скраб-костюмы, топы, брюки, шапочки…" error={errors.assortment} />
       <Checkbox name="acceptPdn" error={errors.acceptPdn}>
-        Согласен на обработку персональных данных по <Link href="/legal/privacy">политике</Link>
+        Согласен на обработку персональных данных по <Link href="/legal/privacy">политике</Link> и с <Link href="/legal/suppliers">условиями для поставщиков</Link>
       </Checkbox>
       <Button type="submit" block disabled={pending}>
         {pending ? 'Отправляем…' : 'Отправить заявку'}

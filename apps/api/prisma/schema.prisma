@@ -27,6 +27,11 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
+  /// Блокировка администратором: вход и сессии недоступны
+  blockedAt       DateTime?
+  blockReason     String?
+  /// Последняя активность: от неё считается срок хранения фото (12 месяцев, ТЗ §11)
+  lastActiveAt    DateTime  @default(now())
   /// TOTP-секрет (base32); 2FA обязательна для владельца поставщика по желанию, для админа — рекомендуется
   totpSecret      String?
   totpEnabledAt   DateTime?
@@ -926,7 +931,9 @@ enum ReturnStatus {
   rejected
 }
 
-/// Возврат доставленного отправления в течение 7 дней (ТЗ §6.6)
+/// Возврат доставленного отправления в течение 7 дней (ТЗ §6.6).
+/// ВНИМАНИЕ: в миграции stage6_security есть частичный уникальный индекс return_requests_one_open_per_shipment
+/// (shipmentId WHERE status = 'requested'); Prisma его не описывает — при migrate diff не удалять.
 model ReturnRequest {
   id           String       @id @default(uuid()) @db.Uuid
   shipmentId   String       @db.Uuid

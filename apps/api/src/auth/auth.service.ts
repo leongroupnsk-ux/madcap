@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthTokenType, type User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { CONSENT_VERSIONS, type LoginInput, type RegisterInput } from '@aesculap/shared';
@@ -57,6 +57,8 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email: input.email } });
     const ok = await argon2.verify(user?.passwordHash ?? (await getDummyHash()), input.password).catch(() => false);
     if (!user || !ok || user.deletedAt) throw new UnauthorizedException({ message: 'Неверный email или пароль' });
+    // О блокировке говорим только после верного пароля — иначе это раскрывало бы наличие аккаунта.
+    if (user.blockedAt) throw new ForbiddenException({ message: 'Аккаунт заблокирован. Напишите в поддержку.', code: 'blocked' });
     if (user.totpEnabledAt && user.totpSecret) {
       // Пароль верный, нужен второй фактор: клиент показывает поле кода.
       if (!input.totp) throw new UnauthorizedException({ message: 'Введите код из приложения-аутентификатора', code: 'totp_required' });
@@ -65,6 +67,7 @@ export class AuthService {
       }
     }
     await this.limits.reset('login', input.email);
+    await this.prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
     return user;
   }
 
@@ -138,6 +141,7 @@ export class AuthService {
   }
 
   async totpEnable(user: User, code: string) {
+    await this.limits.hit('totp', user.id, 5, 900);
     if (!user.totpSecret || !verifyTotp(user.totpSecret, code)) {
       throw new BadRequestException({ message: 'Неверный код', errors: { code: 'Неверный код' } });
     }
@@ -145,6 +149,7 @@ export class AuthService {
   }
 
   async totpDisable(user: User, code: string) {
+    await this.limits.hit('totp', user.id, 5, 900);
     if (!user.totpSecret || !user.totpEnabledAt || !verifyTotp(user.totpSecret, code)) {
       throw new BadRequestException({ message: 'Неверный код', errors: { code: 'Неверный код' } });
     }
@@ -161,12 +166,12 @@ export class AuthService {
     return token;
   }
 
+  /** Атомарно: из двух одновременных запросов с одной ссылкой проходит только один. */
   private async consumeToken(token: string, type: AuthTokenType) {
-    const record = await this.prisma.authToken.findUnique({ where: { tokenHash: sha256(token) } });
-    if (!record || record.type !== type || record.usedAt || record.expiresAt < new Date()) {
-      throw new BadRequestException({ message: 'Ссылка недействительна или устарела. Запросите новую.' });
-    }
-    await this.prisma.authToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
-    return record;
+    const tokenHash = sha256(token);
+    const now = new Date();
+    const used = await this.prisma.authToken.updateMany({ where: { tokenHash, type, usedAt: null, expiresAt: { gt: now } }, data: { usedAt: now } });
+    if (used.count === 0) throw new BadRequestException({ message: 'Ссылка недействительна или устарела. Запросите новую.' });
+    return this.prisma.authToken.findUniqueOrThrow({ where: { tokenHash } });
   }
 }

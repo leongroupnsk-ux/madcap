@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { PrismaService } from '../common/prisma.service';
+import { AlertService } from '../common/alert.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { config } from '../config';
@@ -26,6 +27,7 @@ export class OrdersController {
     private readonly supplierOrders: SupplierOrdersService,
     private readonly prisma: PrismaService,
     private readonly rateLimit: RateLimitService,
+    private readonly alerts: AlertService,
   ) {}
 
   // ─── корзина ─────────────────────────────────────────────────────────
@@ -50,7 +52,9 @@ export class OrdersController {
 
   @Post('checkout/quote')
   @HttpCode(200)
-  quote(@Body(new ZodPipe(quoteSchema)) body: { lines: CartLineInput[]; cityCode: number }) {
+  async quote(@Body(new ZodPipe(quoteSchema)) body: { lines: CartLineInput[]; cityCode: number }, @Req() req: Request) {
+    // Публичный расчёт ходит в СДЭК: ограничиваем, чтобы случайными городами не выжгли квоту API
+    await this.rateLimit.hit('quote', req.ip ?? 'unknown', 60, 600);
     return this.orders.quote(body.lines, body.cityCode);
   }
 
@@ -137,7 +141,15 @@ export class OrdersController {
       update: {},
       create: { source: 'yookassa', objectId: id, event: body.event, payload: body as object },
     });
-    if (body.event.startsWith('payment.')) await this.orders.handlePayment(id);
+    if (body.event.startsWith('payment.')) {
+      try {
+        await this.orders.handlePayment(id);
+      } catch (e) {
+        // Алерт на падение вебхука оплаты (ТЗ §11); 500 — ЮKassa повторит уведомление
+        await this.alerts.send(`Вебхук ЮKassa не обработан: ${id}`, `${body.event}\n${(e as Error).stack ?? e}`);
+        throw e;
+      }
+    }
     return { ok: true };
   }
 
@@ -146,6 +158,8 @@ export class OrdersController {
   @HttpCode(200)
   async cdekWebhook(@Body() body: { type?: string; uuid?: string; attributes?: { code?: string } }) {
     if (body?.type !== 'ORDER_STATUS' || typeof body.uuid !== 'string') return { ok: true };
+    // Чужие uuid не пишем в журнал: иначе его можно засорить произвольными событиями
+    if (!(await this.prisma.shipment.findUnique({ where: { cdekUuid: body.uuid }, select: { id: true } }))) return { ok: true };
     await this.prisma.webhookEvent.upsert({
       where: { source_objectId_event: { source: 'cdek', objectId: body.uuid, event: body.attributes?.code ?? 'status' } },
       update: {},

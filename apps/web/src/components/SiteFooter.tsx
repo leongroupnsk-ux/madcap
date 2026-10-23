@@ -13,6 +13,7 @@ export function SiteFooter() {
           <Link href="/legal/offer">Оферта</Link>
           <Link href="/legal/privacy">Политика ПДн</Link>
           <Link href="/legal/delivery">Доставка и возврат</Link>
+          <Link href="/legal/suppliers">Условия для поставщиков</Link>
           <Link href="/suppliers">Поставщикам</Link>
           <a href="mailto:support@example.ru">Поддержка</a>
         </div>

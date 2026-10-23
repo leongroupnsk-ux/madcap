@@ -3,6 +3,7 @@ import { NOTIFY_EVENTS, type NotifyEvent } from '@aesculap/shared';
 import type { SupplierMemberRole, User } from '@prisma/client';
 import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
+import { RateLimitService } from '../common/rate-limit.service';
 import { config } from '../config';
 import { TelegramService } from './telegram.service';
 
@@ -30,6 +31,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     readonly telegram: TelegramService,
+    private readonly limits: RateLimitService,
   ) {}
 
   async notify(supplierId: string, event: NotifyEvent, p: NotifyPayload) {
@@ -93,6 +95,8 @@ export class NotificationsService {
   }
 
   async linkTelegram(user: User, supplierId: string, code: string) {
+    // Код из 6 цифр: без лимита его можно подобрать и привязать чужой чат
+    await this.limits.hit('tg-link', user.id, 5, 900);
     const chatId = await this.telegram.redeem(code);
     if (!chatId) throw new BadRequestException({ message: 'Код не найден или устарел — напишите боту /start ещё раз', errors: { code: 'Неверный код' } });
     await this.prisma.notificationSetting.upsert({

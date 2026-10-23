@@ -39,9 +39,13 @@ export class SessionService {
       where: { tokenHash: sha256(token) },
       include: { user: true },
     });
-    if (!session || session.expiresAt < new Date() || session.user.deletedAt) return null;
+    if (!session || session.expiresAt < new Date() || session.user.deletedAt || session.user.blockedAt) return null;
     if (Date.now() - session.lastSeenAt.getTime() > 600_000) {
-      await this.prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
+      const now = new Date();
+      await this.prisma.$transaction([
+        this.prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: now } }),
+        this.prisma.user.update({ where: { id: session.userId }, data: { lastActiveAt: now } }),
+      ]);
     }
     return { session, user: session.user };
   }

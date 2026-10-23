@@ -15,6 +15,8 @@ export const config = {
   /** smtp://user:pass@smtp.example.ru:465 — для MAIL_DRIVER=smtp */
   smtpUrl: process.env.SMTP_URL ?? '',
   mailFrom: process.env.MAIL_FROM ?? 'aesculap <noreply@example.ru>',
+  /** Куда слать алерты о сбоях (вебхуки оплаты) */
+  alertEmail: process.env.ALERT_EMAIL ?? '',
   /** Telegram-бот уведомлений поставщикам; без токена бот выключен */
   telegram: { token: process.env.TELEGRAM_BOT_TOKEN ?? '', username: process.env.TELEGRAM_BOT_USERNAME ?? '' },
   isProd: process.env.NODE_ENV === 'production',
@@ -44,3 +46,22 @@ export const config = {
   session: { cookieName: 'sid', ttlDays: 30 },
   tokens: { emailVerifyHours: 48, passwordResetMinutes: 60 },
 };
+
+/**
+ * В продакшене заглушки недопустимы: тестовая оплата перевела бы любой заказ в «оплачен», а письма
+ * со ссылками сброса пароля ушли бы в лог. Для демо-стенда — явный ALLOW_TEST_PROVIDERS=1.
+ */
+export function assertProductionConfig() {
+  if (!config.isProd || process.env.ALLOW_TEST_PROVIDERS === '1') return;
+  const problems = [
+    config.payments.driver !== 'yookassa' && 'PAYMENTS_DRIVER должен быть yookassa',
+    config.payments.driver === 'yookassa' && !(config.payments.yookassaShopId && config.payments.yookassaSecret) && 'нужны YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY',
+    config.delivery.driver !== 'cdek' && 'DELIVERY_DRIVER должен быть cdek',
+    config.delivery.driver === 'cdek' && !(config.delivery.cdekClientId && config.delivery.cdekSecret) && 'нужны CDEK_CLIENT_ID и CDEK_CLIENT_SECRET',
+    config.mailDriver !== 'smtp' && 'MAIL_DRIVER должен быть smtp',
+    config.mailDriver === 'smtp' && !config.smtpUrl && 'нужен SMTP_URL',
+    !config.storefrontRequirePayouts && 'STOREFRONT_REQUIRE_PAYOUTS нельзя выключать',
+    !config.webOrigin.startsWith('https://') && 'WEB_ORIGIN должен быть https://',
+  ].filter(Boolean);
+  if (problems.length) throw new Error(`Небезопасная конфигурация продакшена:\n- ${problems.join('\n- ')}\n(для демо-стенда — ALLOW_TEST_PROVIDERS=1)`);
+}

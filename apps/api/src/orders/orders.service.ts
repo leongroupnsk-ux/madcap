@@ -78,6 +78,12 @@ export class OrdersService {
       if (!address) throw new BadRequestException({ message: `Выберите доставку для отправления от «${supplier.legalName}»` });
       if (!supplier.cdekCityCode) throw new BadRequestException({ message: `Поставщик «${supplier.legalName}» не указал склад отгрузки` });
       if (this.payments.name === 'yookassa' && !supplier.yookassaAccountId) throw new BadRequestException({ message: `Поставщик «${supplier.legalName}» временно не принимает оплату` });
+      if (address.type === 'pvz') {
+        // Пункт выдачи должен быть в городе, по которому считается тариф; адрес пункта берём из СДЭК, а не от клиента.
+        const point = (await this.delivery.points(address.cityCode)).find((pt) => pt.code === address.pvzCode);
+        if (!point) throw new BadRequestException({ message: `Пункт выдачи не найден в городе ${address.city} — выберите его заново` });
+        address.pvzAddress = point.address;
+      }
       const quotes = await this.delivery.quote(supplier.cdekCityCode, address.cityCode, parcelOf(items));
       const q = quotes.find((x) => x.type === address.type);
       if (!q) throw new BadRequestException({ message: `СДЭК не доставляет ${address.type === 'pvz' ? 'в пункт выдачи' : 'курьером'} в ${address.city}` });
@@ -242,7 +248,11 @@ export class OrdersService {
       return;
     }
     if (state.status === 'succeeded') {
-      if (state.amount !== order.total) this.logger.error(`Сумма платежа ${paymentId} не совпала с заказом ${order.number}`);
+      if (state.amount !== order.total) {
+        // Платёж не на ту сумму заказ не оплачивает: разбирается вручную (сверка в ЮKassa)
+        this.logger.error(`Сумма платежа ${paymentId} (${state.amount}) не совпала с заказом ${order.number} (${order.total}) — заказ не переведён в «оплачен»`);
+        return;
+      }
       const now = new Date();
       const updated = await this.prisma.$transaction(async (tx) => {
         const r = await tx.order.updateMany({
@@ -402,13 +412,18 @@ export class OrdersService {
     if (s.status !== 'delivered' || !s.deliveredAt) throw new BadRequestException({ message: 'Возврат оформляется после получения' });
     if (Date.now() - s.deliveredAt.getTime() > RETURN_DAYS * DAY) throw new BadRequestException({ message: `Возврат возможен в течение ${RETURN_DAYS} дней после получения` });
     if (await this.prisma.returnRequest.findFirst({ where: { shipmentId: s.id, status: 'requested' } })) throw new ConflictException({ message: 'Заявка на возврат уже на рассмотрении' });
+    if (new Set(input.items.map((r) => r.itemId)).size !== input.items.length) throw new BadRequestException({ message: 'Каждый товар — одной строкой' });
     let amount = 0;
     for (const r of input.items) {
       const item = s.items.find((i) => i.id === r.itemId);
       if (!item || r.qty > item.qty - item.returnedQty) throw new BadRequestException({ message: 'Неверное количество для возврата' });
       amount += item.price * r.qty;
     }
-    await this.prisma.returnRequest.create({ data: { shipmentId: s.id, userId: user.id, items: input.items, reason: input.reason, amount } });
+    // Одна открытая заявка на отправление гарантируется уникальным индексом (гонка двух запросов).
+    await this.prisma.returnRequest.create({ data: { shipmentId: s.id, userId: user.id, items: input.items, reason: input.reason, amount } }).catch((e) => {
+      if (e?.code === 'P2002') throw new ConflictException({ message: 'Заявка на возврат уже на рассмотрении' });
+      throw e;
+    });
     await this.prisma.shipmentEvent.create({ data: { shipmentId: s.id, status: 'return_requested', note: `Запрошен возврат на ${formatRub(amount)}` } });
     return this.view(user, number);
   }

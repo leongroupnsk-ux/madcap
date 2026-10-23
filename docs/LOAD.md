@@ -52,7 +52,7 @@ psql -d postgres -c "CREATE DATABASE aesculap_load OWNER aesculap"
 export DATABASE_URL=postgresql://aesculap:aesculap@localhost:5432/aesculap_load
 pnpm --filter @aesculap/api exec prisma migrate deploy && pnpm --filter @aesculap/api prisma:seed
 pnpm --filter @aesculap/api load:seed
-# API на 4200 с этой базой, затем:
+# API на 4200 с этой базой (NODE_ENV=production требует ALLOW_TEST_PROVIDERS=1 без боевых ключей), затем:
 LOAD_CONNECTIONS=200 LOAD_RATE=70 LOAD_SECONDS=20 pnpm --filter @aesculap/api load:test
 pnpm --filter @aesculap/api capsule:bench
 ```

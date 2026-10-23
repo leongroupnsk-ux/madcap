@@ -10,3 +10,5 @@ coverage
 *.tsbuildinfo
 .storage
 .storage-test
+.env.production
+backups

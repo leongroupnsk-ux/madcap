@@ -88,7 +88,11 @@ export const payoutDetailsSchema = z.object({
 export type PayoutDetailsInput = z.infer<typeof payoutDetailsSchema>;
 
 export const returnRequestSchema = z.object({
-  items: z.array(z.object({ itemId: z.string().uuid(), qty: z.number().int().min(1) })).min(1, 'Выберите товары для возврата'),
+  items: z
+    .array(z.object({ itemId: z.string().uuid(), qty: z.number().int().min(1).max(99) }))
+    .min(1, 'Выберите товары для возврата')
+    .max(100)
+    .refine((items) => new Set(items.map((i) => i.itemId)).size === items.length, 'Каждый товар — одной строкой'),
   reason: z.string().trim().min(3, 'Укажите причину возврата').max(500),
 });
 

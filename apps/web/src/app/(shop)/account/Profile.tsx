@@ -4,7 +4,7 @@ import { formatRub, plural } from '@aesculap/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
-import { Alert, Button } from '@/components/ui';
+import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { writeCart } from '@/lib/cart';
 import o from '@/components/shop/order.module.css';
@@ -29,6 +29,9 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
   const [consents, setConsents] = useState(props.consents);
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [password, setPassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const pr = profile;
 
@@ -177,7 +180,12 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
               ] as const
             ).map(([type, label]) => (
               <label key={type} className={p.consent}>
-                <input type="checkbox" checked={Boolean(consents[type])} onChange={(e) => consent(type, e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={Boolean(consents[type])}
+                  // Отзыв согласия на ПДн или оферты = удаление аккаунта (ТЗ §6.5)
+                  onChange={(e) => (!e.target.checked && (type === 'pdn' || type === 'offer') ? setDeleting(true) : consent(type, e.target.checked))}
+                />
                 {label}
               </label>
             ))}
@@ -195,12 +203,51 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 Выйти
               </Button>
             </div>
+            <div style={{ marginTop: 16, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 14 }}>
+              <a href="/api/me/export" className={p.inline} style={{ textDecoration: 'none' }}>
+                Скачать мои данные
+              </a>
+              <button className={p.inline} style={{ color: 'var(--c-error)' }} onClick={() => setDeleting(true)}>
+                Удалить аккаунт
+              </button>
+            </div>
           </div>
         </div>
       </div>
       <div className="eyebrow" style={{ marginTop: 32 }}>
         История заказов
       </div>
+      {deleting && (
+        <Modal eyebrow="Аккаунт" title="Удалить аккаунт?" onClose={() => setDeleting(false)}>
+          <p style={{ marginBottom: 12 }}>
+            Удалятся анкета, фото, капсулы, адреса и корзина; согласия будут отозваны. Сведения о заказах сохранятся — их требует бухгалтерский учёт. Отменить удаление нельзя.
+          </p>
+          <Field label="Пароль для подтверждения" type="password" value={password} error={deleteError ?? undefined} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <Button
+              disabled={!password}
+              onClick={async () => {
+                setDeleteError(null);
+                try {
+                  await api('/me/delete', { password });
+                  writeCart([]);
+                  localStorage.removeItem('cart-owner');
+                  localStorage.removeItem('quiz-draft-v1');
+                  router.replace('/');
+                  router.refresh();
+                } catch (e) {
+                  setDeleteError(isApiError(e) ? (e.errors?.password ?? e.message) : 'Нет связи с сервером');
+                }
+              }}
+            >
+              Удалить навсегда
+            </Button>
+            <Button variant="outline" onClick={() => setDeleting(false)}>
+              Отмена
+            </Button>
+          </div>
+        </Modal>
+      )}
       {props.orders.length === 0 ? (
         <p className={p.muted}>Заказов пока нет.</p>
       ) : (

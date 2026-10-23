@@ -196,12 +196,27 @@ export class SupplierOrdersService {
       await this.prisma.shipmentEvent.create({ data: { shipmentId: rr.shipmentId, status: 'return_rejected', note: reason } });
     } else {
       const lines = (rr.items as { itemId: string; qty: number }[]).map((x) => ({ item: rr.shipment.items.find((i) => i.id === x.itemId)!, qty: x.qty }));
-      await this.orders.refund(rr.shipment, lines, false, `Возврат: ${rr.reason}`, `return:${rr.id}`);
-      await this.prisma.$transaction([
-        ...lines.map((l) => this.prisma.shipmentItem.update({ where: { id: l.item.id }, data: { returnedQty: { increment: l.qty } } })),
-        this.prisma.returnRequest.update({ where: { id: rr.id }, data: { status: 'approved', decidedAt: new Date() } }),
-        this.prisma.shipmentEvent.create({ data: { shipmentId: rr.shipmentId, status: 'return_approved', note: `Возврат принят, деньги возвращены` } }),
-      ]);
+      if (lines.some((l) => !l.item) || new Set(lines.map((l) => l.item.id)).size !== lines.length) throw new BadRequestException({ message: 'Заявка на возврат повреждена' });
+      // Сначала атомарно резервируем количество к возврату: повторное одобрение или превышение купленного невозможны.
+      await this.prisma.$transaction(async (tx) => {
+        const r = await tx.returnRequest.updateMany({ where: { id: rr.id, status: 'requested' }, data: { status: 'approved', decidedAt: new Date() } });
+        if (r.count === 0) throw new ConflictException({ message: 'Заявка уже рассмотрена' });
+        for (const l of lines) {
+          const n = await tx.$executeRaw`UPDATE shipment_items SET "returnedQty" = "returnedQty" + ${l.qty} WHERE id = ${l.item.id}::uuid AND "returnedQty" + ${l.qty} <= qty`;
+          if (n === 0) throw new BadRequestException({ message: `«${l.item.title}»: к возврату больше, чем куплено` });
+        }
+      });
+      try {
+        await this.orders.refund(rr.shipment, lines, false, `Возврат: ${rr.reason}`, `return:${rr.id}`);
+      } catch (e) {
+        // Платёжка не приняла возврат — откатываем резерв, заявку можно одобрить снова.
+        await this.prisma.$transaction([
+          ...lines.map((l) => this.prisma.shipmentItem.update({ where: { id: l.item.id }, data: { returnedQty: { decrement: l.qty } } })),
+          this.prisma.returnRequest.update({ where: { id: rr.id }, data: { status: 'requested', decidedAt: null } }),
+        ]);
+        throw e;
+      }
+      await this.prisma.shipmentEvent.create({ data: { shipmentId: rr.shipmentId, status: 'return_approved', note: 'Возврат принят, деньги возвращены' } });
     }
     await this.audit.log(actor.id, approve ? 'return.approve' : 'return.reject', 'return', rr.id, { reason });
     return this.detail(supplier, rr.shipmentId);

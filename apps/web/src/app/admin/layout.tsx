@@ -24,6 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/content">Модерация контента</Link>
           <Link href="/admin/promotions">Акции</Link>
           <Link href="/admin/payouts">Выплаты поставщиков</Link>
+          <Link href="/admin/users">Пользователи</Link>
         </nav>
         <div className={s.sideFoot}>{user.email}</div>
       </aside>

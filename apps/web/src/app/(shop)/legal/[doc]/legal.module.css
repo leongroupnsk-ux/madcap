@@ -1,0 +1,38 @@
+.doc {
+  max-width: 780px;
+  padding-top: 40px;
+  padding-bottom: 64px;
+  line-height: 1.65;
+}
+.doc h1 {
+  font-size: clamp(30px, 5vw, 42px);
+  margin-bottom: 6px;
+}
+.doc h2 {
+  font-size: 22px;
+  margin: 28px 0 8px;
+}
+.doc ul {
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+.doc mark {
+  background: #fdf3e7;
+  color: #9a5b13;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.updated {
+  color: var(--c-text-muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.draft {
+  background: #fdf3e7;
+  color: #9a5b13;
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}

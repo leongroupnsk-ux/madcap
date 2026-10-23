@@ -234,6 +234,28 @@ describe('заказ, оплата, доставка, возвраты и вып
     expect(await prisma.payout.aggregate({ _sum: { transferred: true } })).toMatchObject({ _sum: { transferred: 0 } });
   });
 
+  it('аудит безопасности: дубли в заявке на возврат, ПВЗ не из того города, чужой вебхук СДЭК', async () => {
+    // ПВЗ из другого города, чем тот, по которому считается тариф
+    const bad = await buyer.post('/api/orders').set('Origin', ORIGIN).send(checkout({ delivery: { ...checkout().delivery, [supA.supplierId]: { type: 'pvz', cityCode: KAZAN, city: 'Казань', pvzCode: '270-PVZ1', pvzAddress: 'дёшево' } } }));
+    expect(bad.status).toBe(400);
+    expect(bad.body.message).toMatch(/Пункт выдачи не найден/);
+
+    const { number, confirmationUrl } = await order();
+    await pay(confirmationUrl);
+    const sA = await shipmentOf(supA.supplierId);
+    // Адрес ПВЗ взят из СДЭК, а не из запроса
+    expect(sA.address).toContain('ул. Ленина, 12');
+    for (const step of ['confirm', 'pack', 'waybill']) await supA.agent.post(`/api/supplier/orders/${sA.id}/${step}`).set('Origin', ORIGIN).expect(200);
+    for (let i = 0; i < 4; i++) await app.get(SupplierOrdersService).pollAll();
+    const itemId = (await prisma.shipmentItem.findFirstOrThrow({ where: { shipmentId: sA.id } })).id;
+    const dup = await buyer.post(`/api/orders/${number}/shipments/1/return`).set('Origin', ORIGIN).send({ items: [{ itemId, qty: 1 }, { itemId, qty: 1 }, { itemId, qty: 1 }], reason: 'Дубли' });
+    expect(dup.status).toBe(400);
+    expect(await prisma.returnRequest.count()).toBe(0);
+
+    await agent(app).post('/api/delivery/cdek-webhook').send({ type: 'ORDER_STATUS', uuid: '00000000-0000-0000-0000-000000000000', attributes: { code: 'DELIVERED' } }).expect(200);
+    expect(await prisma.webhookEvent.count({ where: { source: 'cdek' } })).toBe(0);
+  });
+
   it('гонка за остатком: заказ сверх наличия отклоняется, резерв не создаётся', async () => {
     const res = await buyer.post('/api/orders').set('Origin', ORIGIN).send(checkout({ lines: [{ variantId: va, qty: 4 }] }));
     expect(res.status).toBe(409);
