@@ -2,6 +2,14 @@ import { z } from 'zod';
 
 const text = (max: number) => z.string().trim().max(max);
 
+/** Пункт меню категорий в шапке: только внутренние ссылки сайта */
+export const menuItemSchema = z.object({
+  label: text(30).min(2, 'Название — от 2 символов'),
+  href: z.string().trim().max(200).regex(/^\/(?![\/\\])[^\s]*$/, 'Ссылка на страницу сайта, например /catalog/halaty'),
+  tone: z.enum(['', 'sale', 'strong']).default(''),
+});
+export type MenuItem = z.infer<typeof menuItemSchema>;
+
 /** Витрина (ТЗ §8): главный блок, премиум-баннер, «Хиты недели», «Капсула недели» */
 export const storefrontSchema = z.object({
   hero: z.object({
@@ -16,6 +24,7 @@ export const storefrontSchema = z.object({
   /** Пусто — хиты по продажам за неделю; иначе закреплённые товары по порядку */
   hitsProductIds: z.array(z.string().uuid()).max(15),
   capsuleOfWeek: z.object({ title: text(80), text: text(240), productIds: z.array(z.string().uuid()).max(6) }),
+  menu: z.array(menuItemSchema).min(1, 'Меню не может быть пустым').max(12, 'Не больше 12 пунктов'),
 });
 export type StorefrontSettings = z.infer<typeof storefrontSchema>;
 
@@ -30,6 +39,18 @@ export const DEFAULT_STOREFRONT: StorefrontSettings = {
   premium: { title: 'Больше, чем униформа', text: 'Продуманный дизайн, исключительный комфорт. Создано для тех, кто меняет мир к лучшему.', cta: 'Премиум коллекция' },
   hitsProductIds: [],
   capsuleOfWeek: { title: '', text: '', productIds: [] },
+  menu: [
+    { href: '/catalog/kostyumy', label: 'Костюмы', tone: '' },
+    { href: '/catalog/halaty', label: 'Халаты', tone: '' },
+    { href: '/catalog/topy', label: 'Топы', tone: '' },
+    { href: '/catalog/bryuki', label: 'Брюки', tone: '' },
+    { href: '/catalog/obuv', label: 'Обувь', tone: '' },
+    { href: '/catalog/golovnye-ubory', label: 'Головные уборы', tone: '' },
+    { href: '/journal', label: 'Журнал', tone: '' },
+    { href: '/suppliers', label: 'Поставщикам', tone: '' },
+    { href: '/catalog?sale=1', label: 'Распродажа', tone: 'sale' },
+    { href: '/premium', label: 'Премиум', tone: 'strong' },
+  ],
 };
 
 /** Веса оценки подбора капсулы (ТЗ §8: «Подбор — веса скоринга»). По умолчанию — значения v1 */

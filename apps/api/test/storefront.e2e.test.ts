@@ -130,6 +130,15 @@ describe('витрина и журнал', () => {
     expect(home.capsuleOfWeek).toMatchObject({ title: 'Капсула стоматолога' });
     expect(home.capsuleOfWeek.items).toHaveLength(2);
     expect((await sup.get('/api/admin/storefront')).status).toBe(403);
+
+    // Меню шапки: по умолчанию из кода, правится в витрине, только внутренние ссылки
+    expect((await anon().get('/api/catalog/menu')).body.map((m: { label: string }) => m.label)).toContain('Халаты');
+    for (const href of ['//evil.ru', 'https://evil.ru', 'javascript:alert(1)']) {
+      expect((await admin.put('/api/admin/storefront').set('Origin', ORIGIN).send({ ...next, menu: [{ label: 'Зло', href }] })).status).toBe(400);
+    }
+    expect((await admin.put('/api/admin/storefront').set('Origin', ORIGIN).send({ ...next, menu: [] })).status).toBe(400);
+    await admin.put('/api/admin/storefront').set('Origin', ORIGIN).send({ ...next, menu: [{ label: 'Стоматологам', href: '/catalog?specialty=stomatolog' }, { label: 'Скидки', href: '/catalog?sale=1', tone: 'sale' }] }).expect(200);
+    expect((await anon().get('/api/catalog/menu')).body).toEqual([{ label: 'Стоматологам', href: '/catalog?specialty=stomatolog', tone: '' }, { label: 'Скидки', href: '/catalog?sale=1', tone: 'sale' }]);
   });
 
   it('фильтры по варианту, полу, цене, распродаже; цена карточки — от подходящего варианта', async () => {

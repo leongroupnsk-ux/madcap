@@ -36,6 +36,12 @@ export class StorefrontController {
     return this.catalog.home(await this.fit(req));
   }
 
+  /** Меню категорий в шапке (ТЗ §8 «Витрина») */
+  @Get('catalog/menu')
+  menu() {
+    return this.catalog.menu();
+  }
+
   @Get('catalog/categories')
   categories() {
     return this.catalog.categories();

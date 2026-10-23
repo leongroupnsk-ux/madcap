@@ -1,6 +1,6 @@
 'use client';
 
-import { storefrontSchema, type StorefrontSettings } from '@aesculap/shared';
+import { DEFAULT_STOREFRONT, storefrontSchema, type MenuItem, type StorefrontSettings } from '@aesculap/shared';
 import { useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Field } from '@/components/ui';
@@ -72,6 +72,63 @@ function Picker({ items, max, onChange }: { items: P[]; max: number; onChange: (
   );
 }
 
+const ERR = { color: 'var(--c-error)', fontSize: 13, marginTop: 4 } as const;
+const TONES = { '': 'Обычный', sale: 'Распродажа (терракотовый)', strong: 'Выделенный' } as const;
+
+/** Меню категорий в шапке: порядок, название, ссылка, цвет */
+function MenuEditor({ items, errors, onChange }: { items: MenuItem[]; errors: Record<string, string>; onChange: (items: MenuItem[]) => void }) {
+  const set = (i: number, patch: Partial<MenuItem>) => onChange(items.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const move = (i: number, d: number) => {
+    const next = [...items];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    onChange(next);
+  };
+  const btn = { border: 0, background: 'none', cursor: 'pointer' } as const;
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {items.map((m, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 140px' }}>
+            <input className={s.input} style={{ width: '100%' }} value={m.label} onChange={(e) => set(i, { label: e.target.value })} aria-label={`Название пункта ${i + 1}`} />
+            {errors[`menu.${i}.label`] && <div style={ERR}>{errors[`menu.${i}.label`]}</div>}
+          </div>
+          <div style={{ flex: '2 1 200px' }}>
+            <input className={s.input} style={{ width: '100%' }} value={m.href} onChange={(e) => set(i, { href: e.target.value })} aria-label={`Ссылка пункта ${i + 1}`} placeholder="/catalog/halaty" />
+            {errors[`menu.${i}.href`] && <div style={ERR}>{errors[`menu.${i}.href`]}</div>}
+          </div>
+          <select className={s.input} value={m.tone} onChange={(e) => set(i, { tone: e.target.value as MenuItem['tone'] })} aria-label={`Цвет пункта ${i + 1}`}>
+            {Object.entries(TONES).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+          <button className={s.link} style={btn} disabled={i === 0} onClick={() => move(i, -1)} aria-label="Выше">
+            ↑
+          </button>
+          <button className={s.link} style={btn} disabled={i === items.length - 1} onClick={() => move(i, 1)} aria-label="Ниже">
+            ↓
+          </button>
+          <button className={s.link} style={btn} onClick={() => onChange(items.filter((_, j) => j !== i))}>
+            Убрать
+          </button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 16 }}>
+        {items.length < 12 && (
+          <button className={s.link} style={btn} onClick={() => onChange([...items, { label: '', href: '/catalog', tone: '' }])}>
+            + Добавить пункт
+          </button>
+        )}
+        <button className={s.link} style={btn} onClick={() => onChange(DEFAULT_STOREFRONT.menu)}>
+          Вернуть по умолчанию
+        </button>
+      </div>
+      {errors.menu && <div style={ERR}>{errors.menu}</div>}
+    </div>
+  );
+}
+
 /** Витрина (ТЗ §8): главный блок, премиум-баннер, «Хиты недели», «Капсула недели». */
 export default function AdminStorefrontPage() {
   const [d, setD] = useState<Data | null>(null);
@@ -127,6 +184,13 @@ export default function AdminStorefrontPage() {
               <Field label="Текст" value={st.hero.text} onChange={(e) => set({ hero: { ...st.hero, text: e.target.value } })} />
               <Field label="Кнопка" value={st.hero.cta} error={errors['hero.cta']} onChange={(e) => set({ hero: { ...st.hero, cta: e.target.value } })} />
             </div>
+          </section>
+          <section className={s.panel}>
+            <h2>Меню категорий</h2>
+            <p className={s.muted} style={{ marginBottom: 10 }}>
+              Строка под поиском в шапке сайта. Только ссылки на страницы сайта.
+            </p>
+            <MenuEditor items={st.menu} errors={errors} onChange={(menu) => set({ menu })} />
           </section>
           <section className={s.panel}>
             <h2>Хиты недели</h2>

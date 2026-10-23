@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { BRAND, CATEGORY_NAV } from '@/lib/brand';
+import { DEFAULT_STOREFRONT, type MenuItem } from '@aesculap/shared';
+import { BRAND } from '@/lib/brand';
+import { serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
 import { CartCount } from './CartCount';
 import { CartSync } from './CartSync';
@@ -8,7 +10,7 @@ import { SearchBox } from './shop/SearchBox';
 import s from './site.module.css';
 
 export async function SiteHeader() {
-  const user = await getSessionUser();
+  const [user, menu] = await Promise.all([getSessionUser(), serverApi<MenuItem[]>('/catalog/menu').then((r) => r.data ?? DEFAULT_STOREFRONT.menu)]);
   return (
     <header className={s.header}>
       <CartSync userId={user?.id ?? null} />
@@ -42,8 +44,8 @@ export async function SiteHeader() {
         </nav>
       </div>
       <nav className={`container ${s.cats}`} aria-label="Категории">
-        {CATEGORY_NAV.map((c) => (
-          <Link key={c.href} href={c.href} className={'tone' in c ? s[c.tone] : undefined}>
+        {menu.map((c) => (
+          <Link key={`${c.href}-${c.label}`} href={c.href} className={c.tone ? s[c.tone] : undefined}>
             {c.label}
           </Link>
         ))}

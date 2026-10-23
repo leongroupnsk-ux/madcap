@@ -382,6 +382,11 @@ export class CatalogService {
   }
 
   /** Главная (ТЗ §4.2): «Хиты недели» — пока свежие публикации; по продажам — после этапа 4. */
+  /** Меню шапки — кэш как у главной, сбрасывается при сохранении витрины */
+  menu() {
+    return this.cached('menu', 300, async () => (await this.settings.storefront()).menu);
+  }
+
   async home(fit: FitContext | null = null) {
     // Состав главной кэшируется на минуту; карточки (цены, остатки, «Подходит вам») — всегда свежие.
     const layout = await this.cached('home', 60, async () => {
