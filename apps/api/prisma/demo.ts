@@ -15,6 +15,11 @@ const prisma = new PrismaClient();
 const ROOT = resolve(process.env.STORAGE_LOCAL_DIR ?? './.storage');
 const DEMO_INN = '7710000008';
 /** Пароль демо-аккаунтов поставщиков на dev-стенде; в проде демо не запускается. */
+// На сервере пароль демо-входов обязателен и свой: общеизвестный пароль из кода там не годится
+if (process.env.NODE_ENV === 'production' && (process.env.DEMO_PASSWORD ?? '').length < 12) {
+  console.error('Задайте DEMO_PASSWORD (от 12 символов) в .env.production');
+  process.exit(1);
+}
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'demo-aesculap-2026';
 /** Второй демо-поставщик со складом в Санкт-Петербурге — чтобы заказ делился на отправления. */
 const DEMO_INN_2 = '7810000002';

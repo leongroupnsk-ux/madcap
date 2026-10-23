@@ -2,6 +2,8 @@
 	encode zstd gzip
 	# Заголовки безопасности ставит Next.js (next.config.ts); здесь — только транспорт
 	header -Server
+	# Демо-стенд: X_ROBOTS_TAG="noindex, nofollow" в .env.production
+	header X-Robots-Tag "{$X_ROBOTS_TAG:all}"
 	# Загрузки: видео до 100 МБ, файлы импорта — до 20 МБ
 	request_body {
 		max_size 110MB

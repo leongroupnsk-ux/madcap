@@ -54,6 +54,7 @@ services:
     environment:
       API_INTERNAL_URL: http://api:4100
       SITE_URL: https://${DOMAIN}
+      SITE_NOINDEX: ${SITE_NOINDEX:-}
       OPERATOR_NAME: ${OPERATOR_NAME:-}
       OPERATOR_INN: ${OPERATOR_INN:-}
       OPERATOR_OGRN: ${OPERATOR_OGRN:-}
@@ -68,6 +69,7 @@ services:
     ports: ['80:80', '443:443']
     environment:
       DOMAIN: ${DOMAIN}
+      X_ROBOTS_TAG: ${SITE_NOINDEX:+noindex, nofollow}
     volumes:
       - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
