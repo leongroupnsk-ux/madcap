@@ -18,7 +18,7 @@ export const PASSWORD = 'correct-horse-1';
 
 export async function bootApp() {
   const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = mod.createNestApplication({ logger: false });
+  const app = mod.createNestApplication({ logger: process.env.TEST_LOG ? ["error"] : false });
   setupApp(app);
   await app.init();
   return app;

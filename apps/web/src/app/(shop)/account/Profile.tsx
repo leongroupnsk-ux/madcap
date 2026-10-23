@@ -10,6 +10,7 @@ import { writeCart } from '@/lib/cart';
 import o from '@/components/shop/order.module.css';
 import { orderLabel } from './orders/[number]/OrderView';
 import p from './profile.module.css';
+import { Stylist } from './Stylist';
 
 export type ProfileData = {
   gender: string | null; name: string | null; age: number | null; heightCm: number | null; weightKg: number | null;
@@ -143,12 +144,13 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                     }
                   }}
                 />
-                <p className={p.muted}>Ваши фото видите только вы; они нужны для формирования индивидуальной капсулы.</p>
+                <p className={p.muted}>Ваши фото видите только вы; стилисту — только если вы сами покажете их в вопросе ниже.</p>
               </>
             ) : (
               <p className={p.muted}>Чтобы добавить фото, дайте согласие на их хранение ниже.</p>
             )}
           </div>
+          <Stylist quizCompleted={pr.quizCompleted} hasPhotos={pr.photos.length > 0} />
           <div className={p.card}>
             <div className={p.accountHead}>
               <h2>Аккаунт</h2>

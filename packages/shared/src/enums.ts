@@ -7,10 +7,10 @@ export type ConsentType = (typeof ConsentType)[keyof typeof ConsentType];
 
 /** Текущие версии юридических текстов — меняются вместе с текстами. */
 export const CONSENT_VERSIONS: Record<ConsentType, string> = {
-  pdn: '2026-10-22',
+  pdn: '2026-10-23',
   offer: '2026-10-22',
-  photos: '2026-10-22',
-  marketing: '2026-10-22',
+  photos: '2026-10-23',
+  marketing: '2026-10-23',
 };
 
 /** Слоты капсулы (ТЗ §5.2). */

@@ -44,6 +44,7 @@ export class PrivacyService implements OnApplicationBootstrap {
         buyerProfile: { include: { specialties: { include: { specialty: true } }, photos: true } },
         capsules: { include: { items: { include: { product: { select: { title: true } } } } } },
         addresses: true,
+        stylistRequests: { orderBy: { createdAt: 'asc' } },
         orders: { include: { shipments: { include: { items: true } } }, orderBy: { createdAt: 'asc' } },
         sessions: { select: { createdAt: true, lastSeenAt: true, userAgent: true, ip: true } },
       },
@@ -63,6 +64,7 @@ export class PrivacyService implements OnApplicationBootstrap {
       },
       capsules: u.capsules.map((c) => ({ variant: c.variantNo, total: c.total / 100, builtAt: c.builtAt, items: c.items.map((i) => i.product?.title ?? null).filter(Boolean) })),
       addresses: u.addresses.map(({ userId: _u, id: _i, ...a }) => a),
+      stylistRequests: u.stylistRequests.map((r) => ({ question: r.question, sharePhotos: r.sharePhotos, status: r.status, answer: r.answer, createdAt: r.createdAt, answeredAt: r.answeredAt })),
       orders: u.orders.map((o) => ({
         number: o.number, createdAt: o.createdAt, status: o.status, total: o.total / 100,
         recipient: { name: o.recipientName, phone: o.recipientPhone, email: o.recipientEmail },
@@ -91,6 +93,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     await this.prisma.$transaction([
       this.prisma.buyerProfile.deleteMany({ where: { userId: user.id } }),
       this.prisma.capsule.deleteMany({ where: { userId: user.id } }),
+      this.prisma.stylistRequest.deleteMany({ where: { userId: user.id } }),
       this.prisma.cartItem.deleteMany({ where: { userId: user.id } }),
       this.prisma.address.deleteMany({ where: { userId: user.id } }),
       this.prisma.notification.deleteMany({ where: { userId: user.id } }),

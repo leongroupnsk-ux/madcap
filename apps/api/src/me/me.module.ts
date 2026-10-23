@@ -5,6 +5,8 @@ import { CapsuleService } from './capsule.service';
 import { AdminUsersController, MeController } from './me.controller';
 import { PrivacyService } from './privacy.service';
 import { ProfileService } from './profile.service';
+import { AdminStylistController, MeStylistController } from './stylist.controller';
+import { StylistService } from './stylist.service';
 
-@Module({ imports: [AuthModule], controllers: [MeController, AdminUsersController, AdminCapsuleController], providers: [ProfileService, CapsuleService, PrivacyService], exports: [CapsuleService] })
+@Module({ imports: [AuthModule], controllers: [MeController, AdminUsersController, AdminCapsuleController, MeStylistController, AdminStylistController], providers: [ProfileService, CapsuleService, PrivacyService, StylistService], exports: [CapsuleService] })
 export class MeModule {}

@@ -41,6 +41,7 @@ model User {
   sessions             Session[]
   tokens               AuthToken[]
   consents             Consent[]
+  stylistRequests      StylistRequest[]
   buyerProfile         BuyerProfile?
   capsules             Capsule[]
   supplierMembers      SupplierMember[]
@@ -78,6 +79,7 @@ enum StaffRole {
   moderator
   editor
   support
+  stylist
 }
 
 enum AuthTokenType {
@@ -1121,4 +1123,31 @@ model LegalVersion {
 
   @@unique([slug, version])
   @@map("legal_versions")
+}
+
+enum StylistRequestStatus {
+  open
+  answered
+  cancelled
+}
+
+/// Запрос покупателя на консультацию стилиста (ТЗ §8, §11). Анкету и фото стилист видит,
+/// только пока запрос открыт, и только если покупатель разрешил показать фото; каждый просмотр — в аудит.
+/// Одновременно один открытый запрос — частичный уникальный индекс в миграции stylist_requests.
+model StylistRequest {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String               @db.Uuid
+  question    String
+  sharePhotos Boolean
+  status      StylistRequestStatus @default(open)
+  answer      String?
+  stylistId   String?              @db.Uuid
+  createdAt   DateTime             @default(now())
+  answeredAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("stylist_requests")
 }

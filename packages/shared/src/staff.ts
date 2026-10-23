@@ -6,6 +6,7 @@ export const STAFF_ROLES = {
   moderator: 'Модератор',
   editor: 'Редактор',
   support: 'Поддержка',
+  stylist: 'Стилист',
 } as const;
 export type StaffRoleId = keyof typeof STAFF_ROLES;
 
@@ -19,6 +20,7 @@ export const STAFF_AREAS = {
   promotions: { label: 'Акции', roles: ['editor', 'moderator'] },
   payouts: { label: 'Выплаты поставщиков', roles: ['support'] },
   users: { label: 'Пользователи', roles: ['support'] },
+  stylist: { label: 'Консультации стилиста', roles: ['stylist'] },
   system: { label: 'Сотрудники, журнал, настройки', roles: [] },
 } as const satisfies Record<string, { label: string; roles: StaffRoleId[] }>;
 export type StaffArea = keyof typeof STAFF_AREAS;
@@ -30,7 +32,7 @@ export function canAccess(staffRole: StaffRoleId | null | undefined, area: Staff
 
 export const staffInviteSchema = z.object({
   email: z.string().trim().toLowerCase().email('Проверьте email'),
-  staffRole: z.enum(['owner', 'moderator', 'editor', 'support']),
+  staffRole: z.enum(['owner', 'moderator', 'editor', 'support', 'stylist']),
 });
 
 /** Настройки платформы без выкладки (ТЗ §8) */
@@ -40,3 +42,14 @@ export const platformSettingsSchema = z.object({
   payMinutes: z.coerce.number().int().min(10, 'Не меньше 10 минут').max(120),
 });
 export type PlatformSettings = z.infer<typeof platformSettingsSchema>;
+
+/** Запрос покупателя на консультацию стилиста (ТЗ §8) */
+export const stylistRequestSchema = z.object({
+  question: z.string().trim().min(10, 'Опишите вопрос — от 10 символов').max(1000, 'До 1000 символов'),
+  sharePhotos: z.boolean(),
+});
+export type StylistRequestInput = z.infer<typeof stylistRequestSchema>;
+
+export const stylistAnswerSchema = z.object({
+  answer: z.string().trim().min(20, 'Ответ — от 20 символов').max(3000, 'До 3000 символов'),
+});
