@@ -29,9 +29,13 @@ API не стартует, если в продакшене остались з�
 
 ## Обновление
 
+С машины разработчика (хост `aesculap-prod` в `~/.ssh/config`):
+
 ```bash
-git pull && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+ops/deploy.sh
 ```
+
+Скрипт заливает текущий коммит в `/srv/aesculap`, собирает образы на сервере и перезапускает сервисы; `.env.production` не трогается.
 
 Миграции применяются при старте контейнера API. Откат: `git checkout <предыдущий тег>` и та же команда; миграции в проекте только добавляют столбцы и таблицы, поэтому старая версия работает на новой схеме.
 
@@ -56,6 +60,14 @@ DATABASE_URL=…/aesculap ADMIN_URL=…/postgres BACKUP_DIR=/var/backups/aescula
 - `GET /api/healthz` — БД и Redis; используется healthcheck контейнеров. Внешний пинг (UptimeRobot / Яндекс Мониторинг) — раз в минуту.
 - Падение вебхука ЮKassa — письмо на `ALERT_EMAIL` (не чаще раза в 10 минут) и ошибка в логе; ЮKassa повторяет уведомление.
 - Логи: `docker compose logs -f api web`. Централизованный сбор (Loki / Яндекс Cloud Logging) — при подключении наблюдаемости.
+
+## Демо-стенд (с 2026-10-23)
+
+- Сервер Timeweb Cloud, Новосибирск: 201.24.63.39, Ubuntu 26.04, 2 vCPU / 4 ГБ (+4 ГБ swap) / 48 ГБ. Для боевого запуска — поднять до 4 vCPU / 8 ГБ.
+- Адрес https://201-24-63-39.sslip.io (временный, сертификат Let's Encrypt); свой домен — сменить `DOMAIN` в `.env.production` и перезапустить.
+- `ALLOW_TEST_PROVIDERS=1`, `SITE_NOINDEX=1`: тестовые оплата и доставка, письма в лог `api`, закрыт от поисковиков. Демо-данные — `prisma/demo.ts`, пароль демо-входов — `DEMO_PASSWORD` в `.env.production` на сервере.
+- Файрвол ufw: 22, 80, 443, 10050 (агент мониторинга Timeweb).
+- Бэкап: `/usr/local/bin/aesculap-backup` по cron в 03:30, `/var/backups/aesculap`; копии вне сервера (S3) пока нет. Восстановление проверено 2026-10-23.
 
 ## Перед запуском (ТЗ §11, §13)
 
