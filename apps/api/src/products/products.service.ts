@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { MIN_PHOTOS, toKopecks, toRubles, type ProductSaveInput, type VariantInput } from '@aesculap/shared';
 import { Prisma, type Product, type ProductMedia, type ProductRevision, type ProductVariant, type Supplier, type User } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
+import { repriceSales } from '../promotions/price';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
 import { MediaService } from './media.service';
@@ -295,6 +296,8 @@ export class ProductsService {
             : this.prisma.productVariant.create({ data: { ...data, productId } });
         }),
       ]);
+      // Цена поставщика могла измениться — акционная цена пересчитывается от неё.
+      await repriceSales(this.prisma);
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException({ message: 'SKU уже используется в этом товаре', errors: { variants: 'SKU повторяется' } });

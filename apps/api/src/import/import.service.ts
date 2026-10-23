@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { MIN_PHOTOS, toKopecks } from '@aesculap/shared';
 import { Prisma, type Gender, type ImportJob, type Supplier, type User } from '@prisma/client';
@@ -5,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { AuditService } from '../common/audit.service';
 import { JobsService } from '../common/jobs.service';
 import { MailService } from '../common/mail.service';
+import { repriceSales } from '../promotions/price';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
 import { StorageService } from '../common/storage.service';
@@ -44,6 +46,7 @@ export class ImportService implements OnModuleInit {
     private readonly media: MediaService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -236,6 +239,8 @@ export class ImportService implements OnModuleInit {
         const skus = groups.flatMap((g) => g.variants.map((v) => v.sku));
         await this.prisma.productVariant.updateMany({ where: { product: { supplierId: job.supplierId, source: 'yml' }, sku: { notIn: skus } }, data: { stock: 0 } });
       }
+      // Синк обновляет цену поставщика; акционная цена пересчитывается от неё, а не перетирается (ТЗ §7.7).
+      await repriceSales(this.prisma);
       await this.prisma.importJob.update({ where: { id: jobId }, data: { status: 'applied', appliedAt: new Date(), payload: Prisma.DbNull } });
       await this.notifyOwners(
         job.supplierId,
@@ -360,8 +365,7 @@ export class ImportService implements OnModuleInit {
     };
   }
 
-  private async notifyOwners(supplierId: string, subject: string, text: string) {
-    const owners = await this.prisma.supplierMember.findMany({ where: { supplierId, role: { in: ['owner', 'catalog'] } }, include: { user: true } });
-    for (const o of owners) await this.mail.send({ to: o.user.email, subject: `${subject} — ${config.brandName}`, text: `${text}\n${config.webOrigin}/supplier/import` });
+  private notifyOwners(supplierId: string, subject: string, text: string) {
+    return this.notifications.notify(supplierId, 'import_report', { title: subject, body: text, link: '/supplier/import' });
   }
 }

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { CartLineInput } from '@aesculap/shared';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
+import { shown } from '../promotions/price';
 import { visibleWhere } from '../storefront/catalog.service';
 
 export type CheckedLine = {
@@ -12,6 +13,9 @@ export type CheckedLine = {
   stock: number;
   price: number;
   oldPrice: number | null;
+  /** Акция, по которой продаётся вариант, и комиссия по позиции (льготная в акции) */
+  promotionId: string | null;
+  commissionBp: number;
   sku: string;
   size: string;
   heightRange: string | null;
@@ -60,6 +64,7 @@ export class CartService {
       where: { id: { in: ids } },
       include: {
         color: true,
+        salePromotion: true,
         product: { include: { brand: true, supplier: true, media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 1 } } },
       },
     });
@@ -74,8 +79,9 @@ export class CartService {
         fromCapsule: Boolean(l.fromCapsule),
         available: visible.has(v.id) && v.stock > 0,
         stock: v.stock,
-        price: v.price,
-        oldPrice: v.oldPrice,
+        ...shown(v),
+        promotionId: v.salePromotionId,
+        commissionBp: v.salePromotion ? v.salePromotion.commissionBp : v.product.supplier.commissionBp,
         sku: v.sku,
         size: v.size,
         heightRange: v.heightRange,

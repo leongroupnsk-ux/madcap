@@ -31,17 +31,19 @@ model User {
   totpSecret      String?
   totpEnabledAt   DateTime?
 
-  sessions        Session[]
-  tokens          AuthToken[]
-  consents        Consent[]
-  buyerProfile    BuyerProfile?
-  capsules        Capsule[]
-  supplierMembers SupplierMember[]
-  cartItems       CartItem[]
-  addresses       Address[]
-  orders          Order[]
-  returnRequests  ReturnRequest[]
-  auditLogs       AuditLog[]
+  sessions             Session[]
+  tokens               AuthToken[]
+  consents             Consent[]
+  buyerProfile         BuyerProfile?
+  capsules             Capsule[]
+  supplierMembers      SupplierMember[]
+  cartItems            CartItem[]
+  notifications        Notification[]
+  notificationSettings NotificationSetting[]
+  addresses            Address[]
+  orders               Order[]
+  returnRequests       ReturnRequest[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -288,14 +290,16 @@ model Supplier {
   contactPhone String?
   contactEmail String?
 
-  members     SupplierMember[]
-  products    Product[]
-  imports     ImportJob[]
-  application SupplierApplication?
-  articles    Article[]
-  collections Collection[]
-  shipments   Shipment[]
-  payouts     Payout[]
+  members              SupplierMember[]
+  products             Product[]
+  imports              ImportJob[]
+  application          SupplierApplication?
+  articles             Article[]
+  collections          Collection[]
+  shipments            Shipment[]
+  payouts              Payout[]
+  promotionProducts    PromotionProduct[]
+  notificationSettings NotificationSetting[]
 
   @@map("suppliers")
 }
@@ -365,6 +369,7 @@ model Product {
   variants     ProductVariant[]
   media        ProductMedia[]
   specialties  ProductSpecialty[]
+  promotions   PromotionProduct[]
   revisions    ProductRevision[]
   articles     ArticleProduct[]
   collections  CollectionProduct[]
@@ -389,26 +394,30 @@ model ProductSpecialty {
 }
 
 model ProductVariant {
-  id          String  @id @default(uuid()) @db.Uuid
-  productId   String  @db.Uuid
-  sku         String
-  size        String
+  id              String  @id @default(uuid()) @db.Uuid
+  productId       String  @db.Uuid
+  sku             String
+  size            String
   /// Ростовка: «170–176»
-  heightRange String?
-  colorId     String  @db.Uuid
-  price       Int
-  oldPrice    Int?
-  stock       Int     @default(0)
-  weightG     Int?
-  lengthMm    Int?
-  widthMm     Int?
-  heightMm    Int?
+  heightRange     String?
+  colorId         String  @db.Uuid
+  price           Int
+  oldPrice        Int?
+  stock           Int     @default(0)
+  /// Цена по акции платформы (ТЗ §7.7): рассчитывается из price, базовую цену не трогает; null — без акции
+  salePrice       Int?
+  salePromotionId String? @db.Uuid
+  weightG         Int?
+  lengthMm        Int?
+  widthMm         Int?
+  heightMm        Int?
 
-  product      Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  color        Color          @relation(fields: [colorId], references: [id])
-  capsuleItems CapsuleItem[]
-  cartItems    CartItem[]
-  orderItems   ShipmentItem[]
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color         Color          @relation(fields: [colorId], references: [id])
+  capsuleItems  CapsuleItem[]
+  cartItems     CartItem[]
+  orderItems    ShipmentItem[]
+  salePromotion Promotion?     @relation(fields: [salePromotionId], references: [id], onDelete: SetNull)
 
   @@unique([productId, sku])
   @@index([productId])
@@ -779,33 +788,35 @@ enum ShipmentStatus {
 
 /// Отправление: часть заказа от одного поставщика (ТЗ §6)
 model Shipment {
-  id            String         @id @default(uuid()) @db.Uuid
-  orderId       String         @db.Uuid
-  supplierId    String         @db.Uuid
-  no            Int
-  status        ShipmentStatus @default(awaiting_payment)
-  deliveryType  DeliveryType
-  tariffCode    Int
-  cityCode      Int
+  id                String         @id @default(uuid()) @db.Uuid
+  orderId           String         @db.Uuid
+  supplierId        String         @db.Uuid
+  no                Int
+  status            ShipmentStatus @default(awaiting_payment)
+  deliveryType      DeliveryType
+  tariffCode        Int
+  cityCode          Int
   /// Адрес строкой для экранов; детали — в addressJson
-  address       String
-  pvzCode       String?
-  addressJson   Json           @default("{}")
-  deliveryPrice Int
-  periodMin     Int
-  periodMax     Int
-  eta           DateTime?
-  goodsTotal    Int
-  commissionBp  Int
-  commission    Int
-  cdekUuid      String?        @unique
-  trackNo       String?
-  rejectReason  String?
-  paidAt        DateTime?
-  confirmedAt   DateTime?
-  deliveredAt   DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  address           String
+  pvzCode           String?
+  addressJson       Json           @default("{}")
+  deliveryPrice     Int
+  periodMin         Int
+  periodMax         Int
+  eta               DateTime?
+  goodsTotal        Int
+  commissionBp      Int
+  commission        Int
+  cdekUuid          String?        @unique
+  trackNo           String?
+  rejectReason      String?
+  paidAt            DateTime?
+  /// Уведомление «не подтверждён 24 ч» отправлено
+  overdueNotifiedAt DateTime?
+  confirmedAt       DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   order    Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   supplier Supplier        @relation(fields: [supplierId], references: [id])
@@ -822,22 +833,25 @@ model Shipment {
 
 /// Снимок товара на момент покупки
 model ShipmentItem {
-  id          String  @id @default(uuid()) @db.Uuid
-  shipmentId  String  @db.Uuid
-  variantId   String? @db.Uuid
-  productSlug String?
-  title       String
-  brand       String
-  sku         String
-  size        String
-  heightRange String?
-  color       String
-  imageKey    String?
-  price       Int
-  qty         Int
-  returnedQty Int     @default(0)
-  fromCapsule Boolean @default(false)
-  weightG     Int     @default(400)
+  id           String  @id @default(uuid()) @db.Uuid
+  shipmentId   String  @db.Uuid
+  variantId    String? @db.Uuid
+  productSlug  String?
+  title        String
+  brand        String
+  sku          String
+  size         String
+  heightRange  String?
+  color        String
+  imageKey     String?
+  price        Int
+  qty          Int
+  returnedQty  Int     @default(0)
+  fromCapsule  Boolean @default(false)
+  /// Комиссия по позиции: льготная, если товар куплен по акции
+  commissionBp Int     @default(1000)
+  promotionId  String? @db.Uuid
+  weightG      Int     @default(400)
 
   shipment Shipment        @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
@@ -943,4 +957,94 @@ model WebhookEvent {
 
   @@unique([source, objectId, event])
   @@map("webhook_events")
+}
+
+// ─── Этап 5: акции, уведомления ─────────────────────────────────────────
+
+/// Акция платформы (ТЗ §7.7, §8): поставщики заявляют товары со скидкой
+model Promotion {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String   @unique
+  description    String   @default("")
+  /// Бейдж на карточке товара: «Неделя хирурга»
+  badge          String
+  minDiscountPct Int
+  /// Льготная комиссия на время акции, базисные пункты: 800 = 8%
+  commissionBp   Int
+  applyFrom      DateTime
+  applyTo        DateTime
+  startsAt       DateTime
+  endsAt         DateTime
+  onHomepage     Boolean  @default(false)
+  newsletter     Boolean  @default(false)
+  requirements   String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  products PromotionProduct[]
+  variants ProductVariant[]
+
+  @@map("promotions")
+}
+
+enum PromotionProductStatus {
+  pending
+  approved
+  rejected
+}
+
+model PromotionProduct {
+  id           String                 @id @default(uuid()) @db.Uuid
+  promotionId  String                 @db.Uuid
+  productId    String                 @db.Uuid
+  supplierId   String                 @db.Uuid
+  discountPct  Int
+  status       PromotionProductStatus @default(pending)
+  rejectReason String?
+  createdAt    DateTime               @default(now())
+  decidedAt    DateTime?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier  Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, productId])
+  @@index([supplierId])
+  @@map("promotion_products")
+}
+
+/// Центр уведомлений (колокольчик) кабинета поставщика (ТЗ §7.9)
+model Notification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  supplierId String?   @db.Uuid
+  event      String
+  title      String
+  body       String    @default("")
+  link       String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+/// Каналы и события уведомлений сотрудника поставщика
+model NotificationSetting {
+  userId         String   @db.Uuid
+  supplierId     String   @db.Uuid
+  email          Boolean  @default(true)
+  telegramChatId String?
+  /// Выключенные события: ["import_report", …]
+  mutedEvents    String[] @default([])
+  updatedAt      DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([userId, supplierId])
+  @@map("notification_settings")
 }

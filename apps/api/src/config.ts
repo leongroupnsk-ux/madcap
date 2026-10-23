@@ -12,6 +12,11 @@ export const config = {
   redisUrl: required('REDIS_URL'),
   brandName: process.env.BRAND_NAME ?? 'aesculap',
   mailDriver: process.env.MAIL_DRIVER ?? 'console',
+  /** smtp://user:pass@smtp.example.ru:465 — для MAIL_DRIVER=smtp */
+  smtpUrl: process.env.SMTP_URL ?? '',
+  mailFrom: process.env.MAIL_FROM ?? 'aesculap <noreply@example.ru>',
+  /** Telegram-бот уведомлений поставщикам; без токена бот выключен */
+  telegram: { token: process.env.TELEGRAM_BOT_TOKEN ?? '', username: process.env.TELEGRAM_BOT_USERNAME ?? '' },
   isProd: process.env.NODE_ENV === 'production',
   /** Без подключённых выплат поставщик не публикуется (ТЗ §7). В dev до этапа 4 можно выключить. */
   storefrontRequirePayouts: process.env.STOREFRONT_REQUIRE_PAYOUTS !== 'false',

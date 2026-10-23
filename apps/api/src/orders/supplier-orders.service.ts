@@ -263,12 +263,17 @@ export class SupplierOrdersService {
   /** Плитки дашборда по заказам */
   async counters(supplier: Supplier) {
     const day = new Date(Date.now() - 24 * HOUR);
-    const [fresh, overdue, toShip, returns] = await Promise.all([
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [fresh, overdue, toShip, returns, sales, zeroInCapsules] = await Promise.all([
       this.prisma.shipment.count({ where: { supplierId: supplier.id, status: 'new' } }),
       this.prisma.shipment.count({ where: { supplierId: supplier.id, status: 'new', paidAt: { lt: day } } }),
       this.prisma.shipment.count({ where: { supplierId: supplier.id, status: { in: ['confirmed', 'packed'] } } }),
       this.prisma.returnRequest.count({ where: { status: 'requested', shipment: { supplierId: supplier.id } } }),
+      // Продажи за месяц — оплаченные товары за вычетом возвратов (по строкам выплат)
+      this.prisma.payout.aggregate({ where: { supplierId: supplier.id, createdAt: { gte: monthStart } }, _sum: { amountGoods: true } }),
+      this.prisma.product.count({ where: { supplierId: supplier.id, variants: { some: { stock: 0, capsuleItems: { some: {} } } } } }),
     ]);
-    return { fresh, overdue, toShip, returns };
+    return { fresh, overdue, toShip, returns, salesMonth: sales._sum.amountGoods ?? 0, zeroInCapsules };
   }
 }

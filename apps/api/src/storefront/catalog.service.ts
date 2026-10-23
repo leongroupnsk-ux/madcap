@@ -3,6 +3,7 @@ import { DEFAULT_SIZE_CHART, SIZES } from '@aesculap/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
+import { effective, shown } from '../promotions/price';
 import { config } from '../config';
 
 export type CatalogQuery = {
@@ -145,16 +146,19 @@ export class CatalogService {
       ...(sizes.length ? { size: { in: sizes } } : {}),
       ...(colors.length ? { colorId: { in: colors } } : {}),
       ...(heights.length ? { heightRange: { in: heights } } : {}),
-      ...(from || to ? { price: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
-      ...(query.sale === '1' ? { oldPrice: { not: null } } : {}),
+      AND: [
+        // Цена — с учётом акции: у акционного варианта сравниваем salePrice.
+        from || to ? { OR: [{ salePrice: null, price: range(from, to) }, { salePrice: range(from, to) }] } : {},
+        query.sale === '1' ? { OR: [{ oldPrice: { not: null } }, { salePrice: { not: null } }] } : {},
+      ],
     };
+    const priceRange: VariantFilter = { sizes, colors, heights, from, to, sale: query.sale === '1' };
 
     const candidates = await this.prisma.product.findMany({ where: { AND: [productWhere, { variants: { some: variantWhere } }] }, select: { id: true, publishedAt: true } });
     const ids = candidates.map((c) => c.id);
-    const mins = ids.length
-      ? await this.prisma.productVariant.groupBy({ by: ['productId'], where: { ...variantWhere, productId: { in: ids } }, _min: { price: true } })
-      : [];
-    const minPrice = new Map(mins.map((m) => [m.productId, m._min.price ?? 0]));
+    const pv = ids.length ? await this.prisma.productVariant.findMany({ where: { ...variantWhere, productId: { in: ids } }, select: { productId: true, price: true, salePrice: true } }) : [];
+    const minPrice = new Map<string, number>();
+    for (const v of pv) minPrice.set(v.productId, Math.min(minPrice.get(v.productId) ?? Infinity, effective(v)));
     const published = new Map(candidates.map((c) => [c.id, c.publishedAt?.getTime() ?? 0]));
     const sorted = [...ids].sort((a, b) => {
       if (query.sort === 'price_asc') return minPrice.get(a)! - minPrice.get(b)!;
@@ -168,7 +172,7 @@ export class CatalogService {
     const page = Math.min(pages, Math.max(1, Number(query.page) || 1));
     const pageIds = sorted.slice((page - 1) * perPage, page * perPage);
 
-    const [items, facets] = await Promise.all([this.cards(pageIds, variantWhere, fit), this.facets(base)]);
+    const [items, facets] = await Promise.all([this.cards(pageIds, priceRange, fit), this.facets(base)]);
     return {
       category: scope.category && {
         name: scope.category.name,
@@ -186,7 +190,7 @@ export class CatalogService {
   }
 
   /** Карточки в заданном порядке; цена — минимальная среди подходящих вариантов в наличии. */
-  async cards(ids: string[], variantWhere: Prisma.ProductVariantWhereInput = { stock: { gt: 0 } }, fit: FitContext | null = null) {
+  async cards(ids: string[], filter: VariantFilter = {}, fit: FitContext | null = null) {
     if (!ids.length) return [];
     const rows = await this.prisma.product.findMany({
       where: { id: { in: ids } },
@@ -195,7 +199,7 @@ export class CatalogService {
         category: { select: { slot: true } },
         specialties: { select: { specialtyId: true } },
         media: { where: { approved: true, type: 'photo' }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }], take: 2 },
-        variants: { where: { stock: { gt: 0 } }, include: { color: true } },
+        variants: { where: { stock: { gt: 0 } }, include: { color: true, salePromotion: { select: { badge: true } } } },
       },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -203,9 +207,10 @@ export class CatalogService {
       .map((id) => byId.get(id))
       .filter((p) => p !== undefined)
       .map((p) => {
-        const matching = p.variants.filter((v) => matchesVariant(v, variantWhere));
+        const matching = p.variants.filter((v) => matchesVariant(v, filter));
         const pool = matching.length ? matching : p.variants;
-        const best = pool.reduce((a, b) => (b.price < a.price ? b : a));
+        const best = pool.reduce((a, b) => (effective(b) < effective(a) ? b : a));
+        const price = shown(best);
         const sizes = [...new Set(pool.filter((v) => v.colorId === best.colorId).map((v) => v.size))].sort((a, b) => sizeRank(a) - sizeRank(b));
         return {
           id: p.id,
@@ -213,9 +218,10 @@ export class CatalogService {
           title: p.title,
           brand: p.brand.name,
           images: p.media.map((m) => this.storage.publicUrl(m.storageKey.replace(/\.webp$/, '_thumb.webp'))),
-          price: best.price,
-          oldPrice: best.oldPrice,
-          sale: p.variants.some((v) => v.oldPrice != null),
+          price: price.price,
+          oldPrice: price.oldPrice,
+          sale: p.variants.some((v) => v.oldPrice != null || v.salePrice != null),
+          promo: p.variants.find((v) => v.salePromotion)?.salePromotion?.badge ?? null,
           color: best.color.name,
           sizes: sizes.length > 2 ? `${sizes[0]}–${sizes.at(-1)}` : sizes.join(', '),
           heightRange: best.heightRange,
@@ -233,7 +239,14 @@ export class CatalogService {
       this.prisma.productVariant.groupBy({ by: ['heightRange'], where: { ...inStock, heightRange: { not: null } }, _count: { productId: true } }),
       this.prisma.product.groupBy({ by: ['brandId'], where: base, _count: { _all: true } }),
       this.prisma.productSpecialty.groupBy({ by: ['specialtyId'], where: { product: base }, _count: { _all: true } }),
-      this.prisma.productVariant.aggregate({ where: inStock, _min: { price: true }, _max: { price: true } }),
+      Promise.all([
+        this.prisma.productVariant.aggregate({ where: { ...inStock, salePrice: null }, _min: { price: true }, _max: { price: true } }),
+        this.prisma.productVariant.aggregate({ where: { ...inStock, salePrice: { not: null } }, _min: { salePrice: true }, _max: { salePrice: true } }),
+      ]).then(([a, b]) => {
+        const mins = [a._min.price, b._min.salePrice].filter((x): x is number => x != null);
+        const maxs = [a._max.price, b._max.salePrice].filter((x): x is number => x != null);
+        return { min: mins.length ? Math.min(...mins) : 0, max: maxs.length ? Math.max(...maxs) : 0 };
+      }),
       this.prisma.product.groupBy({ by: ['gender'], where: base, _count: { _all: true } }),
     ]);
     const [colorRows, brandRows, specRows] = await Promise.all([
@@ -249,7 +262,7 @@ export class CatalogService {
       colors: colorRows.map((c) => ({ id: c.id, name: c.name, hex: c.hex, count: colors.find((x) => x.colorId === c.id)!._count.productId })).sort(ru),
       brands: brandRows.map((b) => ({ slug: b.slug, name: b.name, count: brands.find((x) => x.brandId === b.id)!._count._all })).sort(ru),
       specialties: specRows.map((s) => ({ id: s.id, name: s.name, count: specialties.find((x) => x.specialtyId === s.id)!._count._all })).sort(ru),
-      price: { min: price._min.price ?? 0, max: price._max.price ?? 0 },
+      price,
     };
   }
 
@@ -262,13 +275,14 @@ export class CatalogService {
         supplier: true,
         specialties: { include: { specialty: true } },
         media: { where: { approved: true }, orderBy: [{ isMain: 'desc' }, { position: 'asc' }] },
-        variants: { include: { color: true } },
+        variants: { include: { color: true, salePromotion: true } },
         articles: { where: { article: { status: 'published' } }, include: { article: true }, take: 3 },
         collections: { where: { collection: { status: 'published' } }, include: { collection: { include: { _count: { select: { products: true } } } } }, take: 3 },
       },
     });
     if (!p) throw new NotFoundException({ message: 'Товар не найден или снят с продажи' });
     const variants = [...p.variants].sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
+    const promo = variants.find((v) => v.salePromotion)?.salePromotion;
     const recommended = fit ? { size: fit.sizeFor(p.category.slot), heightRange: fit.heightRange } : null;
     return {
       fits: fit ? fitsProduct(p, fit) : false,
@@ -295,7 +309,8 @@ export class CatalogService {
         thumbUrl: this.storage.publicUrl(m.type === 'photo' ? m.storageKey.replace(/\.webp$/, '_thumb.webp') : m.posterKey),
         posterUrl: this.storage.publicUrl(m.posterKey),
       })),
-      variants: variants.map((v) => ({ id: v.id, sku: v.sku, size: v.size, heightRange: v.heightRange, color: { id: v.color.id, name: v.color.name, hex: v.color.hex }, price: v.price, oldPrice: v.oldPrice, stock: v.stock })),
+      promo: promo ? { name: promo.name, badge: promo.badge, endsAt: promo.endsAt } : null,
+      variants: variants.map((v) => ({ id: v.id, sku: v.sku, size: v.size, heightRange: v.heightRange, color: { id: v.color.id, name: v.color.name, hex: v.color.hex }, ...shown(v), stock: v.stock })),
       articles: p.articles.map((a) => ({ slug: a.article.slug, title: a.article.title, lead: a.article.lead, coverUrl: this.storage.publicUrl(a.article.coverKey) })),
       collections: p.collections.map((c) => ({ slug: c.collection.slug, title: c.collection.title, coverUrl: this.storage.publicUrl(c.collection.coverKey), count: c.collection._count.products })),
     };
@@ -323,7 +338,15 @@ export class CatalogService {
   /** Главная (ТЗ §4.2): «Хиты недели» — пока свежие публикации; по продажам — после этапа 4. */
   async home(fit: FitContext | null = null) {
     const hits = await this.prisma.product.findMany({ where: visibleWhere(), orderBy: { publishedAt: 'desc' }, select: { id: true }, take: 15 });
-    return { hits: await this.cards(hits.map((h) => h.id), undefined, fit) };
+    // Раздел акций на главной (ТЗ §7.7): идущие акции с флагом onHomepage и их товары.
+    const now = new Date();
+    const promos = await this.prisma.promotion.findMany({ where: { onHomepage: true, startsAt: { lte: now }, endsAt: { gt: now } }, orderBy: { endsAt: 'asc' }, take: 2 });
+    const promotions = [];
+    for (const p of promos) {
+      const ids = await this.prisma.product.findMany({ where: { AND: [visibleWhere(), { variants: { some: { salePromotionId: p.id, stock: { gt: 0 } } } }] }, select: { id: true }, take: 8 });
+      if (ids.length) promotions.push({ name: p.name, badge: p.badge, description: p.description, endsAt: p.endsAt, items: await this.cards(ids.map((x) => x.id), undefined, fit) });
+    }
+    return { hits: await this.cards(hits.map((h) => h.id), undefined, fit), promotions };
   }
 
   /** Варианты для корзины гостя (ТЗ §6.1): актуальные цена и остаток. */
@@ -339,8 +362,7 @@ export class CatalogService {
       size: v.size,
       heightRange: v.heightRange,
       color: v.color.name,
-      price: v.price,
-      oldPrice: v.oldPrice,
+      ...shown(v),
       stock: v.stock,
       product: { slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, supplier: v.product.supplier.legalName, image: v.product.media[0] ? this.storage.publicUrl(v.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null },
     }));
@@ -357,16 +379,19 @@ export class CatalogService {
   }
 }
 
-function matchesVariant(v: { size: string; colorId: string; heightRange: string | null; price: number; oldPrice: number | null; stock: number }, w: Prisma.ProductVariantWhereInput) {
-  const inList = (cond: unknown, value: string | null) => !cond || ((cond as { in: string[] }).in ?? []).includes(value ?? '');
-  const price = w.price as { gte?: number; lte?: number } | undefined;
+type VariantFilter = { sizes?: string[]; colors?: string[]; heights?: string[]; from?: number; to?: number; sale?: boolean };
+const range = (from?: number, to?: number) => ({ ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) });
+
+function matchesVariant(v: { size: string; colorId: string; heightRange: string | null; price: number; oldPrice: number | null; salePrice: number | null; stock: number }, f: VariantFilter) {
+  const inList = (list: string[] | undefined, value: string | null) => !list?.length || list.includes(value ?? '');
+  const price = effective(v);
   return (
     v.stock > 0 &&
-    inList(w.size, v.size) &&
-    inList(w.colorId, v.colorId) &&
-    inList(w.heightRange, v.heightRange) &&
-    (!price?.gte || v.price >= price.gte) &&
-    (!price?.lte || v.price <= price.lte) &&
-    (!w.oldPrice || v.oldPrice != null)
+    inList(f.sizes, v.size) &&
+    inList(f.colors, v.colorId) &&
+    inList(f.heights, v.heightRange) &&
+    (!f.from || price >= f.from) &&
+    (!f.to || price <= f.to) &&
+    (!f.sale || v.oldPrice != null || v.salePrice != null)
   );
 }

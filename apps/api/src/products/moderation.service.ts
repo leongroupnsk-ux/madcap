@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { toRubles } from '@aesculap/shared';
 import type { User } from '@prisma/client';
@@ -16,6 +17,7 @@ export class ModerationService {
     private readonly media: MediaService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async queue() {
@@ -149,9 +151,8 @@ export class ModerationService {
     await this.notify(rev.product.supplierId, `Правки товара «${rev.product.title}» отклонены`, `Причина: ${reason}\nНа витрине осталась прежняя версия.`);
   }
 
-  /** Письмо владельцам поставщика; каналы и настройки событий — E5-02. */
-  private async notify(supplierId: string, subject: string, text: string) {
-    const owners = await this.prisma.supplierMember.findMany({ where: { supplierId, role: { in: ['owner', 'catalog'] } }, include: { user: true } });
-    for (const o of owners) await this.mail.send({ to: o.user.email, subject: `${subject} — ${config.brandName}`, text: `${text}\n\n${config.webOrigin}/supplier/products` });
+  /** Итоги модерации — в центр уведомлений, на почту и в Telegram по настройкам (ТЗ §7.9). */
+  private notify(supplierId: string, subject: string, text: string) {
+    return this.notifications.notify(supplierId, 'moderation', { title: subject, body: text, link: '/supplier/products' });
   }
 }

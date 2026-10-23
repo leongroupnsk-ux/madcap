@@ -8,9 +8,9 @@ export function ProductCard({ p, priority }: { p: Card; priority?: boolean }) {
   return (
     <Link href={`/product/${p.slug}`} className={s.card}>
       <div className={s.media}>
-        {(p.sale || p.fits) && (
+        {(p.sale || p.fits || p.promo) && (
           <div className={s.badges}>
-            {p.sale && <span className={s.badgeSale}>Распродажа</span>}
+            {p.promo ? <span className={s.badgeSale}>{p.promo}</span> : p.sale && <span className={s.badgeSale}>Распродажа</span>}
             {p.fits && <span className={s.badgeFit}>Подходит вам</span>}
           </div>
         )}

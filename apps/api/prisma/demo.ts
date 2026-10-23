@@ -5,6 +5,7 @@
  */
 import { PrismaClient, type Gender } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { repriceSales } from '../src/promotions/price';
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -171,6 +172,32 @@ async function main() {
       products: { create: pick((i) => i.specialties.some((s) => s.startsWith('Стоматолог'))).map((productId, position) => ({ productId, position })) },
     },
   });
+  // Акции: одна идёт (товары одобрены, цены снижены), вторая — в приёме заявок.
+  await prisma.promotion.deleteMany({ where: { slug: { in: ['nedelya-hirurga-demo', 'osenniy-stomatolog-demo'] } } });
+  const now = Date.now();
+  const running = await prisma.promotion.create({
+    data: {
+      name: 'Неделя хирурга', slug: 'nedelya-hirurga-demo', badge: 'Неделя хирурга', description: 'Скидки на хирургические костюмы и шапочки.',
+      minDiscountPct: 15, commissionBp: 800, onHomepage: true,
+      applyFrom: new Date(now - 10 * 86400_000), applyTo: new Date(now - 3 * 86400_000), startsAt: new Date(now - 2 * 86400_000), endsAt: new Date(now + 5 * 86400_000),
+    },
+  });
+  await prisma.promotion.create({
+    data: {
+      name: 'Осенний стоматолог', slug: 'osenniy-stomatolog-demo', badge: 'Осень −20%', description: 'Форма для стоматологии к сезону.',
+      minDiscountPct: 20, commissionBp: 800, onHomepage: true, newsletter: true,
+      applyFrom: new Date(now - 86400_000), applyTo: new Date(now + 6 * 86400_000), startsAt: new Date(now + 7 * 86400_000), endsAt: new Date(now + 21 * 86400_000),
+    },
+  });
+  const surgical = await prisma.product.findMany({ where: { id: { in: pick((i) => i.specialties.includes('Хирург')) } } });
+  for (const p of surgical) {
+    await prisma.promotionProduct.create({ data: { promotionId: running.id, productId: p.id, supplierId: p.supplierId, discountPct: 20, status: 'approved', decidedAt: new Date() } });
+  }
+  await repriceSales(prisma);
+
+  // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
+  await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
+
   console.log(`Демо: ${created.length} товаров, 2 статьи, 1 подборка. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }
 

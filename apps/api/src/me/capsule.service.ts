@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { BUDGETS, COLOR_TYPES, CapsuleSlot, heightRangeOf, type ColorType } from '@aesculap/shared';
 import { Prisma, type BuyerProfile, type User } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
+import { effective, shown } from '../promotions/price';
 import { StorageService } from '../common/storage.service';
 import { visibleWhere } from '../storefront/catalog.service';
 
@@ -61,7 +62,7 @@ export class CapsuleService {
       const size = this.sizeFor(p, slot);
       const variants = r.variants
         .filter((v) => (!size || v.size.toUpperCase() === size.toUpperCase()) && (!v.heightRange || !hr || v.heightRange === hr))
-        .map((v) => ({ id: v.id, colorId: v.colorId, family: v.color.colorFamily, price: v.price, size: v.size, heightRange: v.heightRange }));
+        .map((v) => ({ id: v.id, colorId: v.colorId, family: v.color.colorFamily, price: effective(v), size: v.size, heightRange: v.heightRange }));
       if (!variants.length) continue;
       bySlot.get(slot)!.push({
         productId: r.id, slot, title: r.title, specialtyIds: r.specialties.map((s) => s.specialtyId),
@@ -144,7 +145,7 @@ export class CapsuleService {
       const ranked = new Map(slots.map((slot) => [slot, this.ranked(bySlot.get(slot) ?? [], p, palette, main)]));
       const chosen = new Map<string, Pick | null>(slots.map((slot) => [slot, ranked.get(slot)![0] ?? null]));
       for (const pin of pinned.filter((x) => x.capsule.variantNo === variantNo && x.variantId && eligible.has(x.variantId))) {
-        chosen.set(pin.slot, { productId: pin.productId!, variantId: pin.variantId!, price: pin.variant!.price, colorId: pin.variant!.colorId, score: 99 });
+        chosen.set(pin.slot, { productId: pin.productId!, variantId: pin.variantId!, price: effective(pin.variant!), colorId: pin.variant!.colorId, score: 99 });
       }
       // Бюджет: пока не укладываемся — меняем самый дорогой незакреплённый слот на более дешёвую альтернативу.
       const total = () => [...chosen.values()].reduce((s, c) => s + (c?.price ?? 0), 0);
@@ -230,7 +231,7 @@ export class CapsuleService {
       alternatives: (it.alternatives as unknown[]).length,
       unavailable: !it.variant || it.variant.stock <= 0,
       product: it.product && { id: it.product.id, slug: it.product.slug, title: it.product.title, brand: it.product.brand.name, image: it.product.media[0] ? this.storage.publicUrl(it.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null },
-      variant: it.variant && { id: it.variant.id, size: it.variant.size, heightRange: it.variant.heightRange, color: it.variant.color.name, colorHex: it.variant.color.hex, price: it.variant.price, oldPrice: it.variant.oldPrice, stock: it.variant.stock },
+      variant: it.variant && { id: it.variant.id, size: it.variant.size, heightRange: it.variant.heightRange, color: it.variant.color.name, colorHex: it.variant.color.hex, ...shown(it.variant), stock: it.variant.stock },
     }));
     const available = items.filter((i) => i.variant && !i.unavailable);
     return {
@@ -258,7 +259,7 @@ export class CapsuleService {
       .map((v) => ({
         productId: v.productId, variantId: v.id, title: v.product.title, brand: v.product.brand.name, slug: v.product.slug,
         image: v.product.media[0] ? this.storage.publicUrl(v.product.media[0].storageKey.replace(/\.webp$/, '_thumb.webp')) : null,
-        color: v.color.name, colorHex: v.color.hex, size: v.size, price: v.price,
+        color: v.color.name, colorHex: v.color.hex, size: v.size, price: effective(v),
       }));
   }
 
@@ -274,7 +275,7 @@ export class CapsuleService {
     const alternatives = [...prev, ...(item.alternatives as { productId: string; variantId: string }[]).filter((a) => a.variantId !== variantId)].slice(0, ALTERNATIVES);
     await this.prisma.capsuleItem.update({ where: { id: item.id }, data: { productId: v.productId, variantId: v.id, pinned: true, alternatives } });
     const items = await this.prisma.capsuleItem.findMany({ where: { capsuleId: item.capsuleId }, include: { variant: true } });
-    await this.prisma.capsule.update({ where: { id: item.capsuleId }, data: { total: items.reduce((s, i) => s + (i.variant?.price ?? 0), 0) } });
+    await this.prisma.capsule.update({ where: { id: item.capsuleId }, data: { total: items.reduce((s, i) => s + (i.variant ? effective(i.variant) : 0), 0) } });
     return this.get(user, variantNo);
   }
 

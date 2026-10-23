@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Bell } from '@/components/supplier/Bell';
 import s from '@/components/supplier/cabinet.module.css';
 import { Sidebar } from '@/components/supplier/Sidebar';
 import { requireSupplier } from '@/lib/supplier-session';
@@ -27,12 +28,15 @@ export default async function CabinetLayout({ children }: { children: React.Reac
           {pay === 'active' ? (
             <span className={s.payOk}>✓ Выплаты подключены</span>
           ) : (
-            <span className={s.payWarn}>
-              Выплаты не подключены — товары не появятся на витрине до подключения ЮKassa (этап 4)
-            </span>
+            <Link href="/supplier/payouts" className={s.payWarn}>
+              {pay === 'in_review' ? 'Реквизиты на проверке ЮKassa — товары скрыты с витрины' : 'Выплаты не подключены — товары не появятся на витрине'}
+            </Link>
           )}
-          <span className={s.who} title={me.user.email}>
-            {me.supplier.legalName}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <Bell />
+            <span className={s.who} title={me.user.email}>
+              {me.supplier.legalName}
+            </span>
           </span>
         </div>
         <div className={s.content}>{children}</div>

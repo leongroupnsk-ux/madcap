@@ -10,7 +10,9 @@ import { serverApi } from '@/lib/server-api';
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const hits = (await serverApi<{ hits: Card[] }>('/catalog/home')).data?.hits ?? [];
+  const home = (await serverApi<{ hits: Card[]; promotions: { name: string; badge: string; description: string; endsAt: string; items: Card[] }[] }>('/catalog/home')).data;
+  const hits = home?.hits ?? [];
+  const promotions = home?.promotions ?? [];
   const collage = hits.filter((p) => p.images[0]).slice(0, 3);
   return (
     <>
@@ -47,6 +49,21 @@ export default async function HomePage() {
             </Link>
           </section>
         </div>
+
+        {promotions.map((pr) => (
+          <section key={pr.name} style={{ marginBottom: 40 }}>
+            <div className={s.sectionHead}>
+              <h2>
+                {pr.name} <span style={{ fontSize: 14, color: 'var(--c-sale)', fontFamily: 'var(--font-sans)' }}>до {new Date(pr.endsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span>
+              </h2>
+              <Link href="/catalog?sale=1" className={s.more}>
+                Все акции →
+              </Link>
+            </div>
+            {pr.description && <p style={{ color: 'var(--c-text-muted)', margin: '-8px 0 16px' }}>{pr.description}</p>}
+            <ProductGrid items={pr.items} />
+          </section>
+        ))}
 
         {hits.length > 0 && (
           <>

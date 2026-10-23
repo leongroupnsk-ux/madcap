@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ArticleSaveInput, CollectionSaveInput } from '@aesculap/shared';
 import type { Article, Collection, Supplier, User } from '@prisma/client';
@@ -36,6 +37,7 @@ export class ContentService {
     private readonly catalog: CatalogService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ─── обложки ─────────────────────────────────────────────────────────
@@ -184,9 +186,11 @@ export class ContentService {
     await this.audit.log(admin.id, `moderation.${kind}.${approve ? 'approve' : 'reject'}`, kind, id, { reason });
     const item = kind === 'article' ? await this.prisma.article.findUnique({ where: { id } }) : await this.prisma.collection.findUnique({ where: { id } });
     if (item?.supplierId) {
-      const members = await this.prisma.supplierMember.findMany({ where: { supplierId: item.supplierId, role: { in: ['owner', 'catalog'] } }, include: { user: true } });
-      const subject = approve ? `«${item.title}» опубликовано в журнале` : `«${item.title}» не прошло модерацию`;
-      for (const m of members) await this.mail.send({ to: m.user.email, subject: `${subject} — ${config.brandName}`, text: `${approve ? 'Материал виден в журнале.' : `Причина: ${reason}`}\n${config.webOrigin}/supplier/content` });
+      await this.notifications.notify(item.supplierId, 'moderation', {
+        title: approve ? `«${item.title}» опубликовано в журнале` : `«${item.title}» не прошло модерацию`,
+        body: approve ? 'Материал виден в журнале.' : `Причина: ${reason}`,
+        link: '/supplier/content',
+      });
     }
   }
 

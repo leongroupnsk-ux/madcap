@@ -1,4 +1,6 @@
+import { formatRub } from '@aesculap/shared';
 import Link from 'next/link';
+import { ActionOrders } from './ActionOrders';
 import { Badge } from '@/components/supplier/Badge';
 import s from '@/components/supplier/cabinet.module.css';
 import { ButtonLink } from '@/components/ui';
@@ -10,11 +12,17 @@ type Summary = {
   lastImport: { id: string; fileName: string | null; status: string; totalRows: number; newProducts: number; updates: number; errorRows: number; createdAt: string } | null;
 };
 
+type Counters = { fresh: number; overdue: number; toShip: number; returns: number; salesMonth: number; zeroInCapsules: number };
+
 export default async function DashboardPage() {
   const me = await requireSupplier();
   if (!me) return null;
   const canCatalog = me.role !== 'warehouse';
-  const summary = canCatalog ? (await serverApi<Summary>('/supplier/products/summary')).data : null;
+  const canOrders = me.role !== 'catalog';
+  const [summary, counters] = await Promise.all([
+    canCatalog ? serverApi<Summary>('/supplier/products/summary').then((r) => r.data) : null,
+    serverApi<Counters>('/supplier/orders/counters').then((r) => r.data),
+  ]);
   const setupNeeded = !me.supplier.warehouseAddress || !me.supplier.cdekCityCode;
   return (
     <>
@@ -35,30 +43,42 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {summary && (
-        <div className={s.tiles}>
-          <Link href="/supplier/products" className={s.tile}>
-            <span className={s.tileLabel}>Товаров</span>
-            <b>{summary.total}</b>
-            <span className={s.tileHint}>опубликовано: {summary.published}</span>
+      <div className={s.tiles}>
+        {canOrders && counters && (
+          <Link href="/supplier/orders?status=new" className={s.tile}>
+            <span className={s.tileLabel}>Новые заказы</span>
+            <b>{counters.fresh}</b>
+            <span className={s.tileHint} style={counters.overdue ? { color: 'var(--c-sale)' } : undefined}>
+              {counters.overdue ? `${counters.overdue} ждёт подтверждения больше суток` : counters.toShip ? `к отгрузке: ${counters.toShip}` : 'все обработаны'}
+            </span>
           </Link>
+        )}
+        {summary && (
           <Link href="/supplier/products?status=pending" className={s.tile}>
             <span className={s.tileLabel}>На модерации</span>
             <b>{summary.onModeration}</b>
             <span className={s.tileHint}>обычно до 24 часов</span>
           </Link>
+        )}
+        {summary && (
           <Link href="/supplier/products?status=out_of_stock" className={s.tile}>
             <span className={s.tileLabel}>Нулевые остатки</span>
             <b>{summary.zeroStock}</b>
-            <span className={s.tileHint}>опубликованные без наличия</span>
+            <span className={s.tileHint} style={counters?.zeroInCapsules ? { color: 'var(--c-sale)' } : undefined}>
+              {counters?.zeroInCapsules ? `${counters.zeroInCapsules} из них в капсулах покупателей` : 'в капсулах покупателей — нет'}
+            </span>
           </Link>
-          <div className={s.tile}>
-            <span className={s.tileLabel}>Новые заказы</span>
-            <b>—</b>
-            <span className={s.tileHint}>заказы появятся на этапе 4</span>
-          </div>
-        </div>
-      )}
+        )}
+        {counters && me.role === 'owner' && (
+          <Link href="/supplier/payouts" className={s.tile}>
+            <span className={s.tileLabel}>Продажи за месяц</span>
+            <b>{formatRub(counters.salesMonth)}</b>
+            <span className={s.tileHint}>сумма товаров за вычетом возвратов</span>
+          </Link>
+        )}
+      </div>
+
+      {canOrders && <ActionOrders />}
 
       {canCatalog && (
         <section className={s.panel}>

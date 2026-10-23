@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Inject, Injectable, Logger, Not
 import { CANCELLABLE_SHIPMENT, RETURN_DAYS, formatRub, plural, type AddressInput, type CartLineInput, type CheckoutInput } from '@aesculap/shared';
 import { Prisma, type Order, type Shipment, type ShipmentItem, type ShipmentStatus, type Supplier, type User } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
@@ -15,6 +16,8 @@ type FullShipment = Shipment & { items: ShipmentItem[]; supplier: Supplier };
 type FullOrder = Order & { shipments: FullShipment[] };
 
 const commissionOf = (goods: number, bp: number) => Math.round((goods * bp) / 10000);
+/** Комиссия по позициям: у акционных — льготная ставка акции (ТЗ §7.7) */
+const commissionOfLines = (lines: { price: number; qty: number; commissionBp: number }[]) => lines.reduce((s, l) => s + commissionOf(l.price * l.qty, l.commissionBp), 0);
 
 export function addressLine(a: AddressInput) {
   if (a.type === 'pvz') return `${a.city}, ${a.pvzAddress ?? a.pvzCode} (${a.pvzCode})`;
@@ -33,6 +36,7 @@ export class OrdersService {
     private readonly mail: MailService,
     private readonly storage: StorageService,
     @Inject(PAYMENTS_PROVIDER) readonly payments: PaymentsProvider,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ─── оформление ──────────────────────────────────────────────────────
@@ -119,11 +123,12 @@ export class OrdersService {
               eta: new Date(now.getTime() + p.periodMax * DAY),
               goodsTotal: p.goods,
               commissionBp: p.supplier.commissionBp,
-              commission: commissionOf(p.goods, p.supplier.commissionBp),
+              commission: commissionOfLines(p.items),
               items: {
                 create: p.items.map((l) => ({
                   variantId: l.variantId, productSlug: l.product.slug, title: l.product.title, brand: l.product.brand, sku: l.sku, size: l.size,
                   heightRange: l.heightRange, color: l.color, imageKey: l.product.imageKey, price: l.price, qty: l.qty, fromCapsule: l.fromCapsule, weightG: l.weightG ?? 400,
+                  commissionBp: l.commissionBp, promotionId: l.promotionId,
                 })),
               },
               events: { create: { status: 'awaiting_payment', note: 'Заказ оформлен' } },
@@ -135,6 +140,7 @@ export class OrdersService {
     });
 
     if (input.saveAddresses) await this.saveAddresses(user.id, Object.values(input.delivery));
+    await this.notifyZeroStock(checked.map((l) => l.variantId));
     if (!user.phone) await this.prisma.user.update({ where: { id: user.id }, data: { phone: input.recipient.phone } });
     await this.prisma.cartItem.deleteMany({ where: { userId: user.id } });
 
@@ -152,6 +158,21 @@ export class OrdersService {
     for (const a of list) {
       const dup = existing.some((e) => e.type === a.type && e.cityCode === a.cityCode && (a.type === 'pvz' ? e.pvzCode === a.pvzCode : e.street === a.street && (e.flat ?? '') === (a.flat ?? '')));
       if (!dup) existing.push(await this.prisma.address.create({ data: { userId, ...a } }));
+    }
+  }
+
+  /** Остаток 0 у товара, который стоит в капсулах покупателей (ТЗ §7.9) */
+  private async notifyZeroStock(variantIds: string[]) {
+    const empty = await this.prisma.productVariant.findMany({
+      where: { id: { in: variantIds }, stock: 0, capsuleItems: { some: {} } },
+      include: { product: true, _count: { select: { capsuleItems: true } } },
+    });
+    for (const v of empty) {
+      await this.notifications.notify(v.product.supplierId, 'capsule_zero_stock', {
+        title: `Закончился ${v.product.title}, ${v.size}`,
+        body: `Вариант ${v.sku} стоит в капсулах покупателей: ${v._count.capsuleItems}. Пополните остаток, иначе капсулы подберут замену.`,
+        link: `/supplier/products/${v.productId}`,
+      });
     }
   }
 
@@ -275,14 +296,11 @@ export class OrdersService {
         `Детали: ${config.webOrigin}/account/orders/${order.number}`,
     });
     for (const s of order.shipments) {
-      const members = await this.prisma.supplierMember.findMany({ where: { supplierId: s.supplierId, role: { in: ['owner', 'warehouse'] } }, include: { user: true } });
-      for (const m of members) {
-        await this.mail.send({
-          to: m.user.email,
-          subject: `Новый заказ № ${order.number}-${s.no}`,
-          text: `Оплачено отправление № ${order.number}-${s.no} на ${formatRub(s.goodsTotal)}. Подтвердите его в течение ${config.orders.confirmHours} ч: ${config.webOrigin}/supplier/orders/${s.id}`,
-        });
-      }
+      await this.notifications.notify(s.supplierId, 'order_paid', {
+        title: `Новый заказ № ${order.number}-${s.no}`,
+        body: `Оплачено отправление на ${formatRub(s.goodsTotal)}: ${s.items.map((i) => `${i.title}, ${i.size} × ${i.qty}`).join('; ')}. Подтвердите его в течение ${config.orders.confirmHours} ч.`,
+        link: `/supplier/orders/${s.id}`,
+      });
     }
   }
 
@@ -345,7 +363,7 @@ export class OrdersService {
   async refund(s: Shipment & { supplier: Supplier; order: Order }, lines: { item: ShipmentItem; qty: number }[], withDelivery: boolean, reason: string, key: string) {
     if (await this.prisma.refund.findUnique({ where: { idempotenceKey: key } })) return;
     const goods = lines.reduce((sum, l) => sum + l.item.price * l.qty, 0);
-    const commission = commissionOf(goods, s.commissionBp);
+    const commission = commissionOfLines(lines.map((l) => ({ price: l.item.price, qty: l.qty, commissionBp: l.item.commissionBp })));
     const amount = goods + (withDelivery ? s.deliveryPrice : 0);
     const res = await this.payments.createRefund({
       idempotenceKey: key,
@@ -473,9 +491,23 @@ export class OrdersService {
       select: { id: true },
       take: 100,
     });
+    // За сутки без подтверждения — напоминание поставщику, один раз.
+    const overdue = await this.prisma.shipment.findMany({
+      where: { status: 'new', overdueNotifiedAt: null, paidAt: { lt: new Date(now.getTime() - 24 * 3600000), gt: new Date(now.getTime() - config.orders.confirmHours * 3600000) } },
+      include: { order: true },
+      take: 100,
+    });
+    for (const s of overdue) {
+      await this.prisma.shipment.update({ where: { id: s.id }, data: { overdueNotifiedAt: now } });
+      await this.notifications.notify(s.supplierId, 'order_overdue', {
+        title: `Заказ № ${s.order.number}-${s.no} ждёт подтверждения больше суток`,
+        body: `Если не подтвердить его за ${config.orders.confirmHours} ч с момента оплаты, заказ отменится и деньги вернутся покупателю.`,
+        link: `/supplier/orders/${s.id}`,
+      });
+    }
     for (const s of stale) {
       await this.cancelShipment(s.id, 'cancelled', `Поставщик не подтвердил заказ за ${config.orders.confirmHours} ч`).catch((e) => this.logger.error(`autocancel ${s.id}: ${e.message}`));
     }
-    return { expired: expired.length, autoCancelled: stale.length };
+    return { expired: expired.length, autoCancelled: stale.length, overdue: overdue.length };
   }
 }

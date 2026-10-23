@@ -67,6 +67,11 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         <span className={p.price}>{formatRub(price)}</span>
         {oldPrice && <span className={p.old}>{formatRub(oldPrice)}</span>}
       </div>
+      {product.promo && (
+        <div style={{ color: 'var(--c-sale)', fontSize: 14, marginTop: -6 }}>
+          Акция «{product.promo.badge}» — цена действует до {new Date(product.promo.endsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+        </div>
+      )}
 
       <div>
         <div className={p.label}>

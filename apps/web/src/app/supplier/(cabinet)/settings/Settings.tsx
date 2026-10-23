@@ -3,6 +3,7 @@
 import { MEMBER_ROLE_LABEL, supplierSettingsSchema } from '@aesculap/shared';
 import { useState } from 'react';
 import { useForm } from '@/components/auth/useForm';
+import { NotificationSettings } from './NotificationSettings';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
@@ -20,16 +21,11 @@ export function Settings({ me, initialMembers }: { me: SupplierMe; initialMember
           <h1>Настройки</h1>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16, alignItems: 'start' }}>
         {owner && <ProfileForm me={me} />}
         {owner && <Members initial={initialMembers} />}
         <Security enabled={me.user.totpEnabled} email={me.user.email} />
-        <section className={s.panel}>
-          <h2>Уведомления</h2>
-          <p className={s.muted}>
-            Сейчас письма приходят на почту владельца и сотрудников каталога: итоги модерации и отчёты импорта. Telegram и выбор событий — этап 5.
-          </p>
-        </section>
+        <NotificationSettings />
       </div>
     </>
   );

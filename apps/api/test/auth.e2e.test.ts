@@ -27,6 +27,7 @@ describe('auth', () => {
   });
 
   beforeEach(async () => {
+    await prisma.order.deleteMany();
     await prisma.user.deleteMany();
     await app.get(RedisService).client.flushdb();
     mail.sent.length = 0;
