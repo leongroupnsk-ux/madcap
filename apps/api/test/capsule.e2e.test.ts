@@ -16,9 +16,10 @@ describe('анкета, фото и капсула', () => {
     app = await bootApp();
     prisma = app.get(PrismaService);
   });
+  let admin: Agent;
   beforeEach(async () => {
     await resetDb(app);
-    const admin = await makeUser(app, 'admin@example.ru', 'admin');
+    admin = await makeUser(app, 'admin@example.ru', 'admin');
     ({ supplierId } = await makeSupplier(app, admin, 'owner@sup.ru', '7707083893'));
     await prisma.supplier.update({ where: { id: supplierId }, data: { payoutStatus: 'active' } });
     for (const [slug, name, slot] of [['topy', 'Топы', 'top'], ['bryuki', 'Брюки', 'pants'], ['obuv', 'Обувь', 'shoes'], ['golovnye-ubory', 'Головные уборы', 'accessory']] as const) {
@@ -166,5 +167,31 @@ describe('анкета, фото и капсула', () => {
     const page = (await buyer.get(`/api/catalog/products/${fit.slug}`)).body;
     expect(page).toMatchObject({ fits: true, recommended: { size: 'M', heightRange: '170–176' } });
     expect((await buyer.get('/api/auth/me')).body.user.hasCapsule).toBe(true);
+  });
+
+  it('админка «Подбор»: веса меняют выбор, пробный прогон без записи в базу', async () => {
+    await product('Топ для специальности', 'topy', 'Терракота', 2500, { specs: [spec.id], treatment: '' });
+    await product('Топ по палитре', 'topy', 'Лаванда', 2500, { specs: [otherSpec.id] });
+    await product('Брюки', 'bryuki', 'Белый', 2300, { sizes: ['L'] });
+    const quiz = { gender: 'female', heightCm: 172, sizeTop: 'M', sizeBottom: 'L', colorType: 'summer', budgetRange: 'gt25', specialtyIds: [spec.id] };
+    const topOf = (r: { body: { variants: { items: { slot: string; title: string | null }[] }[] } }) => r.body.variants[0].items.find((i) => i.slot === 'top')!.title;
+
+    const def = await admin.post('/api/admin/capsule/try').set('Origin', ORIGIN).send(quiz).expect(200);
+    expect(topOf(def)).toBe('Топ для специальности');
+    expect(def.body.ms).toBeLessThan(2000);
+    // Вес палитры выше специальности — побеждает цвет
+    const w = (await admin.get('/api/admin/capsule/weights')).body;
+    expect(w.specialtyMatch).toBe(3);
+    const heavy = { ...w, palette: 8, specialtyOther: 0 };
+    expect(topOf(await admin.post('/api/admin/capsule/try').set('Origin', ORIGIN).send({ ...quiz, weights: heavy }).expect(200))).toBe('Топ по палитре');
+    expect(await prisma.capsule.count()).toBe(0);
+
+    // Сохранённые веса применяются к сборке покупателя
+    expect((await admin.put('/api/admin/capsule/weights').set('Origin', ORIGIN).send({ ...w, palette: 20 })).status).toBe(400);
+    await admin.put('/api/admin/capsule/weights').set('Origin', ORIGIN).send(heavy).expect(200);
+    await fillQuiz(buyer, { complete: true });
+    const cap = (await buyer.get('/api/me/capsule')).body;
+    expect(cap.items.find((i: { slot: string }) => i.slot === 'top').product.title).toBe('Топ по палитре');
+    expect((await buyer.get('/api/admin/capsule/weights')).status).toBe(403);
   });
 });

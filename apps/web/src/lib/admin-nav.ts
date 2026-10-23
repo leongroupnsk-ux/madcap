@@ -9,6 +9,7 @@ export const NAV: { href: string; label: string; area: StaffArea }[] = [
   { href: '/admin/storefront', label: 'Витрина', area: 'catalog' },
   { href: '/admin/editorial', label: 'Журнал редакции', area: 'editorial' },
   { href: '/admin/dictionaries', label: 'Справочники', area: 'catalog' },
+  { href: '/admin/capsule', label: 'Подбор', area: 'catalog' },
   { href: '/admin/promotions', label: 'Акции', area: 'promotions' },
   { href: '/admin/payouts', label: 'Выплаты поставщиков', area: 'payouts' },
   { href: '/admin/users', label: 'Пользователи', area: 'users' },

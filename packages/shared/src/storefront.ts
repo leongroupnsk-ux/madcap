@@ -31,3 +31,37 @@ export const DEFAULT_STOREFRONT: StorefrontSettings = {
   hitsProductIds: [],
   capsuleOfWeek: { title: '', text: '', productIds: [] },
 };
+
+/** Веса оценки подбора капсулы (ТЗ §8: «Подбор — веса скоринга»). По умолчанию — значения v1 */
+export const CAPSULE_WEIGHTS = {
+  specialtyMatch: { label: 'Товар для специальности покупателя', def: 3 },
+  specialtyNone: { label: 'Товар без привязки к специальностям', def: 0.5 },
+  specialtyOther: { label: 'Товар для другой специальности', def: -1 },
+  antibacterial: { label: 'Антибактериальная обработка', def: 1 },
+  washing60: { label: 'Стирка при 60°', def: 0.5 },
+  palette: { label: 'Цвет из палитры цветотипа', def: 2 },
+  gownLight: { label: 'Светлый халат', def: 1.5 },
+  sameColorTopPants: { label: 'Топ и брюки в основном цвете', def: 3 },
+  sameColorAccessory: { label: 'Аксессуар в основном цвете', def: 2 },
+} as const;
+export type CapsuleWeightKey = keyof typeof CAPSULE_WEIGHTS;
+export type CapsuleWeights = Record<CapsuleWeightKey, number>;
+export const DEFAULT_CAPSULE_WEIGHTS = Object.fromEntries(Object.entries(CAPSULE_WEIGHTS).map(([k, v]) => [k, v.def])) as CapsuleWeights;
+export const capsuleWeightsSchema = z.object(
+  Object.fromEntries(Object.keys(CAPSULE_WEIGHTS).map((k) => [k, z.coerce.number().min(-10, 'От −10').max(10, 'До 10')])) as Record<CapsuleWeightKey, z.ZodNumber>,
+);
+
+/** Пробный прогон подбора в админке: анкета без сохранения (ТЗ §8) */
+export const capsuleTrySchema = z.object({
+  gender: z.enum(['female', 'male']),
+  heightCm: z.coerce.number().int().min(140).max(210),
+  sizeTop: z.string().min(1),
+  sizeBottom: z.string().nullable().optional(),
+  sizeShoes: z.string().nullable().optional(),
+  colorType: z.enum(['spring', 'summer', 'autumn', 'winter']).nullable().optional(),
+  budgetRange: z.string().nullable().optional(),
+  specialtyIds: z.array(z.string().uuid()).min(1, 'Выберите специальность').max(10),
+  /** Веса для прогона; без них — сохранённые */
+  weights: capsuleWeightsSchema.optional(),
+});
+export type CapsuleTry = z.infer<typeof capsuleTrySchema>;

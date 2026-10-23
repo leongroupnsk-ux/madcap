@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { BUDGETS, COLOR_TYPES, CapsuleSlot, heightRangeOf, type ColorType } from '@aesculap/shared';
+import { BUDGETS, COLOR_TYPES, CapsuleSlot, heightRangeOf, type CapsuleWeights, type ColorType } from '@aesculap/shared';
 import { Prisma, type BuyerProfile, type User } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { effective, shown } from '../promotions/price';
+import { SettingsService } from '../common/settings.service';
 import { StorageService } from '../common/storage.service';
 import { visibleWhere } from '../storefront/catalog.service';
 import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
@@ -16,7 +17,7 @@ const NEUTRAL_LIGHT = 'neutral-light';
 const MAX_VARIANTS = 3;
 const ALTERNATIVES = 4;
 
-type Profile = BuyerProfile & { specialties: { specialtyId: string }[] };
+export type Profile = BuyerProfile & { specialties: { specialtyId: string }[] };
 type Candidate = {
   productId: string;
   slot: string;
@@ -38,6 +39,7 @@ export class CapsuleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly settings: SettingsService,
   ) {}
 
   private async profile(userId: string): Promise<Profile | null> {
@@ -76,32 +78,32 @@ export class CapsuleService {
     return bySlot;
   }
 
-  private baseScore(c: Candidate, p: Profile): number {
+  private baseScore(c: Candidate, p: Profile, w: CapsuleWeights): number {
     const mine = new Set(p.specialties.map((s) => s.specialtyId));
     let score = 0;
-    if (c.specialtyIds.some((id) => mine.has(id))) score += 3;
-    else if (!c.specialtyIds.length) score += 0.5;
-    else score -= 1;
-    if (c.treatment.includes('антибакт')) score += 1;
-    if (c.washing.includes('60')) score += 0.5;
+    if (c.specialtyIds.some((id) => mine.has(id))) score += w.specialtyMatch;
+    else if (!c.specialtyIds.length) score += w.specialtyNone;
+    else score += w.specialtyOther;
+    if (c.treatment.includes('антибакт')) score += w.antibacterial;
+    if (c.washing.includes('60')) score += w.washing60;
     return score;
   }
 
-  private colorScore(family: string, palette: readonly string[], slot: string, mainColor: string | null, colorId: string): number {
-    let s = palette.includes(family) ? 2 : 0;
-    if (slot === 'gown' && family === NEUTRAL_LIGHT) s += 1.5;
-    if (mainColor && colorId === mainColor && (slot === 'top' || slot === 'pants')) s += 3;
-    if (mainColor && colorId === mainColor && slot === 'accessory') s += 2;
+  private colorScore(family: string, palette: readonly string[], slot: string, mainColor: string | null, colorId: string, w: CapsuleWeights): number {
+    let s = palette.includes(family) ? w.palette : 0;
+    if (slot === 'gown' && family === NEUTRAL_LIGHT) s += w.gownLight;
+    if (mainColor && colorId === mainColor && (slot === 'top' || slot === 'pants')) s += w.sameColorTopPants;
+    if (mainColor && colorId === mainColor && slot === 'accessory') s += w.sameColorAccessory;
     return s;
   }
 
   /** Лучший вариант каждого товара слота при заданном основном цвете, по убыванию оценки. */
-  private ranked(cands: Candidate[], p: Profile, palette: readonly string[], mainColor: string | null): Pick[] {
+  private ranked(cands: Candidate[], p: Profile, palette: readonly string[], mainColor: string | null, w: CapsuleWeights): Pick[] {
     return cands
       .map((c) => {
-        const base = this.baseScore(c, p);
+        const base = this.baseScore(c, p, w);
         const best = c.variants
-          .map((v) => ({ productId: c.productId, variantId: v.id, price: v.price, colorId: v.colorId, score: base + this.colorScore(v.family, palette, c.slot, mainColor, v.colorId) }))
+          .map((v) => ({ productId: c.productId, variantId: v.id, price: v.price, colorId: v.colorId, score: base + this.colorScore(v.family, palette, c.slot, mainColor, v.colorId, w) }))
           .sort((a, b) => b.score - a.score || a.price - b.price)[0];
         return best;
       })
@@ -109,13 +111,13 @@ export class CapsuleService {
   }
 
   /** Основные цвета для вариантов — цвета, в которых есть и топ, и брюки, с лучшими оценками. */
-  private mainColors(bySlot: Map<string, Candidate[]>, p: Profile, palette: readonly string[]): (string | null)[] {
+  private mainColors(bySlot: Map<string, Candidate[]>, p: Profile, palette: readonly string[], w: CapsuleWeights): (string | null)[] {
     const score = new Map<string, number>();
     for (const slot of ['top', 'pants']) {
       for (const c of bySlot.get(slot) ?? []) {
-        const base = this.baseScore(c, p);
+        const base = this.baseScore(c, p, w);
         for (const v of c.variants) {
-          const s = base + this.colorScore(v.family, palette, slot, null, v.colorId) + (slot === 'pants' ? 0.1 : 0);
+          const s = base + this.colorScore(v.family, palette, slot, null, v.colorId, w) + (slot === 'pants' ? 0.1 : 0);
           score.set(`${slot}:${v.colorId}`, Math.max(score.get(`${slot}:${v.colorId}`) ?? -99, s));
         }
       }
@@ -131,22 +133,31 @@ export class CapsuleService {
   async build(userId: string) {
     const p = await this.profile(userId);
     if (!p?.quizCompletedAt) throw new BadRequestException({ message: 'Сначала пройдите анкету' });
+    await this.compute(p, userId, await this.settings.capsuleWeights());
+  }
+
+  /**
+   * Расчёт капсулы. userId — сохранить у покупателя (с учётом закреплённых замен);
+   * null — пробный прогон анкеты из админки без записи в базу (ТЗ §8).
+   */
+  async compute(p: Profile, userId: string | null, w: CapsuleWeights) {
+    const results: { variantNo: number; total: number; overBudget: boolean; explanations: string[]; items: { slot: string; productId: string | null; variantId: string | null; price: number | null; score: number | null }[] }[] = [];
     const specRules = await this.prisma.specialty.findMany({ where: { id: { in: p.specialties.map((s) => s.specialtyId) } } });
     const ruleSlots = specRules.flatMap((s) => ((s.rules as { slots?: string[] } | null)?.slots ?? []));
     const slots = ruleSlots.length ? [...new Set(ruleSlots)] : DEFAULT_SLOTS;
     const palette = p.colorType ? COLOR_TYPES[p.colorType as ColorType].families : [];
     const budget = BUDGETS.find((b) => b.id === p.budgetRange)?.max ?? null;
     const bySlot = await this.candidates(p, slots);
-    const pinned = await this.prisma.capsuleItem.findMany({ where: { capsule: { userId }, pinned: true }, include: { capsule: true, variant: true } });
+    const pinned = userId ? await this.prisma.capsuleItem.findMany({ where: { capsule: { userId }, pinned: true }, include: { capsule: true, variant: true } }) : [];
 
     // Закреплённая вещь остаётся, только если всё ещё проходит жёсткие фильтры (размер, ростовка, наличие).
     const eligible = new Set([...bySlot.values()].flatMap((cs) => cs.flatMap((c) => c.variants.map((v) => v.id))));
-    const mains = this.mainColors(bySlot, p, palette);
-    await this.prisma.capsule.deleteMany({ where: { userId, variantNo: { gt: mains.length } } });
+    const mains = this.mainColors(bySlot, p, palette, w);
+    if (userId) await this.prisma.capsule.deleteMany({ where: { userId, variantNo: { gt: mains.length } } });
 
     for (const [i, main] of mains.entries()) {
       const variantNo = i + 1;
-      const ranked = new Map(slots.map((slot) => [slot, this.ranked(bySlot.get(slot) ?? [], p, palette, main)]));
+      const ranked = new Map(slots.map((slot) => [slot, this.ranked(bySlot.get(slot) ?? [], p, palette, main, w)]));
       const chosen = new Map<string, Pick | null>(slots.map((slot) => [slot, ranked.get(slot)![0] ?? null]));
       for (const pin of pinned.filter((x) => x.capsule.variantNo === variantNo && x.variantId && eligible.has(x.variantId))) {
         chosen.set(pin.slot, { productId: pin.productId!, variantId: pin.variantId!, price: effective(pin.variant!), colorId: pin.variant!.colorId, score: 99 });
@@ -187,6 +198,14 @@ export class CapsuleService {
       });
       const explanations = await this.explain(p, [...chosen.values()].filter((c): c is Pick => !!c), chosen, palette.length > 0, budget, overBudget);
       if (dropped.length) explanations.push(`Чтобы уложиться в бюджет, без: ${dropped.map((d) => SLOT_LABEL[d]?.toLowerCase() ?? d).join(', ')} — их можно добавить вручную`);
+      results.push({
+        variantNo, total: total(), overBudget, explanations,
+        items: slots.map((slot) => {
+          const c = chosen.get(slot) ?? null;
+          return { slot, productId: c?.productId ?? null, variantId: c?.variantId ?? null, price: c?.price ?? null, score: c ? Math.round(c.score * 10) / 10 : null };
+        }),
+      });
+      if (!userId) continue;
       await this.prisma.$transaction(async (tx) => {
         const capsule = await tx.capsule.upsert({
           where: { userId_variantNo: { userId, variantNo } },
@@ -197,6 +216,7 @@ export class CapsuleService {
         await tx.capsuleItem.createMany({ data: items.map((it) => ({ ...it, capsuleId: capsule.id })) });
       });
     }
+    return results;
   }
 
   private async explain(p: Profile, picks: Pick[], chosen: Map<string, Pick | null>, hasPalette: boolean, budget: number | null, overBudget: boolean): Promise<string[]> {

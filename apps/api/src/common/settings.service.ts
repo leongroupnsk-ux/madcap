@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DEFAULT_STOREFRONT, type PlatformSettings, type StorefrontSettings } from '@aesculap/shared';
+import { DEFAULT_CAPSULE_WEIGHTS, DEFAULT_STOREFRONT, type CapsuleWeights, type PlatformSettings, type StorefrontSettings } from '@aesculap/shared';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 
@@ -48,5 +48,16 @@ export class SettingsService {
   async setStorefront(value: StorefrontSettings, actorId: string) {
     await this.prisma.platformSetting.upsert({ where: { key: 'storefront' }, update: { value, updatedBy: actorId }, create: { key: 'storefront', value, updatedBy: actorId } });
     return this.storefront();
+  }
+
+  /** Веса подбора капсулы (ТЗ §8) */
+  async capsuleWeights(): Promise<CapsuleWeights> {
+    const row = await this.prisma.platformSetting.findUnique({ where: { key: 'capsule' } });
+    return { ...DEFAULT_CAPSULE_WEIGHTS, ...((row?.value as Partial<CapsuleWeights> | undefined) ?? {}) };
+  }
+
+  async setCapsuleWeights(value: CapsuleWeights, actorId: string) {
+    await this.prisma.platformSetting.upsert({ where: { key: 'capsule' }, update: { value, updatedBy: actorId }, create: { key: 'capsule', value, updatedBy: actorId } });
+    return this.capsuleWeights();
   }
 }
