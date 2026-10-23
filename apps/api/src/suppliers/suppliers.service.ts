@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CONSENT_VERSIONS, type SupplierApplicationInput, type SupplierSettingsInput } from '@aesculap/shared';
+import { type SupplierApplicationInput, type SupplierSettingsInput } from '@aesculap/shared';
 import type { Supplier, SupplierMemberRole, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuthService } from '../auth/auth.service';
+import { LegalService } from '../common/legal.service';
 import { SettingsService } from '../common/settings.service';
 import { AuditService } from '../common/audit.service';
 import { newToken } from '../common/crypto';
@@ -20,6 +21,7 @@ export class SuppliersService {
     private readonly limits: RateLimitService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
+    private readonly legal: LegalService,
   ) {}
 
   async apply(input: SupplierApplicationInput, ip: string) {
@@ -38,7 +40,7 @@ export class SuppliersService {
     await this.mail.send({
       to: input.email,
       subject: `Заявка на подключение получена — ${config.brandName}`,
-      text: `Здравствуйте, ${input.contactName}!\nМы получили заявку компании «${input.company}». Менеджер свяжется с вами в течение 2 часов в рабочее время.\nСогласие на обработку данных: версия ${CONSENT_VERSIONS.pdn}.`,
+      text: `Здравствуйте, ${input.contactName}!\nМы получили заявку компании «${input.company}». Менеджер свяжется с вами в течение 2 часов в рабочее время.\nСогласие на обработку данных: версия ${await this.legal.consentVersion('pdn')}.`,
     });
     return { id: app.id };
   }

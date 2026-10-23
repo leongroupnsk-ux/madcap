@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { BUDGETS, COLOR_TYPES, CONSENT_VERSIONS, MAX_PROFILE_PHOTOS, bodyTypeOf, colorTypeOf, heightRangeOf, type ProfileUpdate } from '@aesculap/shared';
+import { BUDGETS, COLOR_TYPES, MAX_PROFILE_PHOTOS, bodyTypeOf, colorTypeOf, heightRangeOf, type ProfileUpdate } from '@aesculap/shared';
 import type { BuyerProfile, ConsentType, PhotoAngle, User } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { AuditService } from '../common/audit.service';
+import { LegalService } from '../common/legal.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 
@@ -15,6 +16,7 @@ export class ProfileService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly legal: LegalService,
   ) {}
 
   private async ensure(userId: string) {
@@ -90,7 +92,7 @@ export class ProfileService {
       if (!granted) throw new BadRequestException({ message: 'Отзыв согласия на обработку ПДн — это удаление аккаунта. Напишите в поддержку.' });
     }
     const active = await this.prisma.consent.findFirst({ where: { userId: user.id, type, revokedAt: null } });
-    if (granted && !active) await this.prisma.consent.create({ data: { userId: user.id, type, version: CONSENT_VERSIONS[type], ip } });
+    if (granted && !active) await this.prisma.consent.create({ data: { userId: user.id, type, version: await this.legal.consentVersion(type), ip } });
     if (!granted && active) {
       await this.prisma.consent.updateMany({ where: { userId: user.id, type, revokedAt: null }, data: { revokedAt: new Date() } });
       if (type === 'photos') await this.deleteAllPhotos(user);

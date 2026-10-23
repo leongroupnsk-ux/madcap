@@ -1106,3 +1106,19 @@ model PlatformSetting {
 
   @@map("platform_settings")
 }
+
+/// Версии юридических текстов из админки (ТЗ §8, §11). Не редактируются — каждая правка новая версия;
+/// пока версий нет, сайт показывает черновик из кода.
+model LegalVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String
+  version     Int
+  title       String
+  html        String
+  note        String   @default("")
+  publishedBy String   @db.Uuid
+  publishedAt DateTime @default(now())
+
+  @@unique([slug, version])
+  @@map("legal_versions")
+}

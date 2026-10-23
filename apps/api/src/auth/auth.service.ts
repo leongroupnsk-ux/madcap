@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthTokenType, type User } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { CONSENT_VERSIONS, type LoginInput, type RegisterInput } from '@aesculap/shared';
+import { type LoginInput, type RegisterInput } from '@aesculap/shared';
+import { LegalService } from '../common/legal.service';
 import { PrismaService } from '../common/prisma.service';
 import { MailService } from '../common/mail.service';
 import { RateLimitService } from '../common/rate-limit.service';
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly limits: RateLimitService,
+    private readonly legal: LegalService,
   ) {}
 
   async register(input: RegisterInput, ip: string): Promise<User> {
@@ -42,8 +44,8 @@ export class AuthService {
         passwordHash: await argon2.hash(input.password, { type: argon2.argon2id }),
         consents: {
           create: [
-            { type: 'pdn', version: CONSENT_VERSIONS.pdn, ip },
-            { type: 'offer', version: CONSENT_VERSIONS.offer, ip },
+            { type: 'pdn', version: await this.legal.consentVersion('pdn'), ip },
+            { type: 'offer', version: await this.legal.consentVersion('offer'), ip },
           ],
         },
       },

@@ -36,6 +36,7 @@ export async function resetDb(app: INestApplication) {
   await prisma.article.deleteMany();
   await prisma.collection.deleteMany();
   await prisma.platformSetting.deleteMany();
+  await prisma.legalVersion.deleteMany();
   app.get(SettingsService).invalidate();
   await prisma.importJob.deleteMany();
   await prisma.productRevision.deleteMany();
