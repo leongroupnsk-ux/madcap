@@ -168,7 +168,7 @@ async function main() {
           await prisma.productVariant.create({
             data: {
               productId: p.id, sku: `DM-${n + 1}-${String(i).padStart(2, '0')}-${size}`, size, heightRange: h, colorId: c.id,
-              price: item.price * 100, oldPrice: item.oldPrice ? item.oldPrice * 100 : null, stock: (i * 7 + 3) % 13, weightG: 600, lengthMm: 300, widthMm: 250, heightMm: 50,
+              price: item.price * 100, oldPrice: item.oldPrice ? item.oldPrice * 100 : null, stock: 2 + ((i * 7 + 3) % 11), weightG: 600, lengthMm: 300, widthMm: 250, heightMm: 50,
             },
           });
           i += 1;
