@@ -4,7 +4,7 @@
 
 ## Правила
 
-- Перед `get_design_context` прочитать инструкцию `skill://figma/figma-design-to-code/SKILL.md` (MCP-ресурс сервера `plugin:marketing:figma`) и передавать `skillNames: "resource:figma-design-to-code"`.
+- Перед `get_design_context` загрузить скилл `figma:figma-design-to-code` (Skill) и передавать `skillNames: "figma-design-to-code"`.
 - Большие кадры (> 100 КБ кода) брать по секциям: структура — `get_metadata` по id кадра, затем `get_design_context` по дочерним узлам.
 - Код из Figma — React + Tailwind; в проекте **CSS Modules**, Tailwind не ставить. Абсолютное позиционирование переводить во flex/grid.
 - Ассеты (фото, SVG) скачивать `curl -L` сразу — ссылки живут 7 дней. Статика макета — `apps/web/public/design/` (иконки — `design/icons/`). Фото конвертировать в WebP (sharp есть в `apps/api`), длинная сторона до ~1600 px.
