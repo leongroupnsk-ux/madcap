@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { safeNext } from '@/lib/safe-next';
 import { redirect } from 'next/navigation';
-import { AuthCard } from '@/components/auth/AuthCard';
+import { AuthCard, RoleSwitch } from '@/components/auth/AuthCard';
 import { getSessionUser } from '@/lib/session';
 import { LoginForm } from './LoginForm';
 
@@ -13,7 +13,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const target = safeNext(next) ?? '/account';
   if (await getSessionUser()) redirect(target);
   return (
-    <AuthCard title="С возвращением.">
+    <AuthCard title="С возвращением." above={<RoleSwitch />}>
       <LoginForm next={target} />
     </AuthCard>
   );

@@ -2,9 +2,12 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import s from '@/components/auth/auth.module.css';
+import { AuthCard } from '@/components/auth/AuthCard';
 import { Alert, ButtonLink } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
+/** Подтверждение email — в макете не нарисовано, оформлено в стиле кадров .Auth. */
 export function VerifyEmail({ token }: { token: string }) {
   const [state, setState] = useState<'pending' | 'ok' | 'error'>('pending');
   const [message, setMessage] = useState('');
@@ -21,22 +24,33 @@ export function VerifyEmail({ token }: { token: string }) {
       });
   }, [token]);
 
-  if (state === 'pending') return <p>Проверяем ссылку…</p>;
+  if (state === 'pending') return <AuthCard title="Подтверждение email" lead="Проверяем ссылку…">{null}</AuthCard>;
+
   if (state === 'error')
     return (
-      <div style={{ display: 'grid', gap: 16 }}>
-        <Alert tone="error">{message}</Alert>
-        <p style={{ fontSize: 14, color: 'var(--c-text-muted)' }}>
-          Новую ссылку можно отправить из <Link href="/account">профиля</Link>.
-        </p>
-      </div>
+      <AuthCard title="Ссылка не сработала">
+        <div className={s.sent}>
+          <Alert tone="error">{message}</Alert>
+          <p className={s.status}>
+            Новую ссылку можно отправить из <Link href="/account" className={s.forgot}>профиля</Link>.
+          </p>
+          <Link href="/" className={s.link}>
+            ← На главную
+          </Link>
+        </div>
+      </AuthCard>
     );
+
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <Alert tone="success">Email подтверждён.</Alert>
-      <ButtonLink href="/quiz/1" variant="accent">
-        Подобрать капсулу
-      </ButtonLink>
-    </div>
+    <AuthCard title="Email подтверждён" lead="Спасибо! Теперь можно подобрать капсулу — анкета займёт около 5 минут.">
+      <div className={`${s.sent} ${s.sentWide}`}>
+        <ButtonLink href="/quiz/1" variant="accent">
+          Подобрать капсулу
+        </ButtonLink>
+        <Link href="/account" className={s.link}>
+          Перейти в профиль
+        </Link>
+      </div>
+    </AuthCard>
   );
 }

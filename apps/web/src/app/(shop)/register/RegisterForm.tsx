@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { registerSchema } from '@aesculap/shared';
+import { PASSWORD_MIN, registerSchema } from '@aesculap/shared';
 import s from '@/components/auth/auth.module.css';
+import { AuthCheckbox, AuthField } from '@/components/auth/AuthField';
 import { useForm } from '@/components/auth/useForm';
-import { Alert, Button, Checkbox, Field } from '@/components/ui';
+import { Alert, Button } from '@/components/ui';
 import { api } from '@/lib/api';
 
 export function RegisterForm({ next }: { next: string | null }) {
@@ -32,20 +33,28 @@ export function RegisterForm({ next }: { next: string | null }) {
       }}
     >
       {formError && <Alert tone="error">{formError}</Alert>}
-      <Field label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
-      <Field label="Пароль" name="password" type="password" autoComplete="new-password" placeholder="Не менее 8 символов" error={errors.password} />
-      <Field label="Повторите пароль" name="passwordRepeat" type="password" autoComplete="new-password" error={errors.passwordRepeat} />
-      <Checkbox name="acceptTerms" error={errors.acceptTerms}>
+      <AuthField label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
+      {/* В макете «не менее 6» — ошибка макета; минимум берём из общей схемы (ТЗ §12 п.14) */}
+      <AuthField
+        label="Пароль"
+        name="password"
+        type="password"
+        autoComplete="new-password"
+        placeholder={`Не менее ${PASSWORD_MIN} символов`}
+        error={errors.password}
+      />
+      <AuthField label="Повторите пароль" name="passwordRepeat" type="password" autoComplete="new-password" placeholder="••••••••" error={errors.passwordRepeat} />
+      <AuthCheckbox name="acceptTerms" error={errors.acceptTerms}>
         Я согласен с <Link href="/legal/privacy">политикой персональных данных</Link> и <Link href="/legal/offer">офертой</Link>
-      </Checkbox>
-      <Button type="submit" block disabled={pending}>
-        {pending ? 'Создаём…' : 'Создать аккаунт'}
-      </Button>
-      <p className={s.lead} style={{ margin: 0 }}>
-        После регистрации предложим пройти анкету подбора капсулы (5 минут).
-      </p>
-      <div className={s.footer} style={{ marginTop: 0 }}>
-        <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}>Уже есть аккаунт? Войти</Link>
+      </AuthCheckbox>
+      <div className={`${s.actions} ${s.actionsAfterCheck}`}>
+        <Button type="submit" className={s.submit} disabled={pending}>
+          {pending ? 'Создаём…' : 'Создать аккаунт'}
+        </Button>
+        <p className={s.note}>После регистрации предлагаем Вам пройти анкету подбора капсулы (5 минут).</p>
+        <Link href={next ? `/login?next=${encodeURIComponent(next)}` : '/login'} className={s.link}>
+          ← Вернуться ко входу
+        </Link>
       </div>
     </form>
   );

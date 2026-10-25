@@ -2,19 +2,29 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { loginSchema } from '@aesculap/shared';
 import s from '@/components/auth/auth.module.css';
+import { AuthField } from '@/components/auth/AuthField';
 import { useForm } from '@/components/auth/useForm';
-import { Alert, Button, Field } from '@/components/ui';
-import { api } from '@/lib/api';
+import { Alert, Button } from '@/components/ui';
+import { api, isApiError } from '@/lib/api';
 
 export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
+  // Сотрудникам с включённой 2FA сервер отвечает totp_required — тогда показываем поле кода
+  const [needTotp, setNeedTotp] = useState(false);
   const { errors, formError, pending, submit } = useForm(loginSchema, async (data) => {
-    await api('/auth/login', data);
+    try {
+      await api('/auth/login', data);
+    } catch (e) {
+      if (isApiError(e) && e.code === 'totp_required') setNeedTotp(true);
+      throw e;
+    }
     router.replace(next);
     router.refresh();
   });
+  const registerHref = next === '/account' ? '/register' : `/register?next=${encodeURIComponent(next)}`;
 
   return (
     <form
@@ -23,20 +33,33 @@ export function LoginForm({ next }: { next: string }) {
       onSubmit={(e) => {
         e.preventDefault();
         const f = new FormData(e.currentTarget);
-        void submit({ email: f.get('email'), password: f.get('password') });
+        void submit({ email: f.get('email'), password: f.get('password'), totp: needTotp ? f.get('totp') : undefined });
       }}
     >
       {formError && <Alert tone="error">{formError}</Alert>}
-      <Field label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
-      <Field label="Пароль" name="password" type="password" autoComplete="current-password" error={errors.password} />
+      <AuthField label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
+      <AuthField label="Пароль" name="password" type="password" autoComplete="current-password" placeholder="••••••••" error={errors.password} />
+      {needTotp && (
+        <AuthField
+          label="Код из приложения"
+          name="totp"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="6 цифр"
+          error={errors.totp}
+          autoFocus
+        />
+      )}
       <Link href="/reset-password" className={s.forgot}>
         Забыли пароль?
       </Link>
-      <Button type="submit" block disabled={pending}>
-        {pending ? 'Входим…' : 'Войти'}
-      </Button>
-      <div className={s.footer} style={{ marginTop: 0 }}>
-        <Link href="/register">Создать аккаунт</Link>
+      <div className={s.actions}>
+        <Button type="submit" className={s.submit} disabled={pending}>
+          {pending ? 'Входим…' : 'Войти'}
+        </Button>
+        <Link href={registerHref} className={s.link}>
+          Создать аккаунт
+        </Link>
       </div>
     </form>
   );

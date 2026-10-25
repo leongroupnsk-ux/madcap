@@ -1,51 +1,340 @@
+/* Вход, регистрация, восстановление пароля — кадры .Auth, .Auth-Register, .Auth-Forget-password-1/2 */
+
 .wrap {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 56px var(--gutter) 24px;
+  gap: 16px;
+  min-height: 789px;
+  padding: 70px 20px;
 }
+
+/* Переключатель «Покупатель / Поставщик» над карточкой */
+.roles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(448px, 100%);
+}
+.rolesLabel {
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--r-pill);
+  background: var(--c-text-strike);
+  color: #fff;
+  font: 700 14px/20px var(--font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+a.role:hover {
+  background: var(--c-text-faint);
+}
+.roleActive {
+  background: var(--c-primary);
+}
+
 .card {
-  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  width: min(448px, 100%);
+  padding: 28px;
   background: var(--c-surface);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
-  padding: 28px 28px 24px;
+  box-shadow:
+    0 20px 25px rgba(23, 61, 50, 0.06),
+    0 8px 10px rgba(23, 61, 50, 0.06);
 }
 .logo {
-  font-family: var(--font-serif);
-  font-size: 20px;
+  align-self: flex-start;
+  font: 400 20px/28px var(--font-serif);
   color: var(--c-primary);
+  text-decoration: none;
+  white-space: nowrap;
 }
-.head {
-  margin: 28px 0 24px;
+.logoDot {
+  color: var(--c-sale);
+}
+.eyebrow {
+  margin-top: 48px;
+  color: #6c8377;
 }
 .title {
-  font-size: 34px;
-  margin-top: 6px;
+  margin: 12px 0 0;
+  font-size: 36px;
+  line-height: 40px;
+  letter-spacing: -0.05em;
 }
+.lead {
+  margin: 20px 0 0;
+  font: 400 16px/24px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+/* Форма: первое поле с отступом 32, остальные — 16 */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  padding-top: 32px;
+}
+.form > * + * {
+  margin-top: 16px;
+}
+.formAlert {
+  margin-bottom: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.label {
+  font: 700 12px/18px var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5a7065;
+}
+.inputWrap {
+  position: relative;
+}
+.input {
+  width: 100%;
+  height: 50.5px;
+  padding: 0 14px;
+  border: 1px solid rgba(22, 60, 48, 0.15);
+  border-radius: 12px;
+  background: var(--c-surface);
+  font: 500 15px var(--font-sans);
+  color: #173d32;
+  transition: border-color 0.15s;
+}
+.inputPassword {
+  padding-right: 48px;
+}
+.input::placeholder {
+  color: rgba(23, 61, 50, 0.5);
+  opacity: 1;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+}
+.inputError,
+.inputError:focus {
+  border-color: var(--c-error);
+}
+.eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 100%;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  background: transparent;
+  cursor: pointer;
+}
+.eye img {
+  display: block;
+  opacity: 1;
+  transition: opacity 0.15s;
+}
+/* Пароль показан — иконка бледнее (в макете есть только перечёркнутый глаз) */
+.eyeShown img {
+  opacity: 0.45;
+}
+.eye:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -4px;
+}
+.error {
+  font: 500 13px/18px var(--font-sans);
+  color: var(--c-error);
+}
+
+/* «Забыли пароль?» — справа под паролем */
+.form > .forgot {
+  align-self: flex-end;
+  margin-top: 8px;
 }
 .forgot {
-  align-self: flex-end;
-  margin-top: -10px;
-  font-size: 13px;
+  font: 600 14px/20px var(--font-sans);
   color: var(--c-sale);
   text-decoration: none;
 }
-.footer {
-  margin-top: 18px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--c-text-muted);
+.forgot:hover {
+  text-decoration: underline;
 }
-.footer a {
-  color: var(--c-sale);
-  text-decoration: none;
+
+/* Кнопки и ссылки внизу карточки */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.lead {
-  margin: -8px 0 4px;
-  color: var(--c-text-muted);
+.form > .actions {
+  margin-top: 26px;
+}
+.form > .actionsAfterCheck {
+  margin-top: 16px;
+}
+.form > .actionsWide {
+  margin-top: 28px;
+  gap: 20px;
+}
+.submit {
+  width: 100%;
+  height: 48px;
+  font-weight: 700;
   font-size: 14px;
+  line-height: 20px;
+}
+.link {
+  align-self: center;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-sale);
+  text-decoration: none;
+  text-align: center;
+}
+.link:hover {
+  text-decoration: underline;
+}
+.note {
+  margin: 0;
+  font: 500 15px/1.33 var(--font-sans);
+  color: rgba(23, 61, 50, 0.5);
+}
+
+/* Согласие на ПДн и оферту */
+.checkRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 15px/18px var(--font-sans);
+  color: rgba(23, 61, 50, 0.5);
+  cursor: pointer;
+}
+.check a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: rgba(23, 61, 50, 0.3);
+  text-underline-offset: 2px;
+}
+.check a:hover {
+  color: var(--c-primary);
+}
+.checkBox {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1.5px solid #5a7065;
+  border-radius: 3px;
+  background: var(--c-surface);
+  cursor: pointer;
+}
+.checkBox::after {
+  content: '';
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg);
+  opacity: 0;
+}
+.checkBox:checked {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+}
+.checkBox:checked::after {
+  opacity: 1;
+}
+.checkBox:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.checkBox[aria-invalid='true'] {
+  border-color: var(--c-error);
+}
+
+/* «Проверьте почту» */
+.sent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 24px;
+}
+.sentWide {
+  padding-top: 28px;
+}
+.sentWide > :first-child {
+  width: 100%;
+  height: 48px;
+  font-weight: 700;
+}
+.resend {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.resend:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.resend:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.status {
+  margin: 0;
+  font: 500 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+@media (max-width: 767px) {
+  .wrap {
+    min-height: 0;
+    padding: 32px var(--gutter) 48px;
+  }
+}
+@media (max-width: 420px) {
+  .card {
+    padding: 24px 20px;
+  }
+  .eyebrow {
+    margin-top: 36px;
+  }
+  .title {
+    font-size: 32px;
+    line-height: 36px;
+  }
+  .rolesLabel {
+    display: none;
+  }
+  .role {
+    flex: 1;
+  }
 }
