@@ -7,6 +7,7 @@ import p from './product.module.css';
 /** Событие выбора цвета в блоке покупки — галерея показывает фото этого цвета (ТЗ §4.3). */
 export const COLOR_EVENT = 'product-color';
 
+/** Галерея товара по макету: колонка превью 100 × 133 слева, большое фото 3 : 4 справа; на телефоне превью — лентой снизу. */
 export function Gallery({ media: all, title, initialColorId }: { media: ProductDetails['media']; title: string; initialColorId?: string | null }) {
   const [colorId, setColorId] = useState(initialColorId ?? null);
   useEffect(() => {
@@ -31,12 +32,18 @@ export function Gallery({ media: all, title, initialColorId }: { media: ProductD
   return (
     <div className={p.gallery}>
       <div className={p.thumbs}>
-        {media.map((m, n) => (
-          <button key={m.id} type="button" className={`${p.thumb} ${n === i ? p.thumbOn : ''}`} onClick={() => setI(n)} aria-label={`Фото ${n + 1}`}>
-            {m.thumbUrl && <img src={m.thumbUrl} alt="" />}
-            {m.type === 'video' && <span className={p.play}>▶</span>}
-          </button>
-        ))}
+        <div className={p.thumbList}>
+          {media.map((m, n) => (
+            <button key={m.id} type="button" className={`${p.thumb} ${n === i ? p.thumbOn : ''}`} onClick={() => setI(n)} aria-label={`${m.type === 'video' ? 'Видео' : 'Фото'} ${n + 1}`} aria-pressed={n === i}>
+              {(m.thumbUrl ?? m.posterUrl) && <img src={m.thumbUrl ?? m.posterUrl ?? ''} alt="" />}
+              {m.type === 'video' && (
+                <span className={p.play}>
+                  <img src="/design/icons/play.svg" alt="" width={21.6667} height={27} />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
       <div
         className={p.stage}

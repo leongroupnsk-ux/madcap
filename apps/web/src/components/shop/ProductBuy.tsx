@@ -3,10 +3,10 @@
 import { formatRub } from '@aesculap/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Button, ButtonLink, Modal } from '@/components/ui';
 import { addToCart } from '@/lib/cart';
 import type { ProductDetails } from '@/lib/catalog';
 import { COLOR_EVENT } from './Gallery';
+import { SizeChart } from './SizeChart';
 import p from './product.module.css';
 
 /** Выбор цвета → размера → ростовки; недоступные сочетания неактивны (ТЗ §4.5). */
@@ -51,35 +51,39 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
   const price = variant?.price ?? firstInStock.price;
   const oldPrice = variant ? variant.oldPrice : firstInStock.oldPrice;
   const color = colors.find((c) => c.id === colorId)!;
+  // «Стирка 60°» как в макете — из «до 60° · 600+ циклов» берём температуру
+  const washDeg = product.washing?.match(/(\d+)\s*°/)?.[1];
   const ship = product.seller.shipDays <= 1 ? 'отгрузка завтра' : `отгрузка через ${product.seller.shipDays} дн.`;
 
   return (
     <div className={p.info}>
       <div className={p.meta}>
-        {product.brand.name}
+        {product.brand.name.toUpperCase()}
         {product.externalId && ` · арт. ${product.externalId}`}
       </div>
-      <h1>
+      <h1 className={p.title}>
         {product.title}, {color.name.toLowerCase()}
       </h1>
       <div className={p.tags}>
         {product.fits && <span className={`${p.tag} ${p.tagFit}`}>Подходит вам</span>}
         {product.treatment && <span className={p.tag}>{product.treatment}</span>}
-        {product.washing && <span className={p.tag}>Стирка {product.washing}</span>}
+        {product.washing && <span className={p.tag}>Стирка {washDeg ? `${washDeg}°` : product.washing}</span>}
       </div>
       <div className={p.priceRow}>
         <span className={p.price}>{formatRub(price)}</span>
         {oldPrice && <span className={p.old}>{formatRub(oldPrice)}</span>}
+        {product.category.slug === 'kostyumy' && <span className={p.priceNote}>топ + брюки в комплекте</span>}
       </div>
       {product.promo && (
-        <div style={{ color: 'var(--c-sale)', fontSize: 14, marginTop: -6 }}>
+        <div className={p.promo}>
           Акция «{product.promo.badge}» — цена действует до {new Date(product.promo.endsAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
         </div>
       )}
 
-      <div>
+      <div className={p.group}>
         <div className={p.label}>
-          Цвет · <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: 'none', marginRight: 'auto', marginLeft: 6 }}>{color.name}</span>
+          {/* Название цвета уже в заголовке товара — в подписи, как в макете, только «Цвет» */}
+          <span>Цвет</span>
         </div>
         <div className={p.swatches}>
           {colors.map((c) => (
@@ -88,38 +92,36 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         </div>
       </div>
 
-      <div>
+      <div className={p.group}>
         <div className={p.label}>
-          Размер
-          <button type="button" onClick={() => setChart(isShoes ? 'shoes' : 'clothes')}>
+          <span>Размер</span>
+          <button type="button" className={p.chartLink} onClick={() => setChart(isShoes ? 'shoes' : 'clothes')}>
             Таблица размеров
           </button>
         </div>
         <div className={p.sizes}>
           {sizes.map((s) => (
-            <span key={s} className={p.sizeWrap}>
-              <button type="button" className={`${p.size} ${s === size ? p.sizeOn : ''}`} onClick={() => pickSize(s)} disabled={!sizeAvailable(s)} aria-pressed={s === size}>
-                {s}
-              </button>
+            <button key={s} type="button" className={`${p.size} ${s === size ? p.sizeOn : ''}`} onClick={() => pickSize(s)} disabled={!sizeAvailable(s)} aria-pressed={s === size}>
+              {s}
               {rec?.size?.toUpperCase() === s.toUpperCase() && <small className={p.rec}>Рекомендуем</small>}
-            </span>
+            </button>
           ))}
         </div>
       </div>
 
       {heights.length > 0 && (
-        <div>
-          <div className={p.label}>Ростовка</div>
+        <div className={p.group}>
+          <div className={p.label}>
+            <span>Ростовка</span>
+          </div>
           <div className={p.sizes}>
             {heights.map((h) => {
               const ok = ofColor.some((v) => v.size === size && v.heightRange === h && v.stock > 0);
               return (
-                <span key={h} className={p.sizeWrap}>
-                  <button type="button" className={`${p.size} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => setHeight(h)} aria-pressed={h === height}>
-                    {h}
-                  </button>
+                <button key={h} type="button" className={`${p.size} ${p.sizeWide} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => setHeight(h)} aria-pressed={h === height}>
+                  {h}
                   {rec?.heightRange === h && <small className={p.rec}>Рекомендуем</small>}
-                </span>
+                </button>
               );
             })}
           </div>
@@ -142,7 +144,9 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
             +
           </button>
         </div>
-        <Button
+        <button
+          type="button"
+          className={p.toCart}
           disabled={!variant || variant.stock === 0}
           onClick={() => {
             addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
@@ -150,10 +154,10 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
           }}
         >
           Добавить в корзину
-        </Button>
-        <ButtonLink href="/quiz/1" variant="soft">
+        </button>
+        <Link href="/quiz/1" className={p.toCapsule}>
           Добавить в капсулу
-        </ButtonLink>
+        </Link>
       </div>
       {added && (
         <div className={p.added}>
@@ -162,46 +166,16 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
       )}
 
       <div className={p.delivery}>
-        <span aria-hidden>🚚</span>
+        <img src="/design/icons/delivery.svg" alt="" width={20} height={20} />
         <span>
           <b>СДЭК: пункт выдачи или курьер</b>
           <small>
-            Со склада поставщика{product.seller.city ? ` в ${product.seller.city === 'Москва' ? 'Москве' : product.seller.city}` : ''} · стоимость и срок рассчитаем при оформлении
+            Со склада поставщика{product.seller.city ? ` в ${product.seller.city === 'Москва' ? 'Москве' : product.seller.city}` : ''} · срок и цена — при оформлении
           </small>
         </span>
       </div>
 
-      {chart && (
-        <Modal eyebrow="Информация" title="Таблица размеров" onClose={() => setChart(null)}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {(['clothes', 'shoes'] as const).map((k) => (
-              <Button key={k} variant={chart === k ? 'primary' : 'outline'} onClick={() => setChart(k)}>
-                {k === 'clothes' ? 'Одежда' : 'Обувь'}
-              </Button>
-            ))}
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className={p.chart}>
-              <thead>
-                <tr>
-                  {product.sizeChart[chart].columns.map((c) => (
-                    <th key={c}>{c}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {product.sizeChart[chart].rows.map((r) => (
-                  <tr key={r.join()}>
-                    {r.map((c, i) => (
-                      <td key={i}>{c}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Modal>
-      )}
+      {chart && <SizeChart chart={product.sizeChart} initial={chart} onClose={() => setChart(null)} />}
     </div>
   );
 }

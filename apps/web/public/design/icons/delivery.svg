@@ -1,0 +1,11 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Delivery Icon">
+<rect id="body" y="4" width="12" height="10" rx="1.5" fill="#173D32"/>
+<path id="cab" d="M12 7H15C16.6569 7 18 8.34315 18 10V12.5C18 13.3284 17.3284 14 16.5 14H12V7Z" fill="#173D32"/>
+<path id="windshield" d="M13.5 8H15C16.1046 8 17 8.89543 17 10V11H13.5V8Z" fill="white"/>
+<circle id="wheel-left" cx="4.5" cy="15.5" r="2.5" fill="#173D32"/>
+<circle id="hub-left" cx="4.5" cy="15.5" r="1" fill="white"/>
+<circle id="wheel-right" cx="15.5" cy="15.5" r="2.5" fill="#173D32"/>
+<circle id="hub-right" cx="15.5" cy="15.5" r="1" fill="white"/>
+</g>
+</svg>

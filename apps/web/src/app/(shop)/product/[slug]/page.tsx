@@ -1,5 +1,7 @@
+import { plural } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
 import { Gallery } from '@/components/shop/Gallery';
 import { ProductBuy } from '@/components/shop/ProductBuy';
@@ -65,24 +67,31 @@ export default async function ProductPage({ params }: { params: P }) {
     ],
   };
 
+  // Характеристики — список «название — значение», как в макете
+  const specs: [string, string][] = [
+    ...(product.fabric ? [['Состав', product.fabric] as [string, string]] : []),
+    ...(product.treatment ? [['Обработка', product.treatment] as [string, string]] : []),
+    ...(product.washing ? [['Уход', `Стирка ${product.washing}`] as [string, string]] : []),
+    ['Пол', GENDER[product.gender]],
+    ...(product.specialties.length ? [['Специальности', product.specialties.join(', ')] as [string, string]] : []),
+    ['Продавец', `${product.seller.name}, ИНН ${product.seller.inn}`],
+  ];
+  const crumbs = [{ href: '/catalog', name: 'Каталог' }, ...(cat.parent ? [{ href: `/catalog/${cat.parent.slug}`, name: cat.parent.name }] : []), { href: `/catalog/${cat.slug}`, name: cat.name }];
+
   return (
-    <div className="container">
+    <div className={`container ${p.page}`}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       <Link href={`/catalog/${cat.slug}`} className={p.back}>
         ← К каталогу
       </Link>
       <nav className={p.crumbs} aria-label="Хлебные крошки">
-        <Link href="/catalog">Каталог</Link>
-        {cat.parent && (
-          <>
-            {' — '}
-            <Link href={`/catalog/${cat.parent.slug}`}>{cat.parent.name}</Link>
-          </>
-        )}
-        {' — '}
-        <Link href={`/catalog/${cat.slug}`}>{cat.name}</Link>
-        {' — '}
-        {product.title}
+        {crumbs.map((c) => (
+          <Fragment key={c.href}>
+            <Link href={c.href}>{c.name}</Link>
+            <span aria-hidden>→</span>
+          </Fragment>
+        ))}
+        <span aria-current="page">{product.title}</span>
       </nav>
 
       <div className={p.layout}>
@@ -97,81 +106,56 @@ export default async function ProductPage({ params }: { params: P }) {
         </section>
         <section>
           <h2>Характеристики</h2>
-          <table className={p.specs}>
-            <tbody>
-              {product.fabric && (
-                <tr>
-                  <td>Состав</td>
-                  <td>{product.fabric}</td>
-                </tr>
-              )}
-              {product.treatment && (
-                <tr>
-                  <td>Обработка</td>
-                  <td>{product.treatment}</td>
-                </tr>
-              )}
-              {product.washing && (
-                <tr>
-                  <td>Уход</td>
-                  <td>{product.washing}</td>
-                </tr>
-              )}
-              <tr>
-                <td>Пол</td>
-                <td>{GENDER[product.gender]}</td>
-              </tr>
-              {product.specialties.length > 0 && (
-                <tr>
-                  <td>Специальности</td>
-                  <td>{product.specialties.join(', ')}</td>
-                </tr>
-              )}
-              <tr>
-                <td>Продавец</td>
-                <td>
-                  {product.seller.name}, ИНН {product.seller.inn}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <dl className={p.specs}>
+            {specs.map(([k, v]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
-        {product.articles.length > 0 && (
-          <section>
-            <h2>Полезно о выборе формы</h2>
-            <div className={p.related}>
-              {product.articles.map((a) => (
-                <Link key={a.slug} href={`/journal/${a.slug}`} className={p.relCard}>
-                  {a.coverUrl ? <img src={a.coverUrl} alt="" /> : <span className={p.noimg} />}
-                  <span>
-                    <b>{a.title}</b>
-                    {a.lead && <small>{a.lead}</small>}
-                    <small style={{ color: 'var(--c-sale)' }}>Читать статью →</small>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-        {product.collections.length > 0 && (
-          <section>
-            <h2>В подборках</h2>
-            <div className={p.related}>
-              {product.collections.map((c) => (
-                <Link key={c.slug} href={`/collections/${c.slug}`} className={p.relCard}>
-                  {c.coverUrl ? <img src={c.coverUrl} alt="" /> : <span className={p.noimg} />}
-                  <span>
-                    <b>{c.title}</b>
-                    <small>
-                      {c.count} товаров · {BRAND.name} →
-                    </small>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
+
+      {(product.articles.length > 0 || product.collections.length > 0) && (
+        <div className={`${p.sections} ${p.relatedSections}`}>
+          {product.articles.length > 0 && (
+            <section>
+              <h2>Полезно о выборе формы</h2>
+              <div className={p.related}>
+                {product.articles.map((a) => (
+                  <Link key={a.slug} href={`/journal/${a.slug}`} className={`${p.relCard} ${p.relArticle}`}>
+                    {a.coverUrl ? <img src={a.coverUrl} alt="" /> : <span className={p.noimg} />}
+                    <span>
+                      <b>{a.title}</b>
+                      {a.lead && <small>{a.lead}</small>}
+                      <em>Читать статью →</em>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+          {product.collections.length > 0 && (
+            <section>
+              <h2>В подборках</h2>
+              <div className={p.related}>
+                {product.collections.map((c) => (
+                  <Link key={c.slug} href={`/collections/${c.slug}`} className={p.relCard}>
+                    {c.coverUrl ? <img src={c.coverUrl} alt="" /> : <span className={p.noimg} />}
+                    <span>
+                      <b>{c.title}</b>
+                      <small>
+                        {c.count} {plural(c.count, 'товар', 'товара', 'товаров')} · {BRAND.name} <i>→</i>
+                      </small>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
     </div>
   );
 }

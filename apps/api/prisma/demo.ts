@@ -31,7 +31,7 @@ const put = async (key: string, data: Buffer) => {
   await writeFile(full, data);
 };
 
-/** Фото товаров из макета Figma «МедКапсула» (кадры .Main, .Catalog, .Catalog-rope), WebP до 1600 px. */
+/** Фото товаров из макета Figma «МедКапсула» (кадры .Main, .Catalog, .Catalog-rope, .Product card), WebP до 1600 px. */
 const ASSETS = resolve(__dirname, 'demo-assets');
 type Crop = { left: number; top: number; width: number; height: number };
 type Shot = { file: string; thumbCrop?: Crop; crop?: Crop };
@@ -69,12 +69,21 @@ type Item = {
 };
 
 const H = ['170–176', '176–182'];
+/** Галерея «Костюма «Хирург»» из кадра .Product card: спереди, сзади, ткань, посадка, сбоку, сложенный. */
+const HIRURG_GALLERY: Shot[] = [
+  { file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD },
+  { file: 'kostyum-hirurg-szadi' },
+  { file: 'kostyum-hirurg-tkan' },
+  { file: 'kostyum-hirurg-posadka' },
+  { file: 'kostyum-hirurg-bok' },
+  { file: 'kostyum-hirurg-slozhen' },
+];
 /**
  * Товары из макета: первые 15 — сетка кадра .Catalog в том же порядке (выдача «Рекомендуемые» — по дате публикации),
  * затем футболки из .Catalog-rope и вещи для слотов капсулы (брюки в цветах топов, аксессуар) — на тех же фото.
  */
 const ITEMS: Item[] = [
-  { title: 'Костюм «Хирург»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: H, fabric: '65% ПЭ · 35% хлопок', specialties: ['Хирург', 'Стоматолог-хирург'], photos: [{ file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }, { file: 'kostyum-hirurg-b' }] },
+  { title: 'Костюм «Хирург»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: H, fabric: '65% ПЭ · 35% хлопок', specialties: ['Хирург', 'Стоматолог-хирург'], photos: HIRURG_GALLERY },
   { title: 'Костюм «Премиум»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Шалфей', price: 4890, sizes: ['M', 'L', 'XL'], heights: H, fabric: 'Микрофибра с антибактериальной пропиткой', specialties: ['Главный врач', 'Заведующий отделением'], photos: [{ file: 'kostyum-premium' }], promo: true },
   { title: 'Халат женский «Классика»', brand: 'Форма+', category: 'halaty', gender: 'female', color: 'Белый', price: 3490, oldPrice: 4290, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], fabric: '100% хлопок', specialties: ['Терапевт', 'Педиатр'], photos: [{ file: 'halat-klassika' }], oneColor: true },
   { title: 'Брюки джоггеры', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Тёмно-синий', price: 2290, oldPrice: 2690, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], fabric: '72% ПЭ · 23% вискоза · 5% эластан', specialties: ['Медсестра', 'Терапевт'], photos: [{ file: 'bryuki-joggery' }] },
@@ -191,7 +200,7 @@ async function main() {
     'Как выбрать форму для долгой смены',
     'Практические советы о посадке, ткани и рабочем ритме.',
     '<p>Ткань, обработка, режим стирки, крой и карманы — разбираем, на что смотреть при выборе костюма для смены.</p><h2>Ткань</h2><p>Смесовая ткань 65/35 с антибактериальной пропиткой выдерживает 600+ циклов стирки при 60° — это ключевое требование операционной.</p><h2>Посадка</h2><p>Свободный крой не сковывает движения, а эластан в брюках сохраняет форму к концу смены.</p><ul><li>Проверьте глубину карманов под телефон и ручки.</li><li>Выбирайте ростовку, а не только размер.</li></ul>',
-    'top-komfort', pick((i) => i.category === 'kostyumy').slice(0, 3),
+    'statya-dolgaya-smena', pick((i) => i.category === 'kostyumy').slice(0, 3),
   );
   await article(
     'Уход за формой: стирка при 60°',
@@ -204,6 +213,14 @@ async function main() {
       supplierId: supplier.id, slug: 'podborka-forma-dlya-stomatologii-demo', title: 'Подборка: форма для стоматологии', description: 'Собранный комплект для спокойной рабочей смены.',
       coverKey: await cover('top-aktiv'), status: 'published', publishedAt: new Date(Date.now() - 60_000),
       products: { create: pick((i) => i.specialties.some((s) => s.startsWith('Стоматолог'))).map((productId, position) => ({ productId, position })) },
+    },
+  });
+  // Подборка из блока «В подборках» кадра .Product card
+  await prisma.collection.create({
+    data: {
+      supplierId: supplier.id, slug: 'grafitovaya-rabochaya-baza-demo', title: 'Графитовая рабочая база', description: 'Спокойные оттенки и практичные вещи для каждой смены.',
+      coverKey: await cover('podborka-grafit'), status: 'published', publishedAt: new Date(Date.now() - 120_000),
+      products: { create: pick((i) => ['Костюм «Хирург»', 'Брюки «Хирург»', 'Костюм «Базис»', 'Брюки «Базис»'].includes(i.title)).map((productId, position) => ({ productId, position })) },
     },
   });
   // Акции: одна идёт (товары одобрены, цены снижены), вторая — в приёме заявок.
@@ -233,7 +250,7 @@ async function main() {
   // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
   await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
 
-  console.log(`Демо: ${created.length} товаров, 2 статьи, 1 подборка. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
+  console.log(`Демо: ${created.length} товаров, 2 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }
 
 main().finally(() => prisma.$disconnect());
