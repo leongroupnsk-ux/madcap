@@ -74,7 +74,7 @@ export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 
 /** Обязательные поля по шагам — для кнопки «Далее». */
 export const QUIZ_STEPS = [
-  z.object({ gender: z.enum(['female', 'male'], { errorMap: () => ({ message: 'Выберите вариант' }) }), name: z.string().trim().min(1, 'Как к вам обращаться'), age: z.coerce.number({ invalid_type_error: 'Укажите возраст' }).int().min(16, 'Возраст от 16 лет').max(80, 'Возраст до 80 лет') }),
+  z.object({ gender: z.enum(['female', 'male'], { errorMap: () => ({ message: 'Выберите вариант' }) }), name: z.string({ required_error: 'Как к вам обращаться' }).trim().min(1, 'Как к вам обращаться'), age: z.coerce.number({ invalid_type_error: 'Укажите возраст' }).int().min(16, 'Возраст от 16 лет').max(80, 'Возраст до 80 лет') }),
   z.object({ heightCm: z.coerce.number({ invalid_type_error: 'Укажите рост' }).int().min(140, 'Рост от 140 см').max(210, 'Рост до 210 см'), sizeTop: z.enum(SIZES, { errorMap: () => ({ message: 'Выберите размер верха' }) }) }),
   z.object({}),
   z.object({ specialtyIds: z.array(z.string()).min(1, 'Выберите хотя бы одну специальность') }),

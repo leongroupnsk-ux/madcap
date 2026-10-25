@@ -21,6 +21,8 @@ export function Review({ groups }: { groups: Dictionaries['specialtyGroups'] }) 
   if (!ready) return <div className={s.wrap} />;
   const names = groups.flatMap((g) => g.specialties).filter((sp) => d.specialtyIds?.includes(sp.id)).map((sp) => sp.name);
   const ct = colorTypeOf(d.skinTone, d.hair);
+  // Порядок карточек — как в макете (две колонки). Значения — только из ответов: в макете возраст/рост
+  // в сводке не совпадают с шагами (ТЗ §12 п.12), здесь всё берётся из анкеты.
   const cards: [string, string | null, number | null][] = [
     ['Имя', [d.name, d.gender === 'female' ? 'Женский' : d.gender === 'male' ? 'Мужской' : null, age(d.age)].filter(Boolean).join(' · ') || null, 1],
     ['Параметры', [d.heightCm && `${d.heightCm} см`, d.weightKg && `${d.weightKg} кг`].filter(Boolean).join(' · ') || null, 2],
@@ -49,35 +51,36 @@ export function Review({ groups }: { groups: Dictionaries['specialtyGroups'] }) 
   };
 
   return (
-    <div className={s.wrap} style={{ width: 'min(720px, 100%)' }}>
-      <div className="eyebrow">Ваши данные</div>
+    <div className={s.reviewWrap}>
+      <div className="eyebrow" style={{ color: '#6c8377' }}>
+        Ваши данные
+      </div>
       <h1 className={s.title}>Всё выглядит верно?</h1>
-      <p className={s.lead}>Проверьте профиль — любой блок можно изменить отдельно.</p>
+      <p className={s.lead} style={{ marginTop: 16 }}>
+        Проверьте профиль — любой блок можно изменить отдельно.
+      </p>
       {error && (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginTop: 24 }}>
           <Alert tone="error">{error}</Alert>
         </div>
       )}
       <div className={s.reviewGrid}>
         {cards.map(([label, value, step]) => (
           <div key={label} className={s.reviewCard}>
-            <div>
+            <div className={s.reviewHead}>
               {label}
               {step && <Link href={`/quiz/${step}`}>Изменить</Link>}
             </div>
-            {value ?? <span style={{ color: 'var(--c-text-faint)' }}>не указано</span>}
+            <p className={s.reviewValue}>{value ?? <span className={s.reviewEmpty}>не указано</span>}</p>
           </div>
         ))}
       </div>
-      <div className={s.nav}>
-        <Link href="/quiz/6" className={s.back}>
-          ← Назад
-        </Link>
-        <Button onClick={create} disabled={busy}>
+      <div className={s.reviewNav}>
+        <Button className={s.cta} onClick={create} disabled={busy}>
           {busy ? 'Создаём…' : authed ? 'Создать мой профиль →' : 'Создать аккаунт и профиль →'}
         </Button>
       </div>
-      {!authed && <p className={s.lead} style={{ marginTop: 16 }}>Чтобы сохранить профиль и собрать капсулу, нужен аккаунт — ответы перенесём автоматически.</p>}
+      {!authed && <p className={s.reviewNote}>Чтобы сохранить профиль и собрать капсулу, нужен аккаунт — ответы перенесём автоматически.</p>}
     </div>
   );
 }

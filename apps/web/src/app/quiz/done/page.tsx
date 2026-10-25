@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import s from '@/components/quiz/quiz.module.css';
-import { ButtonLink } from '@/components/ui';
+import Link from 'next/link';
 import { getSessionUser } from '@/lib/session';
 
 export default async function QuizDonePage() {
@@ -8,16 +8,16 @@ export default async function QuizDonePage() {
   if (!user) redirect('/quiz/review');
   return (
     <div className={s.done}>
-      <div>
-        <div className={s.check64}>✓</div>
-        <div className="eyebrow" style={{ color: 'rgba(255,255,255,.6)' }}>
-          Персональный профиль
+      <div className={s.doneBox}>
+        <div className={s.check96} aria-hidden>
+          ✓
         </div>
+        <div className={s.doneEyebrow}>Персональный профиль</div>
         <h1>Ваш персональный профиль готов</h1>
         <p>Мы учли ваши параметры, размер, стиль, цвета и бюджет. Теперь соберём капсулу специально для вас.</p>
-        <ButtonLink href="/capsule" variant="soft">
+        <Link href="/capsule" className={s.doneBtn}>
           Посмотреть капсулу →
-        </ButtonLink>
+        </Link>
       </div>
     </div>
   );
