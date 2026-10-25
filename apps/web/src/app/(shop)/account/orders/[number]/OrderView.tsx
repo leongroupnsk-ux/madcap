@@ -21,8 +21,15 @@ export type OrderData = {
   recipient: { name: string; phone: string; email: string }; shipments: Shipment[];
 };
 
-const date = (d: string | null, time = false) =>
-  d ? new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'long', ...(time ? { hour: '2-digit', minute: '2-digit' } : {}) }) : '—';
+/** «25 августа», со временем — «25 августа, 12:04»; сегодняшняя дата — «сегодня 12:04» */
+const date = (d: string | null, time = false) => {
+  if (!d) return '—';
+  const at = new Date(d);
+  const hm = at.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  if (time && at.toDateString() === new Date().toDateString()) return `сегодня ${hm}`;
+  const day = at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  return time ? `${day}, ${hm}` : day;
+};
 
 export function orderLabel(o: { status: string; shipments: { status: string }[] }) {
   if (o.status !== 'paid') return ORDER_STATUS_LABEL[o.status] ?? o.status;
@@ -66,143 +73,193 @@ export function OrderView({ initial }: { initial: OrderData }) {
     router.push('/cart');
   };
 
+  const many = order.shipments.length > 1;
+  const items = order.shipments.flatMap((s) => s.items.map((i) => ({ ...i, shipmentNo: s.no })));
+  const qty = items.reduce((n, i) => n + i.qty, 0);
+  // Способ доставки задаётся по отправлению (ТЗ §12 п.8) — здесь сводка по всем отправлениям заказа
+  const methods = [...new Set(order.shipments.map((s) => (s.deliveryType === 'pvz' ? 'Пункт выдачи СДЭК' : 'Курьер СДЭК')))].join(', ');
+  const via = (s: Shipment) => (s.deliveryType === 'pvz' ? 'СДЭК по ПВЗ' : 'Курьер СДЭК');
+
   return (
-    <section className={`container ${o.page}`}>
+    <section className={o.page}>
       <Link href="/account" className={o.back}>
         ← Назад к профилю
       </Link>
-      <div className={o.panelHead} style={{ marginTop: 16 }}>
-        <h1 className={o.title} style={{ margin: 0 }}>
-          Заказ № {order.number}
-        </h1>
+      <div className={o.eyebrow}>Детали заказа</div>
+      <div className={o.head}>
+        <h1 className={o.title}>№ {order.number}</h1>
         <span className={tone}>{label}</span>
       </div>
-      <p className={o.muted} style={{ marginBottom: 20 }}>
+      <p className={o.lead}>
         Отмена возможна до передачи в доставку; возврат — {RETURN_DAYS} дней после получения.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
       {order.status === 'pending_payment' && (
-        <Alert tone="error">
-          Заказ ждёт оплаты.{' '}
-          <button className={o.link} onClick={() => run(async () => void (window.location.href = (await api<{ confirmationUrl: string | null }>(`/orders/${order.number}/pay`, {})).confirmationUrl ?? `/orders/${order.number}/result`))}>
-            Оплатить →
-          </button>
-        </Alert>
+        <div className={o.notice}>
+          <Alert tone="error">
+            Заказ ждёт оплаты.{' '}
+            <button className={o.link} onClick={() => run(async () => void (window.location.href = (await api<{ confirmationUrl: string | null }>(`/orders/${order.number}/pay`, {})).confirmationUrl ?? `/orders/${order.number}/result`))}>
+              Оплатить →
+            </button>
+          </Alert>
+        </div>
       )}
 
-      <div className={o.facts} style={{ marginTop: 16 }}>
+      <div className={o.facts}>
         <div className={o.fact}>
           <span>Дата заказа</span>
-          {date(order.createdAt, true)}
+          {date(order.createdAt)}
         </div>
         <div className={o.fact}>
           <span>Ожидаемая доставка</span>
           {order.status === 'cancelled' ? '—' : date(order.eta)}
         </div>
         <div className={o.fact}>
-          <span>Оплата</span>
-          {order.paymentMethod ?? (order.status === 'pending_payment' ? 'Не оплачен' : '—')}
+          <span>Способ доставки</span>
+          {methods || '—'}
+        </div>
+        <div className={o.factAction}>
+          {order.canCancel && (
+            <button className={o.link} onClick={() => setConfirmCancel(true)}>
+              ×&nbsp;&nbsp;Отменить заказ
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={o.layout}>
-        <div className={o.stack}>
-          {order.shipments.map((s) => {
-            const idx = SHIPMENT_FLOW.indexOf(s.status as (typeof SHIPMENT_FLOW)[number]);
-            const at = (st: string) => s.events.find((e) => e.status === st)?.at ?? null;
-            const off = s.status === 'cancelled' || s.status === 'rejected';
-            return (
-              <div key={s.no} className={o.panel}>
-                <div className={o.panelHead}>
-                  <h3>
-                    Отправление {s.no} · {s.supplier}
-                  </h3>
-                  <span className={off ? o.statusBad : o.status}>{SHIPMENT_STATUS_LABEL[s.status]}</span>
-                </div>
-                <p className={o.muted}>
-                  {s.deliveryType === 'pvz' ? 'Пункт выдачи СДЭК' : 'Курьер СДЭК'} · {s.address}
-                </p>
-                {s.trackNo && (
-                  <p style={{ fontSize: 14, marginTop: 6 }}>
-                    Трек СДЭК:{' '}
-                    <a href={cdekTrackUrl(s.trackNo)} target="_blank" rel="noreferrer" className={o.link}>
-                      {s.trackNo} ↗
-                    </a>
-                  </p>
-                )}
-                {off ? (
-                  <Alert tone="error">
+      <div className={o.shipments}>
+        {order.shipments.map((s) => {
+          const idx = SHIPMENT_FLOW.indexOf(s.status as (typeof SHIPMENT_FLOW)[number]);
+          const at = (st: string) => s.events.find((e) => e.status === st)?.at ?? null;
+          const off = s.status === 'cancelled' || s.status === 'rejected';
+          const flow = SHIPMENT_FLOW.filter((st) => st !== 'ready_for_pickup' || s.deliveryType === 'pvz');
+          return (
+            <div key={s.no} className={o.shipment}>
+              <div className={o.shipmentHead}>
+                <b>
+                  Отправление {s.no} · {s.supplier}
+                </b>
+                <span>
+                  {via(s)} · {s.address}
+                </span>
+              </div>
+              {off ? (
+                <div className={o.shipmentNote}>
+                  <span className={o.statusBad}>{SHIPMENT_STATUS_LABEL[s.status]}</span>
+                  <p>
                     {s.status === 'rejected' ? `Поставщик отклонил заказ: ${s.rejectReason}` : (s.events.at(-1)?.note ?? 'Отправление отменено')}
                     {order.paymentMethod && '. Деньги за отправление возвращены.'}
-                  </Alert>
-                ) : (
-                  order.status !== 'pending_payment' && (
-                    <ol className={o.timeline}>
-                      {SHIPMENT_FLOW.filter((st) => st !== 'ready_for_pickup' || s.deliveryType === 'pvz').map((st, i) => (
-                        <li key={st} className={i <= idx ? o.done : undefined}>
+                  </p>
+                </div>
+              ) : order.status === 'pending_payment' ? (
+                <div className={o.shipmentNote}>
+                  <span className={o.statusWarn}>{SHIPMENT_STATUS_LABEL[s.status]}</span>
+                </div>
+              ) : (
+                <ol className={o.timeline}>
+                  {flow.map((st, i) => {
+                    const done = SHIPMENT_FLOW.indexOf(st) <= idx;
+                    const nextDone = i + 1 < flow.length && SHIPMENT_FLOW.indexOf(flow[i + 1]) <= idx;
+                    const when = at(st);
+                    return (
+                      <li key={st} className={done ? o.done : undefined}>
+                        <span className={o.step}>
+                          <img src={done ? '/design/icons/timeline-dot-done.svg' : '/design/icons/timeline-dot.svg'} alt="" width={12} height={12} />
                           <span>
                             {SHIPMENT_STATUS_LABEL[st]}
-                            {st === 'handed_over' && s.trackNo && ` · ${s.trackNo}`}
+                            {st === 'handed_over' && s.trackNo ? (
+                              <>
+                                {' · трек '}
+                                <a href={cdekTrackUrl(s.trackNo)} target="_blank" rel="noreferrer" className={o.track}>
+                                  {s.trackNo} ↗
+                                </a>
+                              </>
+                            ) : null}
+                            {done && when ? ` · ${date(when, true)}` : ''}
                           </span>
-                          <span className={o.muted}>{at(st) ? date(at(st), true) : ''}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  )
-                )}
-                {s.items.map((i) => (
-                  <div key={i.id} className={o.line}>
-                    {i.image ? <img src={i.image} alt="" className={o.thumb} /> : <span className={o.thumb} />}
-                    <div style={{ minWidth: 0 }}>
-                      <div className={o.meta}>
-                        {i.brand} · {i.size}
-                        {i.heightRange && ` · ${i.heightRange}`} · {i.color}
-                      </div>
-                      {i.slug ? (
-                        <Link href={`/product/${i.slug}`} className={o.name}>
-                          {i.title}
-                        </Link>
-                      ) : (
-                        <span className={o.name}>{i.title}</span>
-                      )}
-                      {i.returnedQty > 0 && <div className={o.warn}>Возвращено: {i.returnedQty} шт.</div>}
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div className={o.price}>{formatRub(i.price * i.qty)}</div>
-                      <div className={o.muted}>
-                        {i.qty} × {formatRub(i.price)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {s.returns.map((r) => (
-                  <p key={r.id} className={o.muted} style={{ marginTop: 8 }}>
-                    {RETURN_LABEL[r.status]} · {formatRub(r.amount)}
-                    {r.rejectReason && ` · ${r.rejectReason}`}
-                  </p>
-                ))}
-                {s.canReturn && !s.returns.some((r) => r.status === 'requested') && (
-                  <button
-                    className={o.link}
-                    style={{ marginTop: 10 }}
-                    onClick={() => {
-                      setRet(s);
-                      setRetQty(Object.fromEntries(s.items.map((i) => [i.id, 0])));
-                      setReason('');
-                    }}
-                  >
-                    Оформить возврат
-                  </button>
-                )}
+                        </span>
+                        {i + 1 < flow.length && <span className={nextDone ? o.lineDone : o.lineTodo} />}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+              {s.trackNo && idx < SHIPMENT_FLOW.indexOf('handed_over') && (
+                <p className={o.shipmentMeta}>
+                  Трек СДЭК:{' '}
+                  <a href={cdekTrackUrl(s.trackNo)} target="_blank" rel="noreferrer" className={o.track}>
+                    {s.trackNo} ↗
+                  </a>
+                </p>
+              )}
+              {s.returns.map((r) => (
+                <p key={r.id} className={o.shipmentMeta}>
+                  {RETURN_LABEL[r.status]} · {formatRub(r.amount)}
+                  {r.rejectReason && ` · ${r.rejectReason}`}
+                </p>
+              ))}
+              {s.canReturn && !s.returns.some((r) => r.status === 'requested') && (
+                <button
+                  className={o.link}
+                  style={{ marginTop: 16, alignSelf: 'flex-start' }}
+                  onClick={() => {
+                    setRet(s);
+                    setRetQty(Object.fromEntries(s.items.map((i) => [i.id, 0])));
+                    setReason('');
+                  }}
+                >
+                  Оформить возврат →
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className={o.recipient}>
+        <p>
+          <b>Получатель:</b> {order.recipient.name}
+        </p>
+        <p>
+          {order.recipient.phone} · {order.recipient.email}
+        </p>
+        <p>
+          <b>Оплата:</b> {order.paymentMethod ?? (order.status === 'pending_payment' ? 'не оплачен' : '—')}
+          {order.paymentMethod && ' · чек отправлен на почту'}
+        </p>
+      </div>
+
+      <h2 className={o.h2}>Товары в заказе</h2>
+      <div className={o.items}>
+        {items.map((i) => (
+          <div key={i.id} className={o.item}>
+            {i.image ? <img src={i.image} alt="" className={o.thumb} /> : <span className={o.thumb} />}
+            <div className={o.itemBody}>
+              <div className={o.meta}>
+                {[i.brand, `Размер ${i.size}`, i.heightRange, i.color, many && `Отправление ${i.shipmentNo}`].filter(Boolean).join(' · ')}
               </div>
-            );
-          })}
-        </div>
+              {i.slug ? (
+                <Link href={`/product/${i.slug}`} className={o.name}>
+                  {i.title}
+                </Link>
+              ) : (
+                <span className={o.name}>{i.title}</span>
+              )}
+              {i.returnedQty > 0 && <div className={o.warn}>Возвращено: {i.returnedQty} шт.</div>}
+              <div className={o.itemRow}>
+                <span>
+                  Количество: {i.qty}
+                  {i.qty > 1 && <span className={o.muted}> × {formatRub(i.price)}</span>}
+                </span>
+                <b>{formatRub(i.price * i.qty)}</b>
+              </div>
+            </div>
+          </div>
+        ))}
 
         <aside className={o.summary}>
-          <h2>Итог</h2>
           <div className={o.row}>
-            <span>Товары</span>
+            <span>Товары · {qty}</span>
             <b>{formatRub(order.goodsTotal)}</b>
           </div>
           <div className={o.row}>
@@ -219,21 +276,9 @@ export function OrderView({ initial }: { initial: OrderData }) {
             <span>Итого</span>
             <b>{formatRub(order.total)}</b>
           </div>
-          <div className={o.small}>
-            Получатель: {order.recipient.name}
-            <br />
-            {order.recipient.phone} · {order.recipient.email}
-            <br />
-            Чек отправлен на почту.
-          </div>
-          <Button variant="accent" onClick={repeat}>
+          <Button variant="accent" block onClick={repeat}>
             Повторить заказ
           </Button>
-          {order.canCancel && (
-            <Button variant="ghost" style={{ color: '#fff' }} onClick={() => setConfirmCancel(true)}>
-              × Отменить заказ
-            </Button>
-          )}
         </aside>
       </div>
 

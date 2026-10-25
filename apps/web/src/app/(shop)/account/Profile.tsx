@@ -7,7 +7,6 @@ import { useRef, useState } from 'react';
 import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { writeCart } from '@/lib/cart';
-import o from '@/components/shop/order.module.css';
 import { orderLabel } from './orders/[number]/OrderView';
 import p from './profile.module.css';
 import { Stylist } from './Stylist';
@@ -20,6 +19,21 @@ export type ProfileData = {
 };
 
 const dash = (...v: (string | number | null | undefined)[]) => v.filter((x) => x != null && x !== '').join(' · ') || '—';
+
+// Подписи кодов анкеты (значения — из profileUpdateSchema)
+const HAIR: Record<string, string> = { light: 'Светлый', dark: 'Тёмный' };
+const SKIN: Record<string, string> = { warm: 'Тёплый', cold: 'Холодный' };
+
+/** «сегодня», «вчера» или «3 июня» (год — только если не текущий) */
+function when(d: string) {
+  const at = new Date(d);
+  const now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(at)) / 86_400_000);
+  if (diff === 0) return 'сегодня';
+  if (diff === 1) return 'вчера';
+  return at.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(at.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) });
+}
 
 export type OrderRow = { number: string; createdAt: string; status: string; total: number; shipments: number; delivery: string; shipmentStatuses: string[] };
 
@@ -48,59 +62,74 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
   };
 
   return (
-    <section className="container" style={{ padding: '40px var(--gutter)' }}>
-      <div className="eyebrow">Мой профиль</div>
+    <section className={p.page}>
+      <div className={p.eyebrow}>Мой профиль</div>
       <h1 className={p.title}>Добрый день{pr.name ? `, ${pr.name}` : ''}.</h1>
       {props.welcome && (
-        <div style={{ marginBottom: 16 }}>
+        <div className={p.alert}>
           <Alert tone="success">Аккаунт создан. Мы отправили письмо для подтверждения email.</Alert>
         </div>
       )}
       {error && (
-        <div style={{ marginBottom: 16 }}>
+        <div className={p.alert}>
           <Alert tone="error">{error}</Alert>
         </div>
       )}
       <div className={p.grid}>
         <div className={p.col}>
+          {/* Анкета: размеры, цветотип, специальность, бюджет */}
           <div className={p.dark}>
-            <div className={p.muted}>Анкета заполнена на {pr.completenessPct}%</div>
+            <div className={p.darkMuted}>Анкета заполнена на {pr.completenessPct}%</div>
             <div className={p.bar}>
               <span style={{ width: `${pr.completenessPct}%` }} />
             </div>
             <dl className={p.rows}>
-              <dt>Пол · рост · вес</dt>
-              <dd>{dash(pr.gender === 'female' ? 'Женский' : pr.gender === 'male' ? 'Мужской' : null, pr.heightCm && `${pr.heightCm} см`, pr.weightKg && `${pr.weightKg} кг`)}</dd>
-              <dt>Размеры</dt>
-              <dd>{dash(pr.sizeTop && `Верх: ${pr.sizeTop}`, pr.sizeBottom && `Низ: ${pr.sizeBottom}`, pr.sizeShoes && `Обувь: ${pr.sizeShoes}`)}</dd>
-              <dt>Тип фигуры</dt>
-              <dd>{pr.bodyType ?? '—'}</dd>
-              <dt>Цветотип</dt>
-              <dd>{pr.colorTypeLabel ?? '—'}</dd>
-              <dt>Специальность</dt>
-              <dd>{props.specialties.join(', ') || '—'}</dd>
-              <dt>Бюджет</dt>
-              <dd>{pr.budgetLabel ?? '—'}</dd>
+              <div>
+                <dt>Пол · рост · вес</dt>
+                <dd>{dash(pr.gender === 'female' ? 'Женский' : pr.gender === 'male' ? 'Мужской' : null, pr.heightCm && `${pr.heightCm} см`, pr.weightKg && `${pr.weightKg} кг`)}</dd>
+              </div>
+              <div>
+                <dt>Размеры</dt>
+                <dd>{[pr.sizeTop && `Верх: ${pr.sizeTop}`, pr.sizeBottom && `Низ: ${pr.sizeBottom}`, pr.sizeShoes && `Обувь: ${pr.sizeShoes}`].filter(Boolean).join(', ') || '—'}</dd>
+              </div>
+              <div>
+                <dt>Тип фигуры</dt>
+                <dd>{pr.bodyType ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Цвет волос · тон кожи · цветотип</dt>
+                <dd>{dash(pr.hair && (HAIR[pr.hair] ?? pr.hair), pr.skinTone && (SKIN[pr.skinTone] ?? pr.skinTone), pr.colorTypeLabel)}</dd>
+              </div>
+              <div>
+                <dt>Специальность</dt>
+                <dd>{props.specialties.join(', ') || '—'}</dd>
+              </div>
+              <div>
+                <dt>Бюджет</dt>
+                <dd>{pr.budgetLabel ?? '—'}</dd>
+              </div>
             </dl>
             <Link href="/quiz/1" className={p.accentLink}>
               {pr.quizCompleted ? 'Редактировать анкету →' : 'Пройти анкету →'}
             </Link>
           </div>
+
           <div className={p.soft}>
-            <div className="eyebrow">Моя капсула</div>
-            {props.capsule ? (
-              <>
+            <div>
+              <div className={p.eyebrow}>Моя капсула</div>
+              {props.capsule ? (
                 <div className={p.big}>
                   {props.capsule.count} {plural(props.capsule.count, 'вещь', 'вещи', 'вещей')} · {formatRub(props.capsule.total)}
                 </div>
-                <Link href="/capsule" className={p.link}>
-                  Посмотреть капсулу →
-                </Link>
-              </>
-            ) : (
-              <p className={p.muted}>Капсула появится после анкеты.</p>
-            )}
+              ) : (
+                <p className={p.note}>Капсула появится после анкеты.</p>
+              )}
+            </div>
+            <Link href={props.capsule ? '/capsule' : '/quiz/1'} className={p.link}>
+              {props.capsule ? 'Посмотреть капсулу →' : 'Пройти анкету →'}
+            </Link>
           </div>
+
         </div>
 
         <div className={p.col}>
@@ -116,7 +145,7 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                         aria-label="Удалить фото"
                         onClick={async () => setProfile(await api<ProfileData>(`/me/photos/${ph.id}`, undefined, 'DELETE'))}
                       >
-                        ×
+                        <img src="/design/icons/circle-x.svg" alt="" width={36} height={36} />
                       </button>
                     </div>
                   ))}
@@ -144,35 +173,35 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                     }
                   }}
                 />
-                <p className={p.muted}>Ваши фото видите только вы; стилисту — только если вы сами покажете их в вопросе ниже.</p>
+                <p className={p.note}>Ваши фото никто не увидит, они нужны для формирования индивидуальной капсулы. Стилисту — только если вы сами покажете их в вопросе.</p>
               </>
             ) : (
-              <p className={p.muted}>Чтобы добавить фото, дайте согласие на их хранение ниже.</p>
+              <p className={p.note}>Чтобы добавить фото, дайте согласие на их хранение в блоке «Аккаунт».</p>
             )}
           </div>
-          <Stylist quizCompleted={pr.quizCompleted} hasPhotos={pr.photos.length > 0} />
+
           <div className={p.card}>
-            <div className={p.accountHead}>
-              <h2>Аккаунт</h2>
-              <Link href="/reset-password" className={p.sale}>
+            <h2>Аккаунт</h2>
+            <div className={p.accountRow}>
+              <span className={p.email}>
+                {props.email}
+                {!props.emailVerified && (
+                  <button
+                    className={p.textBtn}
+                    disabled={resent}
+                    onClick={async () => {
+                      await api('/auth/resend-verification', {});
+                      setResent(true);
+                    }}
+                  >
+                    {resent ? 'письмо отправлено' : 'подтвердить email'}
+                  </button>
+                )}
+              </span>
+              <Link href="/reset-password" className={p.saleLink}>
                 сменить пароль
               </Link>
             </div>
-            <p style={{ margin: '0 0 12px' }}>
-              {props.email}
-              {!props.emailVerified && (
-                <button
-                  className={p.inline}
-                  disabled={resent}
-                  onClick={async () => {
-                    await api('/auth/resend-verification', {});
-                    setResent(true);
-                  }}
-                >
-                  {resent ? 'письмо отправлено' : 'подтвердить email'}
-                </button>
-              )}
-            </p>
             {(
               [
                 ['pdn', 'Я согласен с политикой персональных данных'],
@@ -188,12 +217,12 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                   // Отзыв согласия на ПДн или оферты = удаление аккаунта (ТЗ §6.5)
                   onChange={(e) => (!e.target.checked && (type === 'pdn' || type === 'offer') ? setDeleting(true) : consent(type, e.target.checked))}
                 />
-                {label}
+                <span>{label}</span>
               </label>
             ))}
-            <div style={{ marginTop: 16 }}>
-              <Button
-                variant="outline"
+            <div className={p.accountActions}>
+              <button
+                className={p.textBtnPrimary}
                 onClick={async () => {
                   await api('/auth/logout', {});
                   writeCart([]);
@@ -203,22 +232,54 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 }}
               >
                 Выйти
-              </Button>
-            </div>
-            <div style={{ marginTop: 16, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 14 }}>
-              <a href="/api/me/export" className={p.inline} style={{ textDecoration: 'none' }}>
+              </button>
+              <a href="/api/me/export" className={p.textBtnMuted}>
                 Скачать мои данные
               </a>
-              <button className={p.inline} style={{ color: 'var(--c-error)' }} onClick={() => setDeleting(true)}>
+              <button className={p.textBtnDanger} onClick={() => setDeleting(true)}>
                 Удалить аккаунт
               </button>
             </div>
           </div>
         </div>
       </div>
-      <div className="eyebrow" style={{ marginTop: 32 }}>
-        История заказов
+
+      {/* Консультации стилиста нет в макете — отдельной карточкой на всю ширину, чтобы не ломать сетку */}
+      <div className={p.stylist}>
+        <Stylist quizCompleted={pr.quizCompleted} hasPhotos={pr.photos.length > 0} />
       </div>
+
+      <div className={p.orders}>
+        <div className={p.eyebrow}>История заказов</div>
+        {props.orders.length === 0 ? (
+          <div className={p.orderEmpty}>
+            Заказов пока нет.{' '}
+            <Link href="/catalog" className={p.saleLink}>
+              Перейти в каталог →
+            </Link>
+          </div>
+        ) : (
+          props.orders.map((r) => {
+            const label = orderLabel({ status: r.status, shipments: r.shipmentStatuses.map((st) => ({ status: st })) });
+            // Активные заказы — акцентом, завершённые и отменённые — серым, как «Завершен» в макете
+            const done = r.status === 'cancelled' || label === 'Доставлен';
+            return (
+              <Link key={r.number} href={`/account/orders/${r.number}`} className={p.orderRow}>
+                <span className={p.orderMain}>
+                  <span className={p.orderTitle}>
+                    № {r.number} · {when(r.createdAt)}
+                  </span>
+                  <span className={p.orderSub}>
+                    {r.shipments} {plural(r.shipments, 'отправление', 'отправления', 'отправлений')} · {formatRub(r.total)} · {r.delivery}
+                  </span>
+                </span>
+                <span className={done ? p.orderStatusDone : p.orderStatus}>{label} →</span>
+              </Link>
+            );
+          })
+        )}
+      </div>
+
       {deleting && (
         <Modal eyebrow="Аккаунт" title="Удалить аккаунт?" onClose={() => setDeleting(false)}>
           <p style={{ marginBottom: 12 }}>
@@ -249,25 +310,6 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
             </Button>
           </div>
         </Modal>
-      )}
-      {props.orders.length === 0 ? (
-        <p className={p.muted}>Заказов пока нет.</p>
-      ) : (
-        <div className={o.history} style={{ marginTop: 12 }}>
-          {props.orders.map((r) => (
-            <Link key={r.number} href={`/account/orders/${r.number}`} className={o.historyRow}>
-              <span>
-                <b>№ {r.number}</b> · {new Date(r.createdAt).toLocaleDateString('ru-RU')}
-                <span className={o.muted} style={{ display: 'block' }}>
-                  {r.shipments} {plural(r.shipments, 'отправление', 'отправления', 'отправлений')} · {formatRub(r.total)} · {r.delivery}
-                </span>
-              </span>
-              <span className={r.status === 'cancelled' ? o.statusBad : r.status === 'pending_payment' ? o.statusWarn : o.status}>
-                {orderLabel({ status: r.status, shipments: r.shipmentStatuses.map((st) => ({ status: st })) })}
-              </span>
-            </Link>
-          ))}
-        </div>
       )}
     </section>
   );

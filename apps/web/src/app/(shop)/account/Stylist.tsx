@@ -35,56 +35,64 @@ export function Stylist({ quizCompleted, hasPhotos }: { quizCompleted: boolean; 
   return (
     <div className={p.card}>
       <h2>Консультация стилиста</h2>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && (
+        <div style={{ marginTop: 12 }}>
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
       {!quizCompleted ? (
-        <p className={p.muted}>Пройдите анкету — стилист посмотрит её вместе с вашей капсулой.</p>
+        <p className={p.note}>Пройдите анкету — стилист посмотрит её вместе с вашей капсулой.</p>
       ) : open ? (
         <>
-          <p style={{ margin: '0 0 8px' }}>«{open.question}»</p>
-          <p className={p.muted}>
+          <p className={p.quote}>«{open.question}»</p>
+          <p className={p.note}>
             Отправлено {day(open.createdAt)}. Стилист видит вашу анкету и капсулу{open.sharePhotos ? ' и фото' : ''}, пока не ответит. Ответ придёт на почту.
           </p>
-          <Button variant="ghost" onClick={() => run(() => api<Req[]>(`/me/stylist/${open.id}/cancel`, {}))}>
-            Отменить вопрос
-          </Button>
+          <div className={p.stylistActions}>
+            <button className={p.textBtnDanger} onClick={() => run(() => api<Req[]>(`/me/stylist/${open.id}/cancel`, {}))}>
+              Отменить вопрос
+            </button>
+          </div>
         </>
       ) : (
         <>
           <textarea
+            className={p.textarea}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={3}
             maxLength={1000}
             placeholder="Например: какой цвет халата подойдёт к моему цветотипу?"
             aria-label="Вопрос стилисту"
-            style={{ width: '100%', font: 'inherit', padding: 10, borderRadius: 10, border: '1px solid var(--c-border)', marginBottom: 8, background: 'var(--c-surface)', color: 'inherit' }}
           />
           <label className={p.consent}>
             <input type="checkbox" checked={share} disabled={!hasPhotos} onChange={(e) => setShare(e.target.checked)} />
-            {hasPhotos ? 'Показать стилисту мои фото — только на время ответа' : 'Загрузите фото выше, чтобы показать их стилисту'}
+            <span>{hasPhotos ? 'Показать стилисту мои фото — только на время ответа' : 'Загрузите фото, чтобы показать их стилисту'}</span>
           </label>
-          <p className={p.muted}>Стилист увидит анкету и капсулу, но не ваши email и телефон. После ответа доступ закроется.</p>
-          <Button
-            disabled={question.trim().length < 10}
-            onClick={async () => {
-              if (await run(() => api<Req[]>('/me/stylist', { question, sharePhotos: share }))) {
-                setQuestion('');
-                setShare(false);
-              }
-            }}
-          >
-            Задать вопрос
-          </Button>
+          <p className={p.note}>Стилист увидит анкету и капсулу, но не ваши email и телефон. После ответа доступ закроется.</p>
+          <div className={p.stylistActions}>
+            <Button
+              disabled={question.trim().length < 10}
+              onClick={async () => {
+                if (await run(() => api<Req[]>('/me/stylist', { question, sharePhotos: share }))) {
+                  setQuestion('');
+                  setShare(false);
+                }
+              }}
+            >
+              Задать вопрос
+            </Button>
+          </div>
         </>
       )}
       {items
         ?.filter((r) => r.status === 'answered')
         .map((r) => (
-          <div key={r.id} style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--c-border)' }}>
-            <p className={p.muted} style={{ margin: 0 }}>
+          <div key={r.id} className={p.answer}>
+            <p className={p.note} style={{ margin: 0 }}>
               {day(r.answeredAt!)} · «{r.question}»
             </p>
-            <p style={{ margin: '6px 0 0', whiteSpace: 'pre-line' }}>{r.answer}</p>
+            <p>{r.answer}</p>
           </div>
         ))}
     </div>
