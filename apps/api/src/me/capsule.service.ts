@@ -272,12 +272,18 @@ export class CapsuleService {
       variant: it.variant && { id: it.variant.id, size: it.variant.size, heightRange: it.variant.heightRange, color: it.variant.color.name, colorHex: it.variant.color.hex, ...shown(it.variant), stock: it.variant.stock },
     }));
     const available = items.filter((i) => i.variant && !i.unavailable);
+    const total = available.reduce((s, i) => s + i.variant!.price, 0);
+    // Бюджет считаем по текущему составу: после замены вещи сумма могла выйти за предел
+    const budgetMax = BUDGETS.find((b) => b.id === p.budgetRange)?.max ?? null;
+    const budget = budgetMax ? budgetMax * 100 : null;
     return {
       variantNo,
       variants: variants.map((v) => v.variantNo),
       items,
       count: available.length,
-      total: available.reduce((s, i) => s + i.variant!.price, 0),
+      total,
+      budget,
+      overBudget: budget !== null && total > budget,
       explanations: capsule.explanations as string[],
       builtAt: capsule.builtAt,
     };
