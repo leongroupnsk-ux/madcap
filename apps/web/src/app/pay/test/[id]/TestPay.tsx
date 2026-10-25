@@ -2,9 +2,9 @@
 
 import { formatRub } from '@aesculap/shared';
 import { useEffect, useState } from 'react';
-import { Alert, Button } from '@/components/ui';
+import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
-import o from '@/components/shop/order.module.css';
+import c from '@/components/shop/checkout.module.css';
 
 type P = { id: string; status: string; amount: number; description: string; shop: string; orderNumber: string };
 
@@ -16,6 +16,7 @@ export function TestPay({ id }: { id: string }) {
   const [p, setP] = useState<P | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<'card' | 'sbp'>('card');
   useEffect(() => {
     api<P>(`/payments/test/${encodeURIComponent(id)}`).then(setP).catch((e) => setError(isApiError(e) ? e.message : 'Платёж не найден'));
   }, [id]);
@@ -32,35 +33,45 @@ export function TestPay({ id }: { id: string }) {
   };
 
   return (
-    <main className={o.hero} style={{ background: 'var(--c-bg)' }}>
-      <div className={o.panel} style={{ width: 'min(440px, 100%)', textAlign: 'left', display: 'grid', gap: 14 }}>
-        <div style={{ background: '#fdf3e7', color: '#9a5b13', borderRadius: 10, padding: '8px 12px', fontSize: 13 }}>
-          Тестовый режим оплаты — деньги не списываются. В рабочей версии здесь страница ЮKassa.
+    <main className={c.testPay}>
+      <div className={c.payWrap}>
+        <div className={c.steps}>
+          Корзина — Доставка — <b>Оплата</b>
         </div>
-        {error && <Alert tone="error">{error}</Alert>}
-        {p && (
-          <>
-            <div className={o.muted}>
-              Магазин: {p.shop} · Заказ № {p.orderNumber}
-            </div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 40 }}>{formatRub(p.amount)}</div>
-            {p.status !== 'pending' ? (
-              <Alert tone={p.status === 'succeeded' ? 'success' : 'error'}>{p.status === 'succeeded' ? 'Платёж уже проведён.' : 'Платёж отменён.'}</Alert>
-            ) : (
-              <>
-                <Button onClick={() => settle('card')} disabled={busy}>
-                  Оплатить картой •••• 4242
-                </Button>
-                <Button variant="outline" onClick={() => settle('sbp')} disabled={busy}>
-                  Оплатить через СБП
-                </Button>
-                <Button variant="ghost" onClick={() => settle('fail')} disabled={busy}>
-                  Имитировать отказ банка
-                </Button>
-              </>
-            )}
-          </>
-        )}
+        <div className={c.payCard}>
+          <div className={c.testBadge}>Тестовый режим оплаты — деньги не списываются. В рабочей версии здесь страница ЮKassa.</div>
+          <h1 className={c.payTitle}>ЮKassa</h1>
+          {error && <Alert tone="error">{error}</Alert>}
+          {p && (
+            <>
+              <div className={c.payMeta}>
+                Магазин: {p.shop} · Заказ № {p.orderNumber}
+              </div>
+              {p.status !== 'pending' ? (
+                <Alert tone={p.status === 'succeeded' ? 'success' : 'error'}>{p.status === 'succeeded' ? 'Платёж уже проведён.' : 'Платёж отменён.'}</Alert>
+              ) : (
+                <>
+                  <div className={c.payList} role="radiogroup" aria-label="Способ оплаты">
+                    <button type="button" role="radio" aria-checked={method === 'card'} className={method === 'card' ? c.methodOn : c.method} onClick={() => setMethod('card')}>
+                      <span className={c.payItemHead}>Банковская карта</span>
+                      <span className={c.payItemText}>Тестовая карта · •••• 4242</span>
+                    </button>
+                    <button type="button" role="radio" aria-checked={method === 'sbp'} className={method === 'sbp' ? c.methodOn : c.method} onClick={() => setMethod('sbp')}>
+                      <span className={c.payItemHead}>СБП</span>
+                      <span className={c.payItemText}>Оплата в приложении банка</span>
+                    </button>
+                  </div>
+                  <button type="button" className={c.primary} onClick={() => settle(method)} disabled={busy}>
+                    Оплатить {formatRub(p.amount)}
+                  </button>
+                  <button type="button" className={c.ghost} onClick={() => settle('fail')} disabled={busy}>
+                    Имитировать отказ банка
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </main>
   );

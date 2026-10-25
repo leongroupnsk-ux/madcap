@@ -118,7 +118,10 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
             {heights.map((h) => {
               const ok = ofColor.some((v) => v.size === size && v.heightRange === h && v.stock > 0);
               return (
-                <button key={h} type="button" className={`${p.size} ${p.sizeWide} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => setHeight(h)} aria-pressed={h === height}>
+                <button key={h} type="button" className={`${p.size} ${p.sizeWide} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => {
+                    setHeight(h);
+                    setAdded(false);
+                  }} aria-pressed={h === height}>
                   {h}
                   {rec?.heightRange === h && <small className={p.rec}>Рекомендуем</small>}
                 </button>
@@ -144,26 +147,28 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
             +
           </button>
         </div>
-        <button
-          type="button"
-          className={p.toCart}
-          disabled={!variant || variant.stock === 0}
-          onClick={() => {
-            addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
-            setAdded(true);
-          }}
-        >
-          Добавить в корзину
-        </button>
+        {/* Состояние «в корзине» — компонент button-in-cart (Figma 32:4840): повторное нажатие ведёт в корзину */}
+        {added ? (
+          <Link href="/cart" className={`${p.toCart} ${p.toCartOn}`} aria-live="polite">
+            ✓ Добавлено в корзину
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={p.toCart}
+            disabled={!variant || variant.stock === 0}
+            onClick={() => {
+              addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
+              setAdded(true);
+            }}
+          >
+            Добавить в корзину
+          </button>
+        )}
         <Link href="/quiz/1" className={p.toCapsule}>
           Добавить в капсулу
         </Link>
       </div>
-      {added && (
-        <div className={p.added}>
-          ✓ Добавлено. <Link href="/cart">Перейти в корзину →</Link>
-        </div>
-      )}
 
       <div className={p.delivery}>
         <img src="/design/icons/delivery.svg" alt="" width={20} height={20} />

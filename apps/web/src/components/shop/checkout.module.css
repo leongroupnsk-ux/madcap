@@ -1,0 +1,1311 @@
+/*
+ * Корзина и оформление заказа по макету Figma:
+ * .Cart 1:3259, .Cart-null 32:4943, .Order-step-1 19:1561, .Order-step-2 1:3713,
+ * окна СДЭК cdek-courier-1 185:3419, cdek-courier-2 183:3257, cdek-shop-1 185:3555, cdek-shop-2 185:3687,
+ * cdek-shops 175:3100, .Order-success 1:3835.
+ */
+
+/* ── Каркас страницы: контейнер 1320, поля 20, сверху 48 ── */
+.page {
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 48px 20px 64px;
+}
+.back {
+  display: inline-block;
+  margin-top: 3px;
+  font: 600 14px/20px var(--font-sans);
+  color: #50655b;
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--c-primary);
+}
+.steps {
+  padding-top: 32px;
+  font: 500 10px/15px var(--font-mono);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #6c8377;
+}
+.steps b {
+  font-weight: 500;
+  color: #173d32;
+}
+.title {
+  margin: 12px 0 0;
+  font: 400 48px/48px var(--font-serif);
+  letter-spacing: -0.06em;
+  color: var(--c-primary);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 32px;
+  align-items: start;
+  margin-top: 40px;
+}
+.main {
+  min-width: 0;
+}
+.aside {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.note {
+  margin: 16px 0 0;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.warn {
+  margin-top: 4px;
+  font: 600 12px/16px var(--font-sans);
+  color: var(--c-sale);
+}
+
+/* ── Корзина: строка товара (Container 19:1455) ── */
+.capsuleHead {
+  height: 44px;
+}
+.chip {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font: 700 12px/16px var(--font-sans);
+  color: #173d32;
+}
+.lines {
+  display: grid;
+  gap: 12px;
+}
+.lines + .capsuleHead,
+.lines + .lines {
+  margin-top: 24px;
+}
+.line {
+  display: flex;
+  gap: 16px;
+  min-height: 120px;
+  padding: 12px 16px 12px 12px;
+  border-radius: var(--r-md);
+  background: #fff;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.1)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+.lineChanged {
+  box-shadow: inset 0 0 0 1px var(--c-accent);
+}
+.lineDim .thumb,
+.lineDim .lineName,
+.lineDim .linePrice {
+  opacity: 0.5;
+}
+.thumb {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--c-surface-soft);
+}
+.lineBody {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.lineMeta {
+  font: 400 12px/16px var(--font-sans);
+  color: #65766d;
+}
+.lineName {
+  display: block;
+  padding-top: 2px;
+  margin-bottom: 8px;
+  font: 400 18px/20px var(--font-serif);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.lineName:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lineFoot {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.linePrice {
+  font: 600 16px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.lineOld {
+  margin-left: 8px;
+  font: 400 13px/20px var(--font-sans);
+  color: var(--c-text-strike);
+  text-decoration: line-through;
+}
+.lineCtrl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  border: 1px solid rgba(18, 61, 50, 0.19);
+  border-radius: var(--r-pill);
+}
+.stepper button {
+  width: 32px;
+  height: 30px;
+  border: 0;
+  background: none;
+  font: 400 16px/24px var(--font-sans);
+  color: #173d32;
+  cursor: pointer;
+}
+.stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stepper span {
+  width: 20px;
+  text-align: center;
+  font: 700 14px/20px var(--font-sans);
+  color: #173d32;
+}
+.remove {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 700 12px/16px var(--font-sans);
+  color: var(--c-sale);
+  cursor: pointer;
+}
+.remove:hover {
+  text-decoration: underline;
+}
+
+/* ── Тёмная карточка «Ваш заказ» (Sidebar 1:3518 / 19:1768) ── */
+.summary {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: var(--c-primary);
+  color: #fff;
+}
+.summary h2 {
+  margin: 0 0 24px;
+  font: 400 30px/36px var(--font-serif);
+  color: #fff;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 400 14px/20px var(--font-sans);
+  color: #bad0c5;
+}
+.row + .row {
+  margin-top: 16px;
+}
+.row b {
+  font-weight: 700;
+  color: #fff;
+  text-align: right;
+}
+.total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font: 700 18px/28px var(--font-sans);
+}
+.total b {
+  font: 600 20px/28px var(--font-sans);
+}
+.accent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  margin-top: 28px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.accent:hover:not(:disabled) {
+  background: var(--c-accent-hover);
+}
+.accent:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.summaryNote {
+  margin-top: 10px;
+  font: 400 14px/20px var(--font-sans);
+  color: #bad0c5;
+  text-align: center;
+}
+.summaryHint {
+  margin-top: 12px;
+  font: 400 13px/18px var(--font-sans);
+  color: #bad0c5;
+}
+.legal {
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.legal a {
+  color: inherit;
+}
+
+/* ── Пустая корзина (32:5160) ── */
+.empty {
+  margin-top: 40px;
+  padding: 40px;
+  border-radius: var(--r-lg);
+  background: #eaf0ec;
+}
+.empty h2 {
+  margin: 0;
+  font: 400 30px/36px var(--font-serif);
+  color: var(--c-primary);
+}
+.empty p {
+  margin: 8px 0 0;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.emptyLink {
+  display: inline-block;
+  margin-top: 16px;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-sale);
+  text-decoration: none;
+}
+.emptyLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Оформление: карточка отправления (165:2957) ── */
+.shipments {
+  display: grid;
+  gap: 16px;
+}
+.ship {
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: #fff;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.1)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+.shipHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.shipHead b {
+  font-weight: 700;
+}
+.shipThumbs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 20px;
+}
+.shipThumbs img,
+.shipThumbs span {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--c-surface-soft);
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  padding-top: 20px;
+}
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(21, 58, 46, 0.13);
+  border-radius: var(--r-md);
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.option:hover:not(:disabled) {
+  border-color: var(--c-primary);
+}
+.option:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.optionOn {
+  composes: option;
+  border-color: var(--c-primary);
+  background: #e6f0ea;
+}
+.optionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font: 700 16px/24px var(--font-sans);
+  color: #173d32;
+}
+.badge {
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--c-accent);
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-primary);
+  white-space: nowrap;
+}
+.optionText {
+  padding-top: 4px;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.optionOn .optionText {
+  color: var(--c-primary);
+}
+.optionText b {
+  font-weight: 700;
+}
+.shipFoot {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+.linkBtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: 600 13px/18px var(--font-sans);
+  color: var(--c-sale);
+  cursor: pointer;
+}
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+/* Получатель (19:1587) */
+.card {
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: #fff;
+}
+.card h2 {
+  margin: 0 0 16px;
+  font: 400 24px/36px var(--font-serif);
+  color: var(--c-primary);
+}
+.fields {
+  display: grid;
+  gap: 8px;
+}
+.input {
+  width: 100%;
+  height: 50.5px;
+  padding: 0 14px;
+  border: 1px solid rgba(22, 60, 48, 0.15);
+  border-radius: 12px;
+  background: #fff;
+  font: 500 15px/22.5px var(--font-sans);
+  color: #173d32;
+  outline: none;
+}
+.input::placeholder {
+  color: #8c9a93;
+  font-weight: 400;
+}
+.input:focus {
+  border-color: var(--c-primary);
+}
+.inputError {
+  composes: input;
+  border-color: var(--c-sale);
+}
+.fieldError {
+  margin: 2px 0 2px 4px;
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-sale);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Шаг «Оплата» (.Order-step-2 1:3713): итог и переход на страницу ЮKassa ── */
+.payWrap {
+  width: min(500px, 100%);
+  margin: 0 auto;
+  padding: 0 0 64px;
+}
+.payCard {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  margin-top: 26px;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: #fff;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.1)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+.payTitle {
+  margin: 12px 0 0;
+  font: 400 48px/48px var(--font-serif);
+  letter-spacing: -0.06em;
+  color: var(--c-primary);
+}
+.payMeta {
+  font: 500 12px/15px var(--font-mono);
+  letter-spacing: 0.125em;
+  text-transform: uppercase;
+  color: #6c8377;
+}
+.payList {
+  display: grid;
+  gap: 12px;
+}
+.payItem {
+  display: grid;
+  gap: 2px;
+  padding: 16px;
+  border: 1px solid rgba(21, 58, 46, 0.13);
+  border-radius: var(--r-md);
+}
+.payItemOn {
+  composes: payItem;
+  border-color: var(--c-primary);
+  background: #e6f0ea;
+}
+.payItemHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 700 16px/24px var(--font-sans);
+  color: #173d32;
+}
+.payItemText {
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.payTotals {
+  display: grid;
+  gap: 8px;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.payTotals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.payTotals b {
+  color: var(--c-primary);
+}
+.payTotal {
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border);
+  font: 700 18px/28px var(--font-sans);
+  color: var(--c-primary);
+}
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--c-primary);
+  font: 700 14px/20px var(--font-sans);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.primary:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+}
+.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ghost {
+  composes: primary;
+  background: none;
+  border: 1px solid rgba(18, 61, 50, 0.25);
+  color: var(--c-primary);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--c-chip);
+}
+.payBack {
+  display: flex;
+  justify-content: center;
+  padding-top: 24px;
+}
+.payBack button,
+.payBack a {
+  border: 0;
+  background: none;
+  font: 600 14px/20px var(--font-sans);
+  color: #466054;
+  text-decoration: none;
+  cursor: pointer;
+}
+.payBack button:hover,
+.payBack a:hover {
+  color: var(--c-primary);
+}
+
+/* ── Окна СДЭК справа (cdek-courier-*, cdek-shop-*) ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  background: rgba(24, 59, 52, 0.28);
+}
+.drawer {
+  margin-left: auto;
+  width: min(466px, 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border-radius: 28px 0 0 28px;
+  background: var(--c-bg);
+  overflow: hidden;
+}
+.drawerHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.drawerHead .eyebrow {
+  font: 500 10px/15px var(--font-mono);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #6c8377;
+}
+.drawerHead h2 {
+  margin: 8px 0 0;
+  font: 400 30px/36px var(--font-serif);
+  color: var(--c-primary);
+}
+.close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(18, 61, 50, 0.19);
+  border-radius: 50%;
+  background: none;
+  font: 400 20px/28px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.close:hover {
+  background: #fff;
+}
+.tabs {
+  display: flex;
+  margin-top: 24px;
+  border-radius: var(--r-pill);
+  background: rgba(23, 61, 50, 0.19);
+}
+.tab {
+  flex: 1 1 0;
+  padding: 11px 15px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  font: 400 14px/normal var(--font-sans);
+  color: #173d32;
+  cursor: pointer;
+}
+.tabOn {
+  composes: tab;
+  background: var(--c-accent);
+}
+.panel {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 12px;
+  border-radius: 25px;
+  background: #fff;
+  overflow-y: auto;
+}
+.saved {
+  display: grid;
+  gap: 12px;
+}
+.savedItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  cursor: pointer;
+}
+.savedItemOn {
+  composes: savedItem;
+  border-color: #2e8566;
+  background: var(--c-chip);
+}
+.radio {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 50%;
+}
+.savedText {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.savedText b {
+  font: 700 14px/20px var(--font-sans);
+  color: #111827;
+}
+.savedText span {
+  font: 400 12px/16px var(--font-sans);
+  color: #6b7280;
+}
+.savedItemOn .savedText b,
+.savedItemOn .savedText span {
+  color: var(--c-primary);
+}
+.iconBtns {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+.iconBtn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: #f3f4f6;
+  cursor: pointer;
+}
+.iconBtn:hover {
+  background: #e5e7eb;
+}
+.panelFoot {
+  margin-top: auto;
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+.outlineCaps,
+.darkCaps {
+  width: 100%;
+  padding: 14px 12px;
+  border-radius: var(--r-pill);
+  font: 700 12px/normal var(--font-sans);
+  letter-spacing: 0.067em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.outlineCaps {
+  border: 1px solid var(--c-primary);
+  background: none;
+  color: var(--c-primary);
+}
+.outlineCaps:hover {
+  background: var(--c-chip);
+}
+.darkCaps {
+  border: 0;
+  background: var(--c-primary);
+  color: #fff;
+}
+.darkCaps:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+}
+.darkCaps:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.panelEmpty {
+  padding: 8px 4px;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+/* форма адреса (cdek-courier-2) */
+.form {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* комментарий растягивается на свободную высоту окна, как в макете */
+.formGrow {
+  flex: 1 0 auto;
+  grid-template-rows: auto minmax(120px, 1fr);
+}
+.formGrow textarea {
+  height: 100%;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.formField {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.formField > span:first-child {
+  font: 400 12px/normal var(--font-sans);
+  color: #6b7280;
+  text-transform: uppercase;
+}
+.formInput {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  font: 400 14px/normal var(--font-sans);
+  color: var(--c-primary);
+  outline: none;
+}
+.formInput:focus {
+  border-color: var(--c-primary);
+}
+.formArea {
+  composes: formInput;
+  height: auto;
+  min-height: 120px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+.suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  margin-top: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(18, 61, 50, 0.12);
+  overflow: hidden;
+}
+.suggest button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-top: 1px solid #f0f1f3;
+  background: none;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.suggest button:first-child {
+  border-top: 0;
+}
+.suggest button:hover {
+  background: var(--c-chip);
+}
+.suggest small {
+  margin-left: 6px;
+  color: #6b7280;
+}
+
+/* карточка ПВЗ (cdek-shop-2) */
+.pointCard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 24px;
+  padding: 20px 12px 12px;
+  border-radius: 25px;
+  background: #fff;
+}
+.pointCard h3 {
+  margin: 0;
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.pointCard dl {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  font: 400 14px/22px var(--font-sans);
+  color: var(--c-primary);
+}
+.pointCard dt {
+  font-weight: 700;
+}
+.pointCard dd {
+  margin: 0;
+}
+.pointMap {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 160px;
+  margin-top: 12px;
+  border-radius: 4px;
+  background: #efece5 url('/design/checkout/map.webp') center / cover no-repeat;
+}
+.pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1.5px solid #111827;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* ── Выбор ПВЗ на весь экран (cdek-shops 175:3100): заглушка карты + список ── */
+.shops {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  background: var(--c-bg);
+}
+.map {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  background: #efece5 url('/design/checkout/map.webp') center / cover no-repeat;
+}
+.mapTop {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  left: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+.cityBox {
+  position: relative;
+  width: min(280px, 100%);
+}
+.cityBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.09);
+  font: 500 11px/normal var(--font-mono);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #111827;
+  cursor: pointer;
+}
+.mapNote {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 40px);
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.09);
+  font: 400 13px/18px var(--font-sans);
+  color: #374151;
+  text-align: center;
+}
+.markers {
+  position: absolute;
+  inset: 80px 60px 80px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 40px 64px;
+  pointer-events: none;
+}
+.marker {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: #111827;
+  font: 700 11px/normal var(--font-sans);
+  color: #fff;
+  cursor: pointer;
+}
+.markerOn {
+  composes: marker;
+  background: var(--c-sale);
+}
+.shopsSide {
+  flex: none;
+  width: 387px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.shopsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 28px 20px 20px;
+}
+.shopsHead .eyebrow {
+  font: 500 10px/normal var(--font-mono);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #6c8377;
+}
+.shopsHead h2 {
+  margin: 8px 0 0;
+  font: 400 36px/40px var(--font-serif);
+  color: var(--c-primary);
+}
+.shopsHead .close {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  background: #fff;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 20px 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(23, 61, 50, 0.19);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.6);
+}
+.search input {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  outline: none;
+}
+.search input::placeholder {
+  color: #708178;
+}
+.shopList {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.shopItem {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.shopItem:hover {
+  background: #f7f8f7;
+}
+.shopItemOn {
+  composes: shopItem;
+  background: var(--c-chip);
+}
+.shopItemOn:hover {
+  background: var(--c-chip);
+}
+.shopBrand {
+  font: 600 11px/normal var(--font-sans);
+  letter-spacing: 0.045em;
+  color: #111827;
+}
+.shopAddr {
+  font: 600 13px/normal var(--font-sans);
+  color: #173d32;
+}
+.shopInfo {
+  font: 400 12px/normal var(--font-sans);
+  color: #6b7280;
+}
+.shopsFoot {
+  padding: 16px 20px 20px;
+  border-top: 1px solid #e5e7eb;
+}
+.shopsMsg {
+  padding: 16px 20px;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+/* ── Экран результата (.Order-success 1:3835) ── */
+.result {
+  min-height: calc(100vh - 118px);
+  display: grid;
+  place-items: center;
+  padding: 64px 16px;
+  background: var(--c-surface-mint);
+  text-align: center;
+}
+.resultBox {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.check {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  font: 400 30px/36px var(--font-sans);
+  color: #fff;
+}
+.checkBad {
+  composes: check;
+  background: var(--c-sale);
+}
+.resultEyebrow {
+  margin-top: 40px;
+  font: 500 10px/15px var(--font-mono);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #6c8377;
+}
+.resultTitle {
+  margin: 12px 0 0;
+  font: 400 60px/60px var(--font-serif);
+  letter-spacing: -0.07em;
+  color: var(--c-primary);
+}
+.resultTitle span {
+  display: block;
+  color: var(--c-sale);
+}
+.resultText {
+  margin: 20px 0 0;
+  font: 400 16px/24px var(--font-sans);
+  color: #526c61;
+}
+.resultText + .resultText {
+  margin-top: 8px;
+}
+.resultActions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+.resultActions .primary,
+.resultActions .ghost {
+  width: auto;
+  height: 50px;
+  padding: 0 20px;
+}
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 24px;
+  border: 3px solid var(--c-chip-strong);
+  border-top-color: var(--c-primary);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Тестовая платёжная страница в стиле кадра .Order-step-2 ── */
+.testPay {
+  min-height: 100vh;
+  padding: 40px 16px;
+  background: var(--c-bg);
+}
+.testBadge {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fdf3e7;
+  font: 400 13px/18px var(--font-sans);
+  color: #9a5b13;
+}
+.method {
+  composes: payItem;
+  width: 100%;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.methodOn {
+  composes: method;
+  border-color: var(--c-primary);
+  background: #e6f0ea;
+}
+
+/* ── Адаптив: макет десктопный, ниже — свои варианты в том же стиле ── */
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 24px;
+  }
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shopsSide {
+    width: 340px;
+  }
+}
+@media (max-width: 767px) {
+  .page {
+    padding: 32px 16px 48px;
+  }
+  .title {
+    font-size: 38px;
+    line-height: 42px;
+  }
+  .resultTitle {
+    font-size: 46px;
+    line-height: 48px;
+  }
+  .shops {
+    flex-direction: column;
+  }
+  .map {
+    flex: 0 0 180px;
+  }
+  .markers {
+    inset: 64px 16px 16px;
+    gap: 12px 24px;
+  }
+  .mapNote {
+    display: none;
+  }
+  .shopsSide {
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 0;
+  }
+  .shopsHead h2 {
+    font-size: 30px;
+    line-height: 36px;
+  }
+}
+@media (max-width: 560px) {
+  .line {
+    gap: 12px;
+    padding: 10px 12px 10px 10px;
+  }
+  .thumb {
+    width: 72px;
+    height: 72px;
+  }
+  .lineName {
+    font-size: 16px;
+  }
+  .options,
+  .formRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ship {
+    padding: 18px 16px;
+  }
+  .empty {
+    padding: 28px 20px;
+  }
+  .empty h2 {
+    font-size: 26px;
+    line-height: 32px;
+  }
+  .drawer {
+    padding: 20px 16px;
+    border-radius: 0;
+  }
+  .drawerHead h2 {
+    font-size: 26px;
+    line-height: 32px;
+  }
+  .payCard {
+    padding: 20px 16px;
+  }
+  .payTitle {
+    font-size: 40px;
+    line-height: 44px;
+  }
+}

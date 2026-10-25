@@ -352,9 +352,13 @@
 .toCapsule:hover {
   background: var(--c-chip-strong);
 }
-.added {
-  font-size: 14px;
-  color: var(--c-success);
+/* «✓ Добавлено в корзину» (button-in-cart, Active) */
+.toCart.toCartOn {
+  background: var(--c-chip);
+  color: var(--c-primary);
+}
+.toCart.toCartOn:hover {
+  background: var(--c-chip-strong);
 }
 .delivery {
   display: flex;
