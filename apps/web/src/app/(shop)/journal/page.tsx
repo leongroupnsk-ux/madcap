@@ -1,7 +1,8 @@
+import { plural } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import j from '@/components/shop/journal.module.css';
-import { SITE_URL, type JournalItem } from '@/lib/catalog';
+import { SITE_URL, pubDate, type JournalItem } from '@/lib/catalog';
 import { serverApi } from '@/lib/server-api';
 
 export const metadata: Metadata = {
@@ -11,29 +12,35 @@ export const metadata: Metadata = {
 };
 export const revalidate = 300;
 
-const date = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
+/** Лента журнала — кадр .Articles: статьи и подборки (подборки — на мятном фоне). */
 export default async function JournalPage() {
   const items = (await serverApi<JournalItem[]>('/journal')).data ?? [];
   return (
-    <section className="container" style={{ paddingTop: 40 }}>
+    <section className={j.page}>
       <div className="eyebrow">Полезное</div>
-      <h1 style={{ fontSize: 'clamp(40px, 5vw, 56px)', marginTop: 10 }}>Журнал</h1>
-      {!items.length && <p style={{ color: 'var(--c-text-muted)' }}>Материалы скоро появятся.</p>}
-      <div className={j.grid}>
-        {items.map((it) => (
-          <Link key={`${it.kind}-${it.slug}`} href={it.kind === 'article' ? `/journal/${it.slug}` : `/collections/${it.slug}`} className={`${j.card} ${it.kind === 'collection' ? j.cardCollection : ''}`}>
-            {it.coverUrl ? <img src={it.coverUrl} alt="" className={j.cover} /> : <span className={j.cover} />}
-            <div className={j.cardBody}>
-              <span className={j.by}>
-                {it.author} · {it.kind === 'collection' ? `${it.count} товаров` : date(it.publishedAt)}
-              </span>
-              <h2>{it.title}</h2>
-              {it.lead && <p>{it.lead}</p>}
-            </div>
-          </Link>
-        ))}
-      </div>
+      <h1>Журнал</h1>
+      {!items.length && <p className={j.empty}>Материалы скоро появятся.</p>}
+      {items.length > 0 && (
+        <div className={j.grid}>
+          {items.map((it) => {
+            const collection = it.kind === 'collection';
+            return (
+              <Link key={`${it.kind}-${it.slug}`} href={collection ? `/collections/${it.slug}` : `/journal/${it.slug}`} className={`${j.card} ${collection ? j.cardCollection : ''}`}>
+                {it.coverUrl ? <img src={it.coverUrl} alt="" className={j.cover} loading="lazy" /> : <span className={j.cover} />}
+                <div className={j.cardBody}>
+                  <span className={j.by}>
+                    <span className={j.upper}>{it.author}</span> ·{' '}
+                    {collection ? <span className={j.upper}>{`${it.count} ${plural(it.count, 'товар', 'товара', 'товаров')}`}</span> : pubDate(it.publishedAt)}
+                  </span>
+                  <h2>{it.title}</h2>
+                  {/* у подборки в макете только заголовок */}
+                  {!collection && it.lead && <p>{it.lead}</p>}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }

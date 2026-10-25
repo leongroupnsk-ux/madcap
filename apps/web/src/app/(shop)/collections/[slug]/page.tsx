@@ -1,3 +1,4 @@
+import { plural } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -20,21 +21,29 @@ export default async function CollectionPage({ params }: { params: P }) {
   const c = await load((await params).slug);
   if (!c) notFound();
   return (
-    <section className="container" style={{ paddingTop: 28 }}>
-      <Link href="/journal" style={{ color: 'var(--c-sale)', textDecoration: 'none', fontSize: 14 }}>
+    <section className={j.page}>
+      <Link href="/journal" className={j.back}>
         ← Назад
       </Link>
-      <div className={j.article}>
+      <div className={j.head}>
         {c.coverUrl && <img src={c.coverUrl} alt="" className={j.articleCover} />}
         <div className={j.by}>
-          {c.author} · {c.products.length} товаров
+          <span className={j.upper}>
+            {c.author} · {c.products.length} {plural(c.products.length, 'товар', 'товара', 'товаров')}
+          </span>
         </div>
         <h1>{c.title}</h1>
-        {c.description && <p className={j.lead}>{c.description}</p>}
       </div>
-      <div style={{ marginTop: 24 }}>
-        <ProductGrid items={c.products} />
-      </div>
+      {c.description && (
+        <div className={j.text}>
+          <p>{c.description}</p>
+        </div>
+      )}
+      {c.products.length > 0 && (
+        <div className={j.collectionGrid}>
+          <ProductGrid items={c.products} />
+        </div>
+      )}
     </section>
   );
 }

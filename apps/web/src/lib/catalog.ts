@@ -76,3 +76,6 @@ export async function fetchCatalog(params: Record<string, string | string[] | un
 
 /** Абсолютный адрес сайта для canonical, sitemap и разметки. */
 export const SITE_URL = process.env.SITE_URL ?? 'http://localhost:4000';
+
+/** Дата публикации материала журнала: «25 августа 2026» (без «г.», как в макете). */
+export const pubDate = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).replace(/\s*г\.$/, '');

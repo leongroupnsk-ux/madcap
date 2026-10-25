@@ -53,9 +53,10 @@ async function photo(productId: string, shot: Shot, position: number, colorId: s
   return { id, productId, type: 'photo' as const, storageKey: key, position, isMain: position === 0, approved: true, width: full.info.width, height: full.info.height, sizeBytes: full.data.length, colorId };
 }
 
+/** Обложка статьи или подборки — снимок целиком (в макете квадратный), кадрирует витрина под свой формат. */
 async function cover(file: string) {
   const key = `public/content/${randomUUID()}.webp`;
-  await put(key, await sharp(await readFile(resolve(ASSETS, `${file}.webp`))).resize(1600, 900, { fit: 'cover', position: 'attention' }).webp({ quality: 80 }).toBuffer());
+  await put(key, await sharp(await readFile(resolve(ASSETS, `${file}.webp`))).resize(1600, 1600, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 80 }).toBuffer());
   return key;
 }
 
@@ -112,6 +113,9 @@ const ITEMS: Item[] = [
   { title: 'Сумка поясная «Смена»', brand: 'МедТекс', category: 'aksessuary', gender: 'unisex', color: 'Графит', second: 'Тёмно-синий', price: 1490, sizes: ['ONE'], fabric: 'Нейлон с водоотталкивающей пропиткой', specialties: ['Медсестра', 'Хирург'], photos: [{ file: 'top-komfort', crop: POUCH }], promo: true },
 ];
 
+/** Слаги демо-статей редакции (автор — платформа). */
+const EDITORIAL_SLUGS = ['uhod-za-formoy-stirka-pri-60-demo'];
+
 const slug = (s: string) =>
   s.toLowerCase().replace(/[«»"]/g, '').replace(/ё/g, 'е').replace(/[а-я]/g, (c) => 'a b v g d e zh z i y k l m n o p r s t u f h ts ch sh sch  y  e yu ya'.split(' ')['абвгдежзийклмнопрстуфхцчшщъыьэюя'.indexOf(c)] ?? '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -133,6 +137,11 @@ async function main() {
       console.error(`ИНН ${inn} уже занят не демо-поставщиком — демо не создаю.`);
       process.exit(1);
     }
+  }
+  // Материалы редакции (без поставщика) удаляем по слагам
+  for (const a of await prisma.article.findMany({ where: { supplierId: null, slug: { in: EDITORIAL_SLUGS } } })) {
+    if (a.coverKey) await rm(resolve(ROOT, a.coverKey), { force: true });
+    await prisma.article.delete({ where: { id: a.id } });
   }
   const demoPayout = { status: 'active' as const, payoutStatus: 'active' as const, shipDays: 1, contactPhone: '+79990000000', payoutLegalName: 'демо', payoutInn: DEMO_INN, payoutAccount: '40702810900000000001', payoutBik: '044525225' };
   const supplier = await prisma.supplier.create({
@@ -190,36 +199,60 @@ async function main() {
   }
 
   const pick = (pred: (i: Item) => boolean) => created.filter((c) => pred(c.item)).map((c) => c.id);
-  const article = (title: string, lead: string, body: string, coverFile: string, productIds: string[]) =>
+  const byTitles = (titles: string[]) => titles.map((t) => created.find((c) => c.item.title === t)!.id);
+  /** Статьи и подборки кадра .Articles: свежие сверху, поэтому дата публикации задаёт порядок ленты (шаг — минута). */
+  const at = (n: number) => new Date(Date.now() - n * 60_000);
+  const article = (supplierId: string | null, title: string, lead: string, body: string, coverFile: string, productIds: string[], n: number) =>
     cover(coverFile).then((coverKey) =>
       prisma.article.create({
-        data: { supplierId: supplier.id, slug: `${slug(title)}-demo`, title, lead, coverKey, body, status: 'published', publishedAt: new Date(), products: { create: productIds.map((productId, position) => ({ productId, position })) } },
+        data: { supplierId, slug: `${slug(title)}-demo`, title, lead, coverKey, body, status: 'published', publishedAt: at(n), products: { create: productIds.map((productId, position) => ({ productId, position })) } },
       }),
     );
   await article(
+    supplier.id,
     'Как выбрать форму для долгой смены',
     'Практические советы о посадке, ткани и рабочем ритме.',
-    '<p>Ткань, обработка, режим стирки, крой и карманы — разбираем, на что смотреть при выборе костюма для смены.</p><h2>Ткань</h2><p>Смесовая ткань 65/35 с антибактериальной пропиткой выдерживает 600+ циклов стирки при 60° — это ключевое требование операционной.</p><h2>Посадка</h2><p>Свободный крой не сковывает движения, а эластан в брюках сохраняет форму к концу смены.</p><ul><li>Проверьте глубину карманов под телефон и ручки.</li><li>Выбирайте ростовку, а не только размер.</li></ul>',
-    'statya-dolgaya-smena', pick((i) => i.category === 'kostyumy').slice(0, 3),
+    '<p>Ткань, обработка, режим стирки, крой и карманы — разбираем, на что смотреть при выборе костюма для смены. Смесовая ткань 65/35 с антибактериальной пропиткой выдерживает 600+ циклов стирки при 60° — это ключевое требование операционной.</p><h2>Посадка</h2><p>Свободный крой не сковывает движения, а эластан в брюках сохраняет форму к концу смены.</p><ul><li>Проверьте глубину карманов под телефон и ручки.</li><li>Выбирайте ростовку, а не только размер.</li></ul>',
+    'statya-dolgaya-smena', byTitles(['Костюм «Хирург»', 'Брюки «Хирург»']), 0,
   );
+  // Подборка кадра .Articles-Selection: шесть вещей поставщика «Форма+» и партнёров
+  await prisma.collection.create({
+    data: {
+      supplierId: supplierSpb.id, slug: 'podborka-forma-dlya-stomatologii-demo', title: 'Подборка: форма для стоматологии', description: 'Собранный комплект для спокойной рабочей смены.',
+      coverKey: await cover('podborka-stomatologiya'), status: 'published', publishedAt: at(1),
+      products: {
+        create: byTitles(['Костюм «Стоматолог»', 'Брюки «Базис»', 'Халат женский «Классика»', 'Халат «Доктор»', 'Костюм «Премиум»', 'Блуза «Комфорт»']).map((productId, position) => ({ productId, position })),
+      },
+    },
+  });
+  // Материал редакции: автор — платформа
   await article(
+    null,
     'Уход за формой: стирка при 60°',
     'Как сохранить цвет и посадку после сотен стирок.',
     '<p>Медицинская одежда стирается чаще обычной — правильный режим продлевает её жизнь вдвое.</p><h2>Температура</h2><p>60° убивают большинство бактерий и не разрушают смесовые ткани. Белый халат можно стирать при 90°, если позволяет ярлык.</p><h2>Сушка</h2><p>Сушите на плечиках — так меньше гладить.</p>',
-    'halat-doktor-b', pick((i) => i.category === 'halaty'),
+    'statya-uhod-stirka', pick((i) => i.category === 'halaty'), 2,
   );
-  await prisma.collection.create({
-    data: {
-      supplierId: supplier.id, slug: 'podborka-forma-dlya-stomatologii-demo', title: 'Подборка: форма для стоматологии', description: 'Собранный комплект для спокойной рабочей смены.',
-      coverKey: await cover('top-aktiv'), status: 'published', publishedAt: new Date(Date.now() - 60_000),
-      products: { create: pick((i) => i.specialties.some((s) => s.startsWith('Стоматолог'))).map((productId, position) => ({ productId, position })) },
-    },
-  });
+  // В макете у двух следующих карточек заголовок первой статьи (ТЗ §12 п.16) — здесь у каждой свой
+  await article(
+    supplier.id,
+    'Форма для ночного дежурства',
+    'Мягкая ткань и свободный крой для суточной смены.',
+    '<p>На суточном дежурстве форма должна быть удобной не только на ногах, но и в кресле ординаторской.</p><h2>Ткань</h2><p>Микрофибра и смесовые ткани с вискозой мягче хлопка и меньше мнутся, когда вы отдыхаете между вызовами.</p><h2>Крой</h2><p>Брюки с эластичным поясом и манжетами не давят и не задираются, а топ свободного кроя не стесняет плечи.</p>',
+    'statya-dezhurstvo', byTitles(['Костюм «Премиум»', 'Брюки джоггеры']), 3,
+  );
+  await article(
+    supplier.id,
+    'Зачем медицинской форме эластан',
+    'Как стрейч держит посадку к концу смены.',
+    '<p>Несколько процентов эластана делают ткань упругой: она тянется при наклоне и возвращается обратно.</p><h2>Сколько нужно</h2><p>Для брюк и топов достаточно 3–5% эластана — больше снижает стойкость к стирке при 60°.</p><h2>Как проверить</h2><p>Растяните ткань на пояснице: хорошая смесовая ткань сразу возвращает форму, без вытянутых пузырей.</p>',
+    'statya-elastan', byTitles(['Брюки «Актив»', 'Топ «Актив»']), 4,
+  );
   // Подборка из блока «В подборках» кадра .Product card
   await prisma.collection.create({
     data: {
       supplierId: supplier.id, slug: 'grafitovaya-rabochaya-baza-demo', title: 'Графитовая рабочая база', description: 'Спокойные оттенки и практичные вещи для каждой смены.',
-      coverKey: await cover('podborka-grafit'), status: 'published', publishedAt: new Date(Date.now() - 120_000),
+      coverKey: await cover('podborka-grafit'), status: 'published', publishedAt: at(5),
       products: { create: pick((i) => ['Костюм «Хирург»', 'Брюки «Хирург»', 'Костюм «Базис»', 'Брюки «Базис»'].includes(i.title)).map((productId, position) => ({ productId, position })) },
     },
   });
@@ -250,7 +283,7 @@ async function main() {
   // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
   await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
 
-  console.log(`Демо: ${created.length} товаров, 2 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
+  console.log(`Демо: ${created.length} товаров, 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }
 
 main().finally(() => prisma.$disconnect());
