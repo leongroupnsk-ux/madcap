@@ -50,8 +50,7 @@ export function Sidebar({ role }: { role: Role }) {
         })}
       </nav>
       <div className={s.sideFoot}>
-        {/* В макете здесь «Карта платформы», но страницы /map пока нет — ведём на витрину */}
-        <Link href="/">На витрину</Link>
+        <Link href="/map">Карта платформы</Link>
         <button type="button" className={s.logout} onClick={() => void logout()}>
           Выйти
         </button>
