@@ -230,7 +230,7 @@ export class SupplierOrdersService {
     const from = q.from ? new Date(q.from) : new Date(now.getTime() - 90 * 86400000);
     const to = q.to ? new Date(new Date(q.to).getTime() + 86400000) : new Date(now.getTime() + 60000);
     const [rows, month] = await Promise.all([
-      this.prisma.payout.findMany({ where: { supplierId: supplier.id, createdAt: { gte: from, lt: to } }, include: { shipment: { include: { order: true } } }, orderBy: { createdAt: 'desc' }, take: 500 }),
+      this.prisma.payout.findMany({ where: { supplierId: supplier.id, createdAt: { gte: from, lt: to } }, include: { shipment: { include: { order: true } }, registry: true }, orderBy: { createdAt: 'desc' }, take: 500 }),
       this.prisma.payout.aggregate({ where: { supplierId: supplier.id, createdAt: { gte: monthStart } }, _sum: { transferred: true } }),
     ]);
     return {
@@ -244,6 +244,9 @@ export class SupplierOrdersService {
       items: rows.map((p) => ({
         id: p.id, kind: p.kind, number: `${p.shipment.order.number}-${p.shipment.no}`, shipmentId: p.shipmentId,
         amountGoods: p.amountGoods, commission: p.commission, transferred: p.transferred, createdAt: p.createdAt,
+        // Способ перечисления: сплит ЮKassa или реестр платформы (аварийный режим, ТЗ §8)
+        method: !p.manual ? ('split' as const) : p.registry ? ('registry' as const) : ('registry_pending' as const),
+        registryNumber: p.registry?.number ?? null,
       })),
     };
   }

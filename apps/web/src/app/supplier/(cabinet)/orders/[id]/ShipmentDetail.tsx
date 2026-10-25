@@ -52,110 +52,111 @@ export function ShipmentDetail({ id }: { id: string }) {
   const next = NEXT_ACTION[d.status];
   const pending = d.returns.find((r) => r.status === 'requested');
 
+  const count = d.items.reduce((n, i) => n + i.qty, 0);
   return (
     <>
-      <Link href="/supplier/orders" className={s.link}>
+      <Link href="/supplier/orders" className={s.back}>
         ← К заказам
       </Link>
-      <div className={s.head} style={{ marginTop: 12 }}>
+      <div className={`${s.head} ${s.detailHead}`}>
         <div>
-          <div className="eyebrow">Отправление</div>
-          <h1>№ {d.number}</h1>
-          <div style={{ marginTop: 8 }}>
+          <div className="eyebrow">Детали заказа</div>
+          <div className={s.titleRow}>
+            <h1>{d.number}</h1>
             <StatusBadge status={d.status} overdue={d.overdue} />
           </div>
         </div>
         <div className={s.actions}>
           {['new', 'confirmed'].includes(d.status) && (
-            <Button variant="ghost" disabled={busy} onClick={() => setReject({ kind: 'order', id: d.id })}>
+            <Button variant="ghost" className={s.rowBtn} disabled={busy} onClick={() => setReject({ kind: 'order', id: d.id })}>
               Отклонить
             </Button>
           )}
           {next && (
-            <Button disabled={busy} onClick={() => run(`/supplier/orders/${d.id}/${next[0]}`)}>
+            <Button className={`${s.rowBtn} ${s.rowBtnWide}`} disabled={busy} onClick={() => run(`/supplier/orders/${d.id}/${next[0]}`)}>
               {busy && next[0] === 'waybill' ? 'Создаём накладную…' : next[1]}
             </Button>
           )}
         </div>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
-      {d.overdue && <Alert tone="error">Заказ ждёт подтверждения больше суток. Неподтверждённый за 48 часов заказ отменяется с возвратом денег покупателю.</Alert>}
-      {d.status === 'rejected' && d.rejectReason && <Alert tone="error">Вы отклонили заказ: {d.rejectReason}</Alert>}
+      {d.overdue && <div className={s.notice}>Заказ ждёт подтверждения больше суток. Неподтверждённый за 48 часов заказ отменяется с возвратом денег покупателю.</div>}
+      {d.status === 'rejected' && d.rejectReason && <div className={s.notice}>Вы отклонили заказ: {d.rejectReason}</div>}
 
-      <div className={s.detail} style={{ marginTop: 16 }}>
-        <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
-          <section className={`${s.panel} ${s.scroll}`}>
-            <h2>Товары</h2>
-            <table className={s.table}>
-              <thead>
-                <tr>
-                  <th>Товар</th>
-                  <th>Артикул</th>
-                  <th>Размер</th>
-                  <th>Кол-во</th>
-                  <th>Цена</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.items.map((i) => (
-                  <tr key={i.id}>
-                    <td>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                        {i.image ? <img src={i.image} alt="" className={s.thumb} /> : <span className={s.thumb} />}
-                        <span>
-                          {i.title}
-                          <div className={s.muted}>{i.color}</div>
-                        </span>
-                      </div>
-                    </td>
-                    <td className={s.muted}>{i.sku}</td>
-                    <td>
-                      {i.size}
-                      {i.heightRange && ` · ${i.heightRange}`}
-                    </td>
-                    <td>
-                      {i.qty}
-                      {i.returnedQty > 0 && <div className={s.neg}>возврат {i.returnedQty}</div>}
-                    </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{formatRub(i.price * i.qty)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Кадр .Partner-Orders-Order: слева состав и итог, справа клиент (мятная) и доставка (тёмная) */}
+      <div className={s.orderGrid}>
+        <div className={s.orderMain}>
+          <section className={s.panel}>
+            <div className="eyebrow">Товары · {count}</div>
+            <ul className={s.orderItems}>
+              {d.items.map((i) => (
+                <li key={i.id}>
+                  {i.image ? <img src={i.image} alt="" className={s.orderThumb} /> : <span className={s.orderThumb} />}
+                  <div className={s.orderItemText}>
+                    <b>{i.title}</b>
+                    <span>
+                      Артикул {i.sku} · Размер {i.size}
+                      {i.heightRange && ` (${i.heightRange})`}
+                      {i.color && ` · ${i.color}`} · {i.qty} шт.
+                    </span>
+                    {i.returnedQty > 0 && <span className={s.neg}>Возвращено: {i.returnedQty} шт.</span>}
+                  </div>
+                  <strong>{formatRub(i.price * i.qty)}</strong>
+                </li>
+              ))}
+            </ul>
+            <div className={s.orderTotal}>
+              <span>Итого</span>
+              <span>{formatRub(d.goodsTotal)}</span>
+            </div>
+            <div className={s.orderFees}>
+              <div>
+                <span>Комиссия {d.commissionBp / 100}%</span>
+                <span className={s.neg}>−{formatRub(d.commission)}</span>
+              </div>
+              <div>
+                <span>Вам будет перечислено</span>
+                <b>{formatRub(d.goodsTotal - d.commission)}</b>
+              </div>
+            </div>
           </section>
 
           {d.returns.length > 0 && (
             <section className={s.panel}>
-              <h2>Возвраты</h2>
-              {d.returns.map((r) => (
-                <div key={r.id} style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
-                  <div>
-                    <span className={`${s.badge} ${s[`b_${r.status === 'requested' ? 'requested' : r.status === 'approved' ? 'approved' : 'rejected'}`]}`}>
-                      {r.status === 'requested' ? 'Ждёт решения' : r.status === 'approved' ? 'Принят, деньги возвращены' : 'Отклонён'}
-                    </span>{' '}
-                    <span className={s.muted}>{when(r.createdAt)}</span>
+              <div className="eyebrow">Возвраты</div>
+              <div className={s.orderSection}>
+                {d.returns.map((r) => (
+                  <div key={r.id} className={s.returnRow}>
+                    <div>
+                      <span className={`${s.badge} ${s[`b_${r.status === 'requested' ? 'requested' : r.status === 'approved' ? 'approved' : 'rejected'}`]}`}>
+                        {r.status === 'requested' ? 'Ждёт решения' : r.status === 'approved' ? 'Принят, деньги возвращены' : 'Отклонён'}
+                      </span>{' '}
+                      <span className={s.muted}>{when(r.createdAt)}</span>
+                    </div>
+                    <div>
+                      {r.items.map((x) => `${x.title} × ${x.qty}`).join(', ')} · <b>{formatRub(r.amount)}</b>
+                    </div>
+                    <div className={s.muted}>Причина покупателя: {r.reason}</div>
+                    {r.rejectReason && <div className={s.muted}>Ваш ответ: {r.rejectReason}</div>}
                   </div>
-                  <div>{r.items.map((x) => `${x.title} × ${x.qty}`).join(', ')} · {formatRub(r.amount)}</div>
-                  <div className={s.muted}>Причина покупателя: {r.reason}</div>
-                  {r.rejectReason && <div className={s.muted}>Ваш ответ: {r.rejectReason}</div>}
-                </div>
-              ))}
-              {pending && (
-                <div className={s.actions}>
-                  <Button disabled={busy} onClick={() => run(`/supplier/returns/${pending.id}/approve`)}>
-                    Принять возврат и вернуть {formatRub(pending.amount)}
-                  </Button>
-                  <Button variant="outline" disabled={busy} onClick={() => setReject({ kind: 'return', id: pending.id })}>
-                    Отказать
-                  </Button>
-                </div>
-              )}
+                ))}
+                {pending && (
+                  <div className={s.actions}>
+                    <Button className={s.rowBtn} disabled={busy} onClick={() => run(`/supplier/returns/${pending.id}/approve`)}>
+                      Принять возврат и вернуть {formatRub(pending.amount)}
+                    </Button>
+                    <Button className={s.rowBtn} variant="outline" disabled={busy} onClick={() => setReject({ kind: 'return', id: pending.id })}>
+                      Отказать
+                    </Button>
+                  </div>
+                )}
+              </div>
             </section>
           )}
 
           <section className={s.panel}>
-            <h2>История</h2>
-            <ul className={s.events}>
+            <div className="eyebrow">История</div>
+            <ul className={`${s.events} ${s.orderSection}`}>
               {d.events.map((e, i) => (
                 <li key={i}>
                   <span>
@@ -169,81 +170,42 @@ export function ShipmentDetail({ id }: { id: string }) {
           </section>
         </div>
 
-        <div className={s.detailSide}>
-          <section className={s.panel}>
-            <h2>Сумма</h2>
-            <div className={s.kv}>
-              <div>
-                <span>Товары</span>
-                <b>{formatRub(d.goodsTotal)}</b>
-              </div>
-              <div>
-                <span>Комиссия {d.commissionBp / 100}%</span>
-                <b className={s.neg}>−{formatRub(d.commission)}</b>
-              </div>
-              <div>
-                <span>Вам перечислено</span>
-                <b>{formatRub(d.goodsTotal - d.commission)}</b>
-              </div>
-            </div>
+        <aside className={s.orderSide}>
+          <section className={s.mintCard}>
+            <div className="eyebrow">Клиент</div>
+            <p className={s.cardTitle}>{d.customer.name}</p>
+            {d.customer.phone || d.customer.email ? (
+              <p className={s.cardText}>
+                {d.customer.phone && <a href={`tel:${d.customer.phone}`}>{d.customer.phone}</a>}
+                {d.customer.phone && d.customer.email && <br />}
+                {d.customer.email && <span className={s.breakAll}>{d.customer.email}</span>}
+              </p>
+            ) : (
+              <p className={s.cardText}>Контакты скрыты после завершения заказа.</p>
+            )}
           </section>
-          <section className={s.panel}>
-            <h2>Клиент</h2>
-            <div className={s.kv}>
-              <div>
-                <span>Имя</span>
-                <b>{d.customer.name}</b>
-              </div>
-              {d.customer.phone && (
-                <div>
-                  <span>Телефон</span>
-                  <a href={`tel:${d.customer.phone}`}>{d.customer.phone}</a>
-                </div>
-              )}
-              {d.customer.email && (
-                <div>
-                  <span>Email</span>
-                  <span style={{ color: 'inherit', wordBreak: 'break-all' }}>{d.customer.email}</span>
-                </div>
-              )}
-            </div>
-            {!d.customer.phone && <p className={s.muted} style={{ marginTop: 8 }}>Контакты скрыты после завершения заказа.</p>}
-          </section>
-          <section className={s.panel}>
-            <h2>Доставка СДЭК</h2>
-            <div className={s.kv}>
-              <div>
-                <span>Способ</span>
-                <b>{d.deliveryType === 'pvz' ? 'Пункт выдачи' : 'Курьер'}</b>
-              </div>
-              <p style={{ fontSize: 14 }}>{d.address}</p>
-              {d.eta && (
-                <div>
-                  <span>Ожидаемая доставка</span>
-                  <b>{new Date(d.eta).toLocaleDateString('ru-RU')}</b>
-                </div>
-              )}
-              {d.trackNo && (
-                <div>
-                  <span>Трек</span>
-                  <a href={cdekTrackUrl(d.trackNo)} target="_blank" rel="noreferrer" className={s.link}>
-                    {d.trackNo} ↗
-                  </a>
-                </div>
-              )}
-            </div>
+          <section className={s.darkCard}>
+            <div className="eyebrow">Доставка</div>
+            <p className={s.cardMain}>
+              {d.deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер СДЭК'} · {d.address}
+            </p>
+            {d.eta && <p className={s.cardText}>Ожидаемая дата: {new Date(d.eta).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</p>}
+            {d.trackNo && (
+              <p className={s.cardText}>
+                Трек:{' '}
+                <a href={cdekTrackUrl(d.trackNo)} target="_blank" rel="noreferrer">
+                  {d.trackNo} ↗
+                </a>
+              </p>
+            )}
             {d.hasWaybill && (
-              <div className={s.actions} style={{ marginTop: 12 }}>
-                <a className={s.link} href={`/api/supplier/orders/${d.id}/documents/waybill`}>
-                  Накладная PDF
-                </a>
-                <a className={s.link} href={`/api/supplier/orders/${d.id}/documents/barcode`}>
-                  Этикетка PDF
-                </a>
+              <div className={s.cardLinks}>
+                <a href={`/api/supplier/orders/${d.id}/documents/waybill`}>Накладная PDF</a>
+                <a href={`/api/supplier/orders/${d.id}/documents/barcode`}>Этикетка PDF</a>
               </div>
             )}
           </section>
-        </div>
+        </aside>
       </div>
 
       {reject && (

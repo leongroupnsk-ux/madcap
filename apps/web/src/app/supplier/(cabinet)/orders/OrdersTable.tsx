@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
-import { Alert, Button, Chip } from '@/components/ui';
+import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
 export type OrderRow = {
@@ -19,8 +19,11 @@ const FILTERS = [
 ] as const;
 export const NEXT_ACTION: Record<string, [string, string]> = { new: ['confirm', 'Подтвердить'], confirmed: ['pack', 'Упаковано'], packed: ['waybill', 'Накладная СДЭК'] };
 
+// Короткие подписи статусов, как в макете (полные — в SHIPMENT_STATUS_LABEL)
+const SHORT_LABEL: Record<string, string> = { new: 'Новый · оплачен', confirmed: 'Подтверждён', rejected: 'Отклонён' };
+
 export function StatusBadge({ status, overdue }: { status: string; overdue?: boolean }) {
-  return <span className={`${s.badge} ${s[`b_s_${overdue ? 'overdue' : status}`] ?? ''}`}>{overdue ? 'Ждёт > 24 ч' : status === 'new' ? 'Новый · оплачен' : SHIPMENT_STATUS_LABEL[status]}</span>;
+  return <span className={`${s.badge} ${s[`b_s_${overdue ? 'overdue' : status}`] ?? ''}`}>{overdue ? 'Ждёт > 24 ч' : (SHORT_LABEL[status] ?? SHIPMENT_STATUS_LABEL[status])}</span>;
 }
 
 /** Отправления поставщика (ТЗ §7.5): поиск, фильтр статуса, следующее действие в строке. */
@@ -70,23 +73,32 @@ export function OrdersTable() {
     <>
       <div className={s.head}>
         <div>
-          <div className="eyebrow">Исполнение</div>
-          <h1>Заказы{rows ? ` · ${rows.length}` : ''}</h1>
+          <div className="eyebrow">Обработка заказов</div>
+          <h1>Заказы</h1>
         </div>
       </div>
-      <div className={s.chips}>
-        {FILTERS.map(([v, l]) => (
-          <Chip key={v} active={status === v} onClick={() => setParam('status', v)}>
-            {l}
-          </Chip>
-        ))}
-      </div>
+      {/* Поиск и фильтр статуса (кадр .Partner-Orders): вместо ряда чипов — выпадающий список */}
       <div className={s.filters}>
-        <input className={s.input} style={{ flex: '1 1 260px', maxWidth: 360 }} placeholder="Номер заказа или имя клиента" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск" />
+        <input className={`${s.input} ${s.search}`} placeholder="Поиск по номеру или клиенту" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск по номеру или клиенту" />
+        <select className={s.input} value={status} onChange={(e) => setParam('status', e.target.value)} aria-label="Статус заказов">
+          {FILTERS.map(([v, l]) => (
+            <option key={v} value={v}>
+              {l}
+            </option>
+          ))}
+        </select>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
-        <table className={s.table}>
+      <div className={s.tableCard}>
+        <table className={`${s.table} ${s.ordersTable}`}>
+          <colgroup>
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '33%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Номер</th>
@@ -94,7 +106,7 @@ export function OrdersTable() {
               <th>Сумма</th>
               <th>Доставка</th>
               <th>Статус</th>
-              <th />
+              <th aria-label="Действие" />
             </tr>
           </thead>
           <tbody>
@@ -102,26 +114,23 @@ export function OrdersTable() {
               const next = NEXT_ACTION[r.status];
               return (
                 <tr key={r.id} className={r.overdue ? s.rowWarn : undefined}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <Link href={`/supplier/orders/${r.id}`} className={s.link}>
-                      № {r.number}
+                  <td data-label="Номер">
+                    <Link href={`/supplier/orders/${r.id}`} className={s.orderNo}>
+                      {r.number}
                     </Link>
-                    <div className={s.muted}>{new Date(r.paidAt ?? r.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
                   </td>
-                  <td style={{ minWidth: 200 }}>
-                    {r.items.map((i) => (
-                      <div key={i}>{i}</div>
-                    ))}
-                    <div className={s.muted}>{r.customer}</div>
+                  <td data-label="Состав">
+                    {r.items.join(', ')}
+                    <div className={s.sub}>{r.customer}</div>
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatRub(r.goodsTotal)}</td>
-                  <td style={{ minWidth: 180 }}>
-                    {r.deliveryType === 'pvz' ? 'ПВЗ' : 'Курьер'} · {r.address}
-                    <div className={s.muted}>
-                      {r.trackNo ? `Трек ${r.trackNo}` : r.eta ? `до ${new Date(r.eta).toLocaleDateString('ru-RU')}` : ''}
-                    </div>
+                  <td data-label="Сумма" className={s.nowrap}>
+                    {formatRub(r.goodsTotal)}
                   </td>
-                  <td>
+                  <td data-label="Доставка">
+                    {r.deliveryType === 'pvz' ? 'ПВЗ СДЭК' : 'Курьер'} · {r.address}
+                    <div className={s.sub}>{r.eta ? new Date(r.eta).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) : `оплачен ${new Date(r.paidAt ?? r.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`}</div>
+                  </td>
+                  <td data-label="Статус">
                     <StatusBadge status={r.status} overdue={r.overdue} />
                     {r.returnRequested && (
                       <div style={{ marginTop: 4 }}>
@@ -129,13 +138,17 @@ export function OrdersTable() {
                       </div>
                     )}
                   </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td className={s.rowAction}>
                     {next ? (
-                      <Button variant={r.status === 'new' ? 'primary' : 'outline'} disabled={busy === r.id} onClick={() => act(r, next[0])}>
+                      <Button className={`${s.rowBtn} ${s.rowBtnWide}`} variant={r.status === 'new' ? 'primary' : 'outline'} disabled={busy === r.id} onClick={() => act(r, next[0])}>
                         {next[1]}
                       </Button>
+                    ) : r.trackNo ? (
+                      <Link href={`/supplier/orders/${r.id}`} className={s.track} title={`Трек ${r.trackNo}`}>
+                        трек {r.trackNo.length > 4 ? `${r.trackNo.slice(0, 4)}…` : r.trackNo}
+                      </Link>
                     ) : (
-                      <Link href={`/supplier/orders/${r.id}`} className={s.link}>
+                      <Link href={`/supplier/orders/${r.id}`} className={s.track}>
                         Открыть
                       </Link>
                     )}

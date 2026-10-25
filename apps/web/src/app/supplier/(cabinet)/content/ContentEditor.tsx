@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/supplier/Badge';
 import s from '@/components/supplier/cabinet.module.css';
-import { Alert, Button } from '@/components/ui';
+import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import e from './editor.module.css';
 
@@ -42,6 +42,8 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
   const [cover, setCover] = useState<{ key: string | null; url: string | null }>({ key: initial?.coverKey ?? null, url: initial?.coverUrl ?? null });
   const [selected, setSelected] = useState<string[]>(initial?.productIds ?? []);
   const [products, setProducts] = useState<ProductRow[]>([]);
+  // Карточки уже выбранных товаров — чтобы показать порядок, даже если поиск их скрыл
+  const [known, setKnown] = useState<Record<string, ProductRow>>({});
   const [q, setQ] = useState('');
   const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,16 +54,21 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
     if (editor.current && initial?.body) editor.current.innerHTML = initial.body;
   }, [initial?.body]);
 
+  const remember = (rows: ProductRow[]) => {
+    setProducts(rows);
+    setKnown((prev) => ({ ...prev, ...Object.fromEntries(rows.map((p) => [p.id, p])) }));
+  };
+
   useEffect(() => {
     const t = setTimeout(() => {
       if (space.editorial) {
         // Редакция привязывает любые опубликованные товары
         api<{ id: string; title: string; brand: string; image: string | null }[]>(`/admin/storefront/products?q=${encodeURIComponent(q)}`)
-          .then((r) => setProducts(r.map((p) => ({ id: p.id, title: p.title, sku: p.brand, thumbUrl: p.image, moderationStatus: 'published' }))))
+          .then((r) => remember(r.map((p) => ({ id: p.id, title: p.title, sku: p.brand, thumbUrl: p.image, moderationStatus: 'published' }))))
           .catch(() => undefined);
         return;
       }
-      api<{ items: ProductRow[] }>(`/supplier/products?q=${encodeURIComponent(q)}`).then((r) => setProducts(r.items)).catch(() => undefined);
+      api<{ items: ProductRow[] }>(`/supplier/products?q=${encodeURIComponent(q)}`).then((r) => remember(r.items)).catch(() => undefined);
     }, 250);
     return () => clearTimeout(t);
   }, [q]);
@@ -94,87 +101,105 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
     return saved;
   };
 
-  return (
+  // Кнопки действий — в шапке и под формой, как в макете (.Partner-Content-*)
+  const actions = (
     <>
-      <Link href={space.page} className={s.link}>
+      {isArticle && (
+        <a className={`${e.btn} ${e.btnOutline}`} href={item?.status === 'published' ? `/journal/${item.slug}` : '#preview'}>
+          Предпросмотр
+        </a>
+      )}
+      <button type="button" className={`${e.btn} ${e.btnOutline}`} disabled={busy} onClick={() =>
+          run(async () => {
+            await save();
+            setMsg({ tone: 'success', text: 'Черновик сохранён' });
+          })
+        }>
+        Сохранить черновик
+      </button>
+      {space.editorial ? (
+        item?.status === 'published' ? (
+          <button
+            type="button"
+            className={`${e.btn} ${e.btnOutline}`}
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                setItem(await api<ContentItem>(`${space.api}/${kind}/${item.id}/unpublish`, {}));
+                setMsg({ tone: 'success', text: 'Снято с публикации' });
+              })
+            }
+          >
+            Снять с публикации
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={e.btn}
+            disabled={busy}
+            onClick={() =>
+              run(async () => {
+                const saved = await save();
+                setItem(await api<ContentItem>(`${space.api}/${kind}/${saved.id}/publish`, {}));
+                setMsg({ tone: 'success', text: 'Опубликовано в журнале' });
+              })
+            }
+          >
+            Опубликовать
+          </button>
+        )
+      ) : (
+        <button
+          type="button"
+          className={e.btn}
+          disabled={busy}
+          onClick={() =>
+            run(async () => {
+              const saved = await save();
+              await api(`/supplier/content/${path}/${saved.id}/submit`, {});
+              setItem({ ...saved, status: 'pending' });
+              setMsg({ tone: 'success', text: 'Отправлено на модерацию' });
+            })
+          }
+        >
+          Отправить на модерацию
+        </button>
+      )}
+    </>
+  );
+
+  const toggle = (p: ProductRow, on: boolean) => {
+    setKnown((prev) => ({ ...prev, [p.id]: p }));
+    setSelected(on ? [...selected, p.id] : selected.filter((x) => x !== p.id));
+  };
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...selected];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    setSelected(next);
+  };
+
+  return (
+    <div className={space.editorial ? undefined : e.skin}>
+      <Link href={space.page} className={e.back}>
         ← К контенту
       </Link>
-      <div className={s.head} style={{ marginTop: 12 }}>
+      <div className={`${s.head} ${e.head}`}>
         <div>
           <div className="eyebrow">{space.editorial ? 'Журнал редакции' : 'Контент поставщика'}</div>
-          <h1>{item ? (isArticle ? 'Статья' : 'Подборка') : isArticle ? 'Новая статья' : 'Новая подборка'}</h1>
-          {item && (
-            <div style={{ marginTop: 8 }}>
-              <Badge status={item.status}>{STATUS[item.status]}</Badge>
-            </div>
-          )}
+          <div className={e.titleRow}>
+            <h1>{item ? (isArticle ? 'Редактировать статью' : 'Редактировать подборку') : isArticle ? 'Новая статья' : 'Новая подборка'}</h1>
+            {item && <Badge status={item.status}>{STATUS[item.status]}</Badge>}
+          </div>
         </div>
-        <div className={s.actions}>
-          {isArticle && item && (
-            <a className={s.link} style={{ alignSelf: 'center' }} href={item.status === 'published' ? `/journal/${item.slug}` : '#preview'}>
-              Предпросмотр
-            </a>
-          )}
-          <Button variant="outline" disabled={busy} onClick={() =>
-              run(async () => {
-                await save();
-                setMsg({ tone: 'success', text: 'Черновик сохранён' });
-              })
-            }>
-            Сохранить черновик
-          </Button>
-          {space.editorial ? (
-            item?.status === 'published' ? (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    setItem(await api<ContentItem>(`${space.api}/${kind}/${item.id}/unpublish`, {}));
-                    setMsg({ tone: 'success', text: 'Снято с публикации' });
-                  })
-                }
-              >
-                Снять с публикации
-              </Button>
-            ) : (
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    const saved = await save();
-                    setItem(await api<ContentItem>(`${space.api}/${kind}/${saved.id}/publish`, {}));
-                    setMsg({ tone: 'success', text: 'Опубликовано в журнале' });
-                  })
-                }
-              >
-                Опубликовать
-              </Button>
-            )
-          ) : (
-            <Button
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  const saved = await save();
-                  await api(`/supplier/content/${path}/${saved.id}/submit`, {});
-                  setItem({ ...saved, status: 'pending' });
-                  setMsg({ tone: 'success', text: 'Отправлено на модерацию' });
-                })
-              }
-            >
-              Отправить на модерацию
-            </Button>
-          )}
-        </div>
+        <div className={`${s.actions} ${e.actions}`}>{actions}</div>
       </div>
 
-      <div style={{ display: 'grid', gap: 16 }}>
+      <div className={e.stack}>
         {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
         {item?.status === 'rejected' && item.rejectReason && <Alert tone="error">Модерация отклонила материал: {item.rejectReason}</Alert>}
         {item?.status === 'published' && <Alert tone="success">{space.editorial ? 'Опубликовано. Правки видны в журнале сразу после сохранения.' : 'Опубликовано. Правки снова отправят материал на модерацию.'}</Alert>}
 
-        <section className={s.panel}>
+        <section className={`${s.panel} ${e.card}`}>
           <label className={e.field}>
             <span>{isArticle ? 'Заголовок статьи' : 'Название подборки'}</span>
             <input className={e.input} value={title} onChange={(ev) => setTitle(ev.target.value)} />
@@ -183,9 +208,9 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
             <span>Обложка</span>
             <div className={e.coverRow}>
               {cover.url ? <img src={cover.url} alt="" className={e.cover} /> : <span className={e.coverEmpty}>Изображение не добавлено</span>}
-              <Button variant="outline" disabled={busy} onClick={() => coverInput.current?.click()}>
-                {cover.url ? 'Заменить' : 'Добавить изображение'}
-              </Button>
+              <button type="button" className={`${e.btn} ${e.btnOutline} ${e.btnSm}`} disabled={busy} onClick={() => coverInput.current?.click()}>
+                {cover.url ? 'Заменить изображение' : 'Добавить изображение'}
+              </button>
               <input
                 ref={coverInput}
                 type="file"
@@ -206,51 +231,84 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
           </div>
           <label className={e.field}>
             <span>{isArticle ? 'Лид (подзаголовок)' : 'Описание'}</span>
-            <textarea className={e.input} rows={isArticle ? 2 : 4} value={lead} onChange={(ev) => setLead(ev.target.value)} />
+            <textarea className={e.input} rows={isArticle ? 2 : 3} value={lead} onChange={(ev) => setLead(ev.target.value)} />
           </label>
           {isArticle && (
             <div className={e.field}>
               <span>Текст статьи</span>
-              <div className={e.toolbar} role="toolbar" aria-label="Форматирование">
-                {TOOLS.map(([label, cmd, arg]) => (
-                  <button key={label} type="button" onMouseDown={(ev) => ev.preventDefault()} onClick={() => document.execCommand(cmd, false, arg)}>
-                    {label}
+              <div className={e.rte}>
+                <div className={e.toolbar} role="toolbar" aria-label="Форматирование">
+                  {TOOLS.map(([label, cmd, arg]) => (
+                    <button key={label} type="button" onMouseDown={(ev) => ev.preventDefault()} onClick={() => document.execCommand(cmd, false, arg)}>
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => {
+                      const url = prompt('Ссылка (https://…)');
+                      if (url && /^https?:\/\//.test(url)) document.execCommand('createLink', false, url);
+                    }}
+                  >
+                    Ссылка
                   </button>
-                ))}
-                <button
-                  type="button"
-                  onMouseDown={(ev) => ev.preventDefault()}
-                  onClick={() => {
-                    const url = prompt('Ссылка (https://…)');
-                    if (url && /^https?:\/\//.test(url)) document.execCommand('createLink', false, url);
-                  }}
-                >
-                  Ссылка
-                </button>
+                </div>
+                <div id="preview" ref={editor} className={e.editor} contentEditable suppressContentEditableWarning aria-label="Текст статьи" />
               </div>
-              <div id="preview" ref={editor} className={e.editor} contentEditable suppressContentEditableWarning aria-label="Текст статьи" />
             </div>
           )}
-        </section>
 
-        <section className={s.panel}>
-          <div className="eyebrow">{isArticle ? 'Связанные товары' : 'Товары в подборке'}</div>
-          <p className={s.muted}>
-            {isArticle ? 'Выберите товары, которые хотите связать со статьёй.' : 'Выберите товары для подборки — минимум 3.'} Выбрано: {selected.length}
-          </p>
-          <input className={e.input} placeholder="Поиск по названию или артикулу" value={q} onChange={(ev) => setQ(ev.target.value)} />
-          <div className={e.products}>
-            {products.map((p) => (
-              <label key={p.id} className={e.product}>
-                <input type="checkbox" checked={selected.includes(p.id)} onChange={(ev) => setSelected(ev.target.checked ? [...selected, p.id] : selected.filter((x) => x !== p.id))} />
-                {p.thumbUrl ? <img src={p.thumbUrl} alt="" /> : <span className={e.noimg} />}
-                <span>{p.title}</span>
-                <small>{p.sku}</small>
-              </label>
-            ))}
+          <div className={e.block}>
+            <div className="eyebrow">{isArticle ? 'Связанные товары' : 'Товары в подборке'}</div>
+            <p className={e.hint}>
+              {isArticle ? 'Выберите товары, которые хотите связать со статьёй.' : 'Выберите товары, которые хотите добавить в подборку — минимум 3.'}
+              {selected.length > 0 && ` Выбрано: ${selected.length}.`}
+            </p>
+            <input className={`${e.input} ${e.search}`} placeholder="Поиск по названию или артикулу" value={q} onChange={(ev) => setQ(ev.target.value)} aria-label="Поиск товаров" />
+            <div className={e.products}>
+              {products.map((p) => {
+                const on = selected.includes(p.id);
+                return (
+                  <label key={p.id} className={`${e.product} ${on ? e.productOn : ''}`}>
+                    <input type="checkbox" checked={on} onChange={(ev) => toggle(p, ev.target.checked)} />
+                    {p.thumbUrl ? <img src={p.thumbUrl} alt="" /> : <span className={e.noimg} />}
+                    <span>{p.title}</span>
+                    <small>{p.sku}</small>
+                  </label>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Порядок товаров в подборке (кадр .Partner-Content-Pop): позиция сохраняется на сервере */}
+          {!isArticle && selected.length > 1 && (
+            <div className={e.block}>
+              <div className="eyebrow">Порядок в подборке</div>
+              <ol className={e.order}>
+                {selected.map((id, i) => {
+                  const p = known[id];
+                  return (
+                    <li key={id}>
+                      <span className={e.orderN}>{i + 1}</span>
+                      {p?.thumbUrl ? <img src={p.thumbUrl} alt="" /> : <span className={e.noimg} />}
+                      <span className={e.orderTitle}>{p?.title ?? 'Товар'}</span>
+                      <button type="button" className={e.arrow} disabled={i === 0} onClick={() => move(i, -1)} aria-label="Выше">
+                        ↑
+                      </button>
+                      <button type="button" className={e.arrow} disabled={i === selected.length - 1} onClick={() => move(i, 1)} aria-label="Ниже">
+                        ↓
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+
+          <div className={`${s.actions} ${e.actions} ${e.actionsBottom}`}>{actions}</div>
         </section>
       </div>
-    </>
+    </div>
   );
 }

@@ -8,35 +8,26 @@ export type Promo = {
 };
 
 export const day = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+const short = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 
-export function PhaseBadge({ p }: { p: Promo }) {
+/** Фаза акции — пилюля в карточке (на тёмной карточке — полупрозрачная белая, как в макете) */
+export function PhaseBadge({ p, dark }: { p: Promo; dark?: boolean }) {
   const [cls, text] =
     p.phase === 'running'
-      ? ['b_active', `Идёт до ${day(p.endsAt)}`]
+      ? ['b_active', `идёт · до ${short(p.endsAt)}`]
       : p.phase === 'applying'
-        ? ['b_pending', `Приём заявок до ${day(p.applyTo)}`]
+        ? ['b_draft', `приём заявок · до ${short(p.applyTo)}`]
         : p.phase === 'waiting'
-          ? ['b_checked', `Старт ${day(p.startsAt)}`]
+          ? ['b_draft', `старт ${short(p.startsAt)}`]
           : p.phase === 'scheduled'
-            ? ['b_checked', `Заявки с ${day(p.applyFrom)}`]
-            : ['b_draft', 'Завершена'];
-  return <span className={`${s.badge} ${s[cls]}`} style={{ justifySelf: 'start' }}>{text}</span>;
+            ? ['b_draft', `заявки с ${short(p.applyFrom)}`]
+            : ['b_draft', 'завершена'];
+  return <span className={`${s.promoBadge} ${dark ? s.promoBadgeDark : s[cls]}`}>{text}</span>;
 }
 
-/** Условия акции (ТЗ §7.7): мин. скидка, бейдж, главная, рассылка, льготная комиссия */
-export function Conditions({ p, baseBp }: { p: Promo; baseBp: number }) {
-  return (
-    <ul className={s.muted} style={{ margin: '8px 0', paddingLeft: 18, display: 'grid', gap: 4 }}>
-      <li>Скидка от {p.minDiscountPct}%</li>
-      <li>Бейдж «{p.badge}» на карточке</li>
-      {p.onHomepage && <li>Раздел на главной</li>}
-      {p.newsletter && <li>Рассылка покупателям</li>}
-      <li>
-        Комиссия {p.commissionBp / 100}% вместо {baseBp / 100}%
-      </li>
-      <li>
-        Акция: {day(p.startsAt)} — {day(p.endsAt)}
-      </li>
-    </ul>
-  );
+/** Условия акции одной фразой (ТЗ §7.7): мин. скидка, бейдж, главная, рассылка, льготная комиссия */
+export function conditionsText(p: Promo, baseBp: number) {
+  const extras = [`бейдж «${p.badge}» в каталоге`, p.onHomepage && 'раздел на главной', p.newsletter && 'рассылка'].filter(Boolean).join(', ');
+  const desc = p.description ? `${p.description.replace(/\.?\s*$/, '.')} ` : '';
+  return `${desc}Скидка от ${p.minDiscountPct}%. ${extras[0].toUpperCase()}${extras.slice(1)}. Комиссия на время акции — ${p.commissionBp / 100}% вместо ${baseBp / 100}%. Акция: ${day(p.startsAt)} — ${day(p.endsAt)}.`;
 }

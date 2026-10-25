@@ -111,3 +111,279 @@
   color: var(--c-text-muted);
   font-size: 12px;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Редактор статьи/подборки по макету (.Partner-Content-New article, -Article, -New pop, -Pop).
+   Новые классы — только для ContentEditor; правки общих (.field, .input, …) — под .skin,
+   который ставится лишь в кабинете поставщика: админка (редакция, юр. документы) их не получает.
+   ─────────────────────────────────────────────────────────────────────────── */
+.back {
+  display: inline-block;
+  font: 600 14px/20px var(--font-sans);
+  color: #50655b;
+  text-decoration: none;
+}
+.back:hover {
+  color: var(--c-primary);
+}
+.head {
+  margin-top: 32px;
+}
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.titleRow h1 {
+  margin-top: 4px;
+}
+.actions {
+  gap: 12px;
+}
+.actionsBottom {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: var(--r-pill);
+  border: 1px solid #123d32;
+  background: #123d32;
+  color: #fff;
+  font: 700 14px/20px var(--font-sans);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btnOutline {
+  background: transparent;
+  border-color: rgba(18, 61, 50, 0.25);
+  color: #173d32;
+}
+.btnOutline:hover:not(:disabled) {
+  background: var(--c-chip);
+}
+.btnSm {
+  min-height: 36px;
+  padding: 0 16px;
+}
+.stack {
+  display: grid;
+  gap: 16px;
+}
+.rte {
+  display: grid;
+}
+.block {
+  margin-top: 20px;
+}
+.hint {
+  margin: 8px 0 0;
+  font: 400 14px/20px var(--font-sans);
+  color: #607168;
+}
+.search {
+  margin-top: 16px;
+}
+.productOn {
+  background: #e8f0eb;
+}
+.order {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.order li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+}
+.order img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.order .noimg {
+  width: 32px;
+  height: 32px;
+}
+.orderN {
+  width: 16px;
+  font-size: 12px;
+  color: #607168;
+  text-align: right;
+}
+.orderTitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.arrow {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #123d32;
+  border-radius: 8px;
+  background: #fff;
+  color: #123d32;
+  font-size: 14px;
+  cursor: pointer;
+}
+.arrow:disabled {
+  border-color: rgba(23, 61, 50, 0.15);
+  color: rgba(23, 61, 50, 0.3);
+  cursor: default;
+}
+
+/* Оформление полей в кабинете поставщика */
+.skin .card {
+  padding: 24px;
+}
+.skin .field {
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.skin .field > span {
+  font: 700 12px/18px var(--font-sans);
+  letter-spacing: 0.08em;
+  color: #5a7065;
+}
+.skin .input {
+  min-height: 50px;
+  padding: 14px 16px;
+  border: 1px solid rgba(22, 60, 48, 0.15);
+  border-radius: 12px;
+  font: 400 14px/20px var(--font-sans);
+  color: #173d32;
+}
+.skin .input::placeholder {
+  color: rgba(23, 61, 50, 0.5);
+}
+.skin .input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+}
+.skin textarea.input {
+  min-height: 84px;
+}
+.skin .search {
+  min-height: 42px;
+  padding: 10px 16px;
+  border-color: rgba(23, 61, 50, 0.13);
+}
+.skin .cover,
+.skin .coverEmpty {
+  width: 128px;
+  height: 96px;
+  aspect-ratio: auto;
+  border-radius: 12px;
+  font: 400 12px/16px var(--font-sans);
+  color: #607168;
+}
+.skin .coverEmpty {
+  border: 1px dashed rgba(23, 61, 50, 0.25);
+  background: transparent;
+  padding: 0 12px;
+}
+.skin .cover {
+  border: 0;
+  padding: 0;
+}
+.skin .rte {
+  border: 1px solid rgba(23, 61, 50, 0.13);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.skin .toolbar {
+  padding: 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(23, 61, 50, 0.09);
+  border-radius: 0;
+  background: #f7f4ed;
+}
+.skin .toolbar button {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font: 700 12px/16px var(--font-sans);
+  color: #173d32;
+}
+.skin .editor {
+  min-height: 288px;
+  border: 0;
+  border-radius: 0;
+  padding: 16px;
+  font: 400 14px/22px var(--font-sans);
+  color: #173d32;
+}
+.skin .editor:focus {
+  box-shadow: inset 0 0 0 1px var(--c-primary);
+}
+.skin .products {
+  gap: 8px;
+  margin-top: 12px;
+  max-height: none;
+  overflow: visible;
+}
+.skin .product {
+  grid-template-columns: 16px 40px minmax(0, 1fr) auto;
+  padding: 12px;
+  border: 1px solid rgba(23, 61, 50, 0.09);
+  border-radius: 12px;
+  font: 600 14px/20px var(--font-sans);
+  color: #173d32;
+}
+.skin .productOn {
+  border-color: #123d32;
+  background: #e8f0eb;
+}
+.skin .product input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #123d32;
+}
+.skin .product img,
+.skin .product .noimg {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+.skin .product small {
+  font: 400 12px/16px var(--font-sans);
+  color: #607168;
+}
+.skin .order li {
+  border-color: rgba(23, 61, 50, 0.09);
+  border-radius: 12px;
+}
+@media (max-width: 767px) {
+  .actionsBottom {
+    justify-content: stretch;
+  }
+  .actionsBottom .btn {
+    flex: 1 1 100%;
+  }
+  .skin .card {
+    padding: 20px 16px;
+  }
+}

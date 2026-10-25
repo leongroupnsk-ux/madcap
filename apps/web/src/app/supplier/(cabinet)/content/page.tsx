@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/components/supplier/Badge';
 import s from '@/components/supplier/cabinet.module.css';
-import { ButtonLink } from '@/components/ui';
 import { serverApi } from '@/lib/server-api';
 import { requireSupplier } from '@/lib/supplier-session';
 
@@ -20,35 +19,41 @@ export default async function ContentPage() {
         <div>
           <div className="eyebrow">Материалы поставщика</div>
           <h1>Контент</h1>
-          <p className={s.muted} style={{ marginTop: 8 }}>
-            Статьи и подборки попадают в журнал и на страницы ваших товаров после модерации.
-          </p>
         </div>
-        <div className={s.actions}>
-          <ButtonLink href="/supplier/content/collections/new" variant="outline">
+        <div className={`${s.actions} ${s.actionsTight}`}>
+          <Link href="/supplier/content/collections/new" className={`${s.pillBtn} ${s.pillGrey}`}>
             Новая подборка
-          </ButtonLink>
-          <ButtonLink href="/supplier/content/articles/new">Новая статья</ButtonLink>
+          </Link>
+          <Link href="/supplier/content/articles/new" className={s.pillBtn}>
+            Новая статья
+          </Link>
         </div>
       </div>
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
-        <table className={s.table}>
+      <p className={`${s.lead} ${s.leadTop}`}>Статьи и подборки попадают в журнал и на страницы ваших товаров после модерации.</p>
+      <div className={s.tableCard}>
+        <table className={`${s.table} ${s.tableCompact}`}>
+          <colgroup>
+            <col style={{ width: '40%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '20%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th>Материал</th>
               <th>Тип</th>
               <th>Модерация</th>
-              <th />
+              <th aria-label="Действие" />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td>
-                  <b>{r.title}</b>
-                  {r.rejectReason && r.status === 'rejected' && <div className={s.muted}>Причина: {r.rejectReason}</div>}
+                <td className={s.strong}>
+                  {r.title}
+                  {r.rejectReason && r.status === 'rejected' && <div className={s.sub}>Причина: {r.rejectReason}</div>}
                 </td>
-                <td className={s.muted}>{r.kind === 'article' ? `статья · ${r.blocks} блоков, ${r.products} товаров` : `подборка · ${r.products} товаров`}</td>
+                <td>{r.kind === 'article' ? (r.status === 'draft' && !r.blocks ? 'статья · черновик' : `статья · ${r.blocks} ${plural(r.blocks, 'блок', 'блока', 'блоков')}, ${r.products} ${plural(r.products, 'товар', 'товара', 'товаров')}`) : `подборка · ${r.products} ${plural(r.products, 'товар', 'товара', 'товаров')}`}</td>
                 <td>
                   <Badge status={r.status}>{STATUS[r.status]}</Badge>
                 </td>
@@ -71,4 +76,13 @@ export default async function ContentPage() {
       </div>
     </>
   );
+}
+
+/** Склонение: 1 блок, 2 блока, 5 блоков */
+function plural(n: number, one: string, few: string, many: string) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
 }

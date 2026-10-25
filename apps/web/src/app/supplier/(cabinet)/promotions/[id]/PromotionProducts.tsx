@@ -6,14 +6,14 @@ import { useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
-import { Conditions, PhaseBadge, type Promo } from '../shared';
+import { PhaseBadge, conditionsText, type Promo } from '../shared';
 
 type Item = { productId: string; title: string; sku: string; thumbUrl: string | null; price: number; discountPct: number | null; salePrice: number | null; status: string; rejectReason: string | null };
 type Data = { promotion: Promo; items: Item[] };
-const STATUS_CLS: Record<string, string> = { approved: 'b_active', pending: 'b_pending', rejected: 'b_rejected', below_min: 'b_rejected', none: 'b_draft' };
+const STATUS_CLS: Record<string, string> = { approved: 'b_s_new', pending: 'b_pending', rejected: 'b_rejected', below_min: 'b_pending', none: 'b_draft' };
 
 /** «Товары в акции» (ТЗ §7.7): скидка, акционная цена, статус, переключатель участия. */
-export function PromotionProducts({ id, baseBp }: { id: string; baseBp: number }) {
+export function PromotionProducts({ id, baseBp, embedded }: { id: string; baseBp: number; embedded?: boolean }) {
   const [data, setData] = useState<Data | null>(null);
   const [draft, setDraft] = useState<Record<string, { on: boolean; pct: string }>>({});
   const [error, setError] = useState<string | null>(null);
@@ -62,98 +62,137 @@ export function PromotionProducts({ id, baseBp }: { id: string; baseBp: number }
     }
   };
 
-  return (
-    <>
-      <Link href="/supplier/promotions" className={s.link}>
-        ← К акциям
-      </Link>
-      <div className={s.head} style={{ marginTop: 12 }}>
-        <div>
-          <div className="eyebrow">Акция платформы</div>
-          <h1>{p.name}</h1>
-          <div style={{ marginTop: 8 }}>
-            <PhaseBadge p={p} />
-          </div>
-        </div>
+  // Приём заявок закрыт — показываем только товары, которые участвуют
+  const rows = open ? data.items : data.items.filter((i) => i.status !== 'none');
+  const table = (
+    <section className={s.promoTable}>
+      <div className={s.promoTableHead}>
+        <h2>
+          Товары в «{p.name}» · {data.items.filter((i) => draft[i.productId]?.on).length}
+        </h2>
+        <span className={s.promoHint}>
+          {open ? `акционная цена — минимум −${p.minDiscountPct}%` : `приём заявок ${new Date() < new Date(p.applyFrom) ? 'ещё не открыт' : 'закрыт'} — участие можно только посмотреть`}
+        </span>
         {open && (
-          <div className={s.actions}>
-            <Button onClick={save} disabled={busy || changed.length === 0}>
-              {changed.length ? `Сохранить заявку (${changed.length})` : 'Нет изменений'}
-            </Button>
-          </div>
+          <Button className={s.rowBtn} onClick={save} disabled={busy || changed.length === 0}>
+            {changed.length ? `Сохранить заявку (${changed.length})` : 'Нет изменений'}
+          </Button>
         )}
       </div>
-      {p.description && <p className={s.muted}>{p.description}</p>}
-      <Conditions p={p} baseBp={baseBp} />
-      {p.requirements && <p className={s.muted}>Требования к товарам: {p.requirements}</p>}
-      {!open && <Alert tone="error">Приём заявок {new Date() < new Date(p.applyFrom) ? 'ещё не открыт' : 'закончился'} — участие можно только посмотреть.</Alert>}
-      {error && <Alert tone="error">{error}</Alert>}
-      {notice && <Alert tone="success">{notice}</Alert>}
-
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0, marginTop: 16 }}>
-        <table className={s.table}>
+      {(error || notice) && (
+        <div className={s.promoAlerts}>
+          {error && <Alert tone="error">{error}</Alert>}
+          {notice && <Alert tone="success">{notice}</Alert>}
+        </div>
+      )}
+      <div className={s.scroll}>
+        <table className={`${s.table} ${s.promoGrid}`}>
+          <colgroup>
+            <col style={{ width: '30%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '13%' }} />
+            <col style={{ width: '17%' }} />
+            <col style={{ width: '14%' }} />
+          </colgroup>
           <thead>
             <tr>
-              <th>Участвует</th>
               <th>Товар</th>
-              <th>Обычная цена</th>
-              <th>Скидка, %</th>
-              <th>Акционная цена</th>
+              <th>Обычная</th>
+              <th>Акционная</th>
+              <th>Скидка</th>
               <th>Статус</th>
+              <th>Участие</th>
             </tr>
           </thead>
           <tbody>
-            {data.items.map((i) => {
+            {rows.map((i) => {
               const d = draft[i.productId] ?? { on: false, pct: '' };
               const pct = Number(d.pct);
               const below = d.on && pct < p.minDiscountPct;
+              const status = below && i.status === 'none' ? 'below_min' : i.status;
               return (
                 <tr key={i.productId}>
-                  <td>
+                  <td data-label="Товар">
+                    <span className={s.promoProduct}>
+                      {i.thumbUrl ? <img src={i.thumbUrl} alt="" /> : <span className={s.promoNoimg} />}
+                      <span>
+                        {i.title}
+                        <small>{i.sku}</small>
+                      </span>
+                    </span>
+                  </td>
+                  <td data-label="Обычная" className={s.promoOld}>
+                    <s>{formatRub(i.price)}</s>
+                  </td>
+                  <td data-label="Акционная" className={s.promoNew}>
+                    {d.on && pct > 0 && pct < 100 ? formatRub(salePriceOf(i.price, pct)) : '—'}
+                  </td>
+                  <td data-label="Скидка">
+                    {d.on ? (
+                    <label className={s.promoPct}>
+                      <span>−</span>
+                      <input
+                        type="number"
+                        min={p.minDiscountPct}
+                        max={90}
+                        value={d.pct}
+                        disabled={!open}
+                        onChange={(e) => setDraft({ ...draft, [i.productId]: { ...d, pct: e.target.value } })}
+                        aria-label={`Скидка, %: ${i.title}`}
+                      />
+                      <span>%</span>
+                    </label>
+                    ) : (
+                      '—'
+                    )}
+                    {(below || errors[i.productId]) && <div className={s.promoErr}>{errors[i.productId] ?? `Минимум ${p.minDiscountPct}%`}</div>}
+                  </td>
+                  <td data-label="Статус">
+                    <span className={`${s.promoStatus} ${s[STATUS_CLS[status]]}`}>{status === 'below_min' ? `Скидка < ${p.minDiscountPct}%` : PROMO_STATUS_LABEL[status]}</span>
+                    {i.rejectReason && <div className={s.sub}>{i.rejectReason}</div>}
+                  </td>
+                  <td data-label="Участие">
                     <input
                       type="checkbox"
+                      role="switch"
+                      className={s.toggle}
                       checked={d.on}
                       disabled={!open}
                       onChange={(e) => setDraft({ ...draft, [i.productId]: { ...d, on: e.target.checked } })}
                       aria-label={`Участие: ${i.title}`}
                     />
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      {i.thumbUrl ? <img src={i.thumbUrl} alt="" className={s.thumb} /> : <span className={s.thumb} />}
-                      <span>
-                        {i.title}
-                        <div className={s.muted}>{i.sku}</div>
-                      </span>
-                    </div>
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>от {formatRub(i.price)}</td>
-                  <td>
-                    <input
-                      className={s.input}
-                      style={{ width: 80 }}
-                      type="number"
-                      min={p.minDiscountPct}
-                      max={90}
-                      value={d.pct}
-                      disabled={!open || !d.on}
-                      onChange={(e) => setDraft({ ...draft, [i.productId]: { ...d, pct: e.target.value } })}
-                      aria-label={`Скидка: ${i.title}`}
-                    />
-                    {(below || errors[i.productId]) && <div className={s.neg} style={{ fontSize: 12 }}>{errors[i.productId] ?? `Минимум ${p.minDiscountPct}%`}</div>}
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{d.on && pct > 0 && pct < 100 ? `от ${formatRub(salePriceOf(i.price, pct))}` : '—'}</td>
-                  <td>
-                    <span className={`${s.badge} ${s[STATUS_CLS[i.status]]}`}>{PROMO_STATUS_LABEL[i.status]}</span>
-                    {i.rejectReason && <div className={s.muted}>{i.rejectReason}</div>}
-                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        {data.items.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Нет опубликованных товаров для участия.</p>}
       </div>
+      {rows.length === 0 && <p className={`${s.muted} ${s.promoFoot2}`}>{open ? 'Нет опубликованных товаров для участия.' : 'Ваших товаров в этой акции нет.'}</p>}
+      <p className={s.promoFoot2}>Цены снижаются автоматически на время акции, сплит-выплата считается от акционной цены и льготной комиссии.</p>
+    </section>
+  );
+
+  if (embedded) return table;
+
+  return (
+    <>
+      <Link href="/supplier/promotions" className={s.back}>
+        ← К акциям
+      </Link>
+      <div className={`${s.head} ${s.detailHead}`}>
+        <div>
+          <div className="eyebrow">Акция платформы</div>
+          <div className={s.titleRow}>
+            <h1>{p.name}</h1>
+            <PhaseBadge p={p} />
+          </div>
+          <p className={s.lead}>{conditionsText(p, baseBp)}</p>
+          {p.requirements && <p className={s.lead}>Требования к товарам: {p.requirements}</p>}
+        </div>
+      </div>
+      {table}
     </>
   );
 }
