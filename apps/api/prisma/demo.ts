@@ -67,6 +67,10 @@ type Item = {
   oneColor?: boolean; second?: string;
   /** Участвует в демо-акции «Неделя хирурга» */
   promo?: boolean;
+  /** Премиум-коллекция: участвует в премиальном подборе /premium */
+  premium?: boolean;
+  /** Все цвета товара (первый — цвет со снимка); иначе color + second */
+  colors?: string[];
 };
 
 const H = ['170–176', '176–182'];
@@ -85,16 +89,16 @@ const HIRURG_GALLERY: Shot[] = [
  */
 const ITEMS: Item[] = [
   { title: 'Костюм «Хирург»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Бирюзовый', price: 4590, oldPrice: 5290, sizes: ['S', 'M', 'L', 'XL'], heights: H, fabric: '65% ПЭ · 35% хлопок', specialties: ['Хирург', 'Стоматолог-хирург'], photos: HIRURG_GALLERY },
-  { title: 'Костюм «Премиум»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Шалфей', price: 4890, sizes: ['M', 'L', 'XL'], heights: H, fabric: 'Микрофибра с антибактериальной пропиткой', specialties: ['Главный врач', 'Заведующий отделением'], photos: [{ file: 'kostyum-premium' }], promo: true },
+  { title: 'Костюм «Премиум»', brand: 'МедТекс', category: 'kostyumy', gender: 'unisex', color: 'Шалфей', price: 4890, sizes: ['M', 'L', 'XL'], heights: H, fabric: 'Микрофибра с антибактериальной пропиткой', specialties: ['Главный врач', 'Заведующий отделением'], photos: [{ file: 'kostyum-premium' }], promo: true , premium: true },
   { title: 'Халат женский «Классика»', brand: 'Форма+', category: 'halaty', gender: 'female', color: 'Белый', price: 3490, oldPrice: 4290, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], fabric: '100% хлопок', specialties: ['Терапевт', 'Педиатр'], photos: [{ file: 'halat-klassika' }], oneColor: true },
   { title: 'Брюки джоггеры', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Тёмно-синий', price: 2290, oldPrice: 2690, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], fabric: '72% ПЭ · 23% вискоза · 5% эластан', specialties: ['Медсестра', 'Терапевт'], photos: [{ file: 'bryuki-joggery' }] },
   { title: 'Сабо ортопедические', brand: 'ПрофиМед', category: 'kroksy', gender: 'unisex', color: 'Белый', price: 3990, sizes: ['37', '38', '39', '40', '41'], fabric: 'EVA, антискользящая подошва', specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'sabo-belye' }] },
   { title: 'Костюм женский «Аврора»', brand: 'Аврора Мед', category: 'kostyumy', gender: 'female', color: 'Лаванда', price: 3890, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
   { title: 'Брюки «Актив»', brand: 'LITTO', category: 'bryuki', gender: 'unisex', color: 'Оливковый', price: 3490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Хирург'], photos: [{ file: 'bryuki-aktiv' }] },
   { title: 'Топ «Актив»', brand: 'ART MED', category: 'topy', gender: 'female', color: 'Персиковый', price: 2990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт'], photos: [{ file: 'top-aktiv' }, { file: 'top-aktiv-b' }] },
-  { title: 'Халат «Доктор»', brand: 'МедТекс', category: 'halaty', gender: 'unisex', color: 'Молочный', price: 6290, sizes: ['M', 'L', 'XL'], heights: ['170–176'], specialties: ['Терапевт', 'Кардиолог'], photos: [{ file: 'halat-doktor' }, { file: 'halat-doktor-b' }], oneColor: true },
+  { title: 'Халат «Доктор»', brand: 'МедТекс', category: 'halaty', gender: 'unisex', color: 'Молочный', price: 6290, sizes: ['M', 'L', 'XL'], heights: ['170–176'], specialties: ['Терапевт', 'Кардиолог'], photos: [{ file: 'halat-doktor' }, { file: 'halat-doktor-b' }], oneColor: true , premium: true },
   { title: 'Костюм «Базис»', brand: 'LITTO', category: 'kostyumy', gender: 'unisex', color: 'Серый', price: 3990, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis' }, { file: 'kostyum-bazis-b' }] },
-  { title: 'Топ «Комфорт»', brand: 'МедТекс', category: 'topy', gender: 'unisex', color: 'Бирюзовый', price: 4590, sizes: ['M', 'L'], heights: ['170–176'], specialties: ['Медсестра'], photos: [{ file: 'top-komfort' }, { file: 'top-komfort-b' }] },
+  { title: 'Топ «Комфорт»', brand: 'МедТекс', category: 'topy', gender: 'unisex', color: 'Бирюзовый', price: 4590, sizes: ['M', 'L'], heights: ['170–176'], specialties: ['Медсестра'], photos: [{ file: 'top-komfort' }, { file: 'top-komfort-b' }] , premium: true },
   { title: 'Сабо ортопедические', brand: 'AVEMED', category: 'kroksy', gender: 'female', color: 'Тёмно-синий', price: 3290, oldPrice: 3790, sizes: ['36', '37', '38', '39'], fabric: 'EVA, принт', specialties: ['Педиатр', 'Детская медсестра'], photos: [{ file: 'sabo-print' }] },
   { title: 'Халат «Классик»', brand: 'ART MED', category: 'halaty', gender: 'male', color: 'Белый', price: 5890, sizes: ['L', 'XL', 'XXL'], heights: ['176–182', '182–188'], specialties: ['Терапевт', 'Невролог'], photos: [{ file: 'halat-klassik' }], oneColor: true },
   { title: 'Топ «Элит»', brand: 'LITTO', category: 'topy', gender: 'male', color: 'Голубой', price: 2490, sizes: ['M', 'L', 'XL'], heights: ['176–182'], specialties: ['Врач УЗИ', 'Анестезиолог'], photos: [{ file: 'top-elit' }, { file: 'top-elit-b' }] },
@@ -105,12 +109,18 @@ const ITEMS: Item[] = [
   { title: 'Футболка «Аврора»', brand: 'Аврора Мед', category: 'futbolki', gender: 'female', color: 'Лаванда', price: 3890, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
   { title: 'Футболка «Базис»', brand: 'LITTO', category: 'futbolki', gender: 'unisex', color: 'Серый', price: 3990, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis' }, { file: 'kostyum-bazis-b' }] },
   // Вещи для слотов капсулы: брюки в цветах топов и аксессуар — на фото макета
-  { title: 'Брюки «Хирург»', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Бирюзовый', price: 2490, sizes: ['S', 'M', 'L', 'XL'], heights: H, specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'kostyum-hirurg-b' }, { file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }], promo: true },
+  { title: 'Брюки «Хирург»', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Бирюзовый', price: 2490, sizes: ['S', 'M', 'L', 'XL'], heights: H, specialties: ['Хирург', 'Операционная медсестра'], photos: [{ file: 'kostyum-hirurg-b' }, { file: 'kostyum-hirurg', thumbCrop: HIRURG_CARD }], promo: true , premium: true },
   { title: 'Брюки «Аврора»', brand: 'Аврора Мед', category: 'bryuki', gender: 'female', color: 'Лаванда', price: 2390, sizes: ['XS', 'S', 'M', 'L'], heights: ['164–170', '170–176'], specialties: ['Косметолог', 'Педиатр'], photos: [{ file: 'kostyum-avrora' }] },
   { title: 'Брюки «Базис»', brand: 'LITTO', category: 'bryuki', gender: 'unisex', color: 'Серый', price: 2190, sizes: ['S', 'M', 'L', 'XL'], heights: ['170–176'], specialties: ['Лаборант', 'Врач УЗИ'], photos: [{ file: 'kostyum-bazis-b' }] },
   { title: 'Костюм «Стоматолог»', brand: 'Форма+', category: 'kostyumy', gender: 'unisex', color: 'Мятный', price: 4190, oldPrice: 4990, sizes: ['S', 'M', 'L'], heights: ['170–176'], specialties: ['Стоматолог-терапевт', 'Ассистент'], photos: [{ file: 'top-komfort' }, { file: 'top-elit-b' }] },
   { title: 'Блуза «Комфорт»', brand: 'Форма+', category: 'topy', gender: 'female', color: 'Мятный', price: 2990, oldPrice: 3590, sizes: ['XS', 'S', 'M'], heights: ['164–170'], specialties: ['Стоматолог-терапевт', 'Ассистент'], photos: [{ file: 'top-elit-b' }] },
-  { title: 'Сумка поясная «Смена»', brand: 'МедТекс', category: 'aksessuary', gender: 'unisex', color: 'Графит', second: 'Тёмно-синий', price: 1490, sizes: ['ONE'], fabric: 'Нейлон с водоотталкивающей пропиткой', specialties: ['Медсестра', 'Хирург'], photos: [{ file: 'top-komfort', crop: POUCH }], promo: true },
+  { title: 'Сумка поясная «Смена»', brand: 'МедТекс', category: 'aksessuary', gender: 'unisex', color: 'Графит', second: 'Тёмно-синий', price: 1490, sizes: ['ONE'], fabric: 'Нейлон с водоотталкивающей пропиткой', specialties: ['Медсестра', 'Хирург'], photos: [{ file: 'top-komfort', crop: POUCH }], promo: true , premium: true },
+  // Премиум-коллекция из кадра .Premium-capsule: капсула «Тёмно-синяя» и ещё две цветовые группы у топа и брюк
+  { title: 'Топ «Уют»', brand: 'МедТекс', category: 'topy', gender: 'unisex', color: 'Тёмно-синий', colors: ['Тёмно-синий', 'Графит', 'Шалфей'], price: 4590, sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'], fabric: 'Микромодал 92% · эластан 8%', specialties: ['Хирург', 'Терапевт', 'Стоматолог-терапевт', 'Медсестра'], photos: [{ file: 'top-uyut' }], premium: true },
+  { title: 'Брюки «Уют»', brand: 'МедТекс', category: 'bryuki', gender: 'unisex', color: 'Тёмно-синий', colors: ['Тёмно-синий', 'Графит', 'Шалфей'], price: 4230, sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'], fabric: 'Микромодал 92% · эластан 8%', specialties: ['Хирург', 'Терапевт', 'Стоматолог-терапевт', 'Медсестра'], photos: [{ file: 'bryuki-uyut' }], premium: true },
+  { title: 'Халат «Классика»', brand: 'МедТекс', category: 'halaty', gender: 'unisex', color: 'Белый', price: 3890, sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'], fabric: 'Хлопок 60% · полиэстер 40%, сатин', specialties: ['Терапевт', 'Главный врач', 'Педиатр'], photos: [{ file: 'halat-klassika-premium' }], oneColor: true, premium: true },
+  { title: 'Сабо «Light»', brand: 'ПрофиМед', category: 'kroksy', gender: 'unisex', color: 'Белый', price: 5590, sizes: ['36', '37', '38', '39', '40', '41', '42', '43', '44'], fabric: 'Перфорированная кожа, анатомическая стелька', specialties: ['Хирург', 'Операционная медсестра', 'Терапевт'], photos: [{ file: 'sabo-light' }], oneColor: true, premium: true },
+  { title: 'Бейдж', brand: 'МедТекс', category: 'aksessuary', gender: 'unisex', color: 'Тёмно-синий', colors: ['Тёмно-синий', 'Графит', 'Шалфей', 'Серый'], price: 490, sizes: ['ONE'], fabric: 'Металл, ретрактор с карабином', specialties: ['Хирург', 'Терапевт', 'Медсестра', 'Стоматолог-терапевт', 'Педиатр'], photos: [{ file: 'beydzh' }], premium: true },
 ];
 
 /** Слаги демо-статей редакции (автор — платформа). */
@@ -174,13 +184,14 @@ async function main() {
           item.category === 'kroksy' || item.category === 'aksessuary'
             ? `${item.title} — лёгкая и прочная вещь для долгой смены: легко моется, не скользит и дополняет капсулу.`
             : `${item.title} — эластичная медицинская одежда для активного рабочего дня. Мягкая ткань сохраняет аккуратную посадку и легко комбинируется с другими вещами капсулы.`,
-        moderationStatus: 'published', publishedAt: new Date(Date.now() - n * 3600_000), source: 'manual',
+        moderationStatus: 'published', publishedAt: new Date(Date.now() - n * 3600_000), source: 'manual', premium: item.premium ?? false,
         specialties: { create: specialties.filter((s) => item.specialties.includes(s.name)).map((s) => ({ specialtyId: s.id })) },
       },
     });
     const heights = item.heights ?? [null];
     let i = 0;
-    for (const c of item.oneColor ? [color] : [color, second]) {
+    const palette = item.colors ? item.colors.map((name) => colorHex.get(name)!) : item.oneColor ? [color] : [color, second];
+    for (const c of palette) {
       for (const size of item.sizes)
         for (const h of heights) {
           await prisma.productVariant.create({
@@ -283,7 +294,7 @@ async function main() {
   // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
   await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
 
-  console.log(`Демо: ${created.length} товаров, 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
+  console.log(`Демо: ${created.length} товаров (премиум: ${created.filter((c) => c.item.premium).length}), 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }
 
 main().finally(() => prisma.$disconnect());

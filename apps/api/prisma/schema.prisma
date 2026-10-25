@@ -52,6 +52,8 @@ model User {
   orders               Order[]
   returnRequests       ReturnRequest[]
   auditLogs            AuditLog[]
+  premiumAnswers       PremiumAnswers?
+  premiumLeads         PremiumLead[]
 
   @@map("users")
 }
@@ -373,6 +375,8 @@ model Product {
   source           ProductSource    @default(manual)
   /// Ручные правки медиа/описания защищены от перезаписи YML-синком (ТЗ §7.3)
   manualOverride   Boolean          @default(false)
+  /// Премиум-коллекция: участвует в премиальном подборе (/premium), продаётся и обычным путём
+  premium          Boolean          @default(false)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -1150,4 +1154,52 @@ model StylistRequest {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@map("stylist_requests")
+}
+
+/// Ответы премиум-анкеты вошедшего покупателя (гость хранит черновик в браузере)
+model PremiumAnswers {
+  userId      String    @id @db.Uuid
+  answers     Json
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("premium_answers")
+}
+
+enum PremiumLeadStatus {
+  new
+  in_progress
+  done
+  cancelled
+}
+
+enum PremiumContact {
+  phone
+  whatsapp
+}
+
+/// Заявка «Оставить заявку» из премиум-капсулы: менеджер перезванивает, онлайн-оплаты нет
+model PremiumLead {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String?           @db.Uuid
+  name           String
+  phone          String
+  contact        PremiumContact
+  /// Снимок капсулы на момент заявки: вариант, вещи с ценами, сумма
+  capsule        Json
+  /// Ответы анкеты на момент заявки
+  answers        Json
+  status         PremiumLeadStatus @default(new)
+  managerComment String?
+  ip             String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@map("premium_leads")
 }

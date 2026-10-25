@@ -18,7 +18,7 @@ const MAX_VARIANTS = 3;
 const ALTERNATIVES = 4;
 
 export type Profile = BuyerProfile & { specialties: { specialtyId: string }[] };
-type Candidate = {
+export type Candidate = {
   productId: string;
   slot: string;
   title: string;
@@ -28,6 +28,8 @@ type Candidate = {
   variants: { id: string; colorId: string; family: string; price: number; size: string; heightRange: string | null }[];
 };
 type Pick = { productId: string; variantId: string; price: number; colorId: string; score: number };
+/** Опции расчёта: premium — только товары премиум-коллекции; budgetMax — свой предел бюджета в рублях (премиум-анкета). */
+export type ComputeOptions = { premium?: boolean; budgetMax?: number | null };
 
 /**
  * Подбор капсулы v1 — правила без ML (ТЗ §5.2):
@@ -54,11 +56,11 @@ export class CapsuleService {
   }
 
   /** Кандидаты по слотам: только подходящие варианты в наличии. */
-  private async candidates(p: Profile, slots: string[]): Promise<Map<string, Candidate[]>> {
+  async candidates(p: Profile, slots: string[], premium = false): Promise<Map<string, Candidate[]>> {
     const hr = heightRangeOf(p.heightCm);
     const rows = await this.prisma.product.findMany({
       where: {
-        AND: [visibleWhere(), { category: { slot: { in: slots } } }, p.gender ? { gender: { in: [p.gender, 'unisex'] } } : {}],
+        AND: [visibleWhere(), { category: { slot: { in: slots } } }, p.gender ? { gender: { in: [p.gender, 'unisex'] } } : {}, premium ? { premium: true } : {}],
       },
       include: { category: true, specialties: true, variants: { where: { stock: { gt: 0 } }, include: { color: true } } },
     });
@@ -138,16 +140,19 @@ export class CapsuleService {
 
   /**
    * Расчёт капсулы. userId — сохранить у покупателя (с учётом закреплённых замен);
-   * null — пробный прогон анкеты из админки без записи в базу (ТЗ §8).
+   * null — пробный прогон анкеты из админки и премиум-подбор без записи в базу (ТЗ §8).
    */
-  async compute(p: Profile, userId: string | null, w: CapsuleWeights) {
-    const results: { variantNo: number; total: number; overBudget: boolean; explanations: string[]; items: { slot: string; productId: string | null; variantId: string | null; price: number | null; score: number | null }[] }[] = [];
+  async compute(p: Profile, userId: string | null, w: CapsuleWeights, opts: ComputeOptions = {}) {
+    const results: {
+      variantNo: number; mainColorId: string | null; total: number; overBudget: boolean; explanations: string[];
+      items: { slot: string; productId: string | null; variantId: string | null; price: number | null; score: number | null; alternatives: { productId: string; variantId: string }[] }[];
+    }[] = [];
     const specRules = await this.prisma.specialty.findMany({ where: { id: { in: p.specialties.map((s) => s.specialtyId) } } });
     const ruleSlots = specRules.flatMap((s) => ((s.rules as { slots?: string[] } | null)?.slots ?? []));
     const slots = ruleSlots.length ? [...new Set(ruleSlots)] : DEFAULT_SLOTS;
     const palette = p.colorType ? COLOR_TYPES[p.colorType as ColorType].families : [];
-    const budget = BUDGETS.find((b) => b.id === p.budgetRange)?.max ?? null;
-    const bySlot = await this.candidates(p, slots);
+    const budget = opts.budgetMax !== undefined ? opts.budgetMax : (BUDGETS.find((b) => b.id === p.budgetRange)?.max ?? null);
+    const bySlot = await this.candidates(p, slots, opts.premium);
     const pinned = userId ? await this.prisma.capsuleItem.findMany({ where: { capsule: { userId }, pinned: true }, include: { capsule: true, variant: true } }) : [];
 
     // Закреплённая вещь остаётся, только если всё ещё проходит жёсткие фильтры (размер, ростовка, наличие).
@@ -199,10 +204,11 @@ export class CapsuleService {
       const explanations = await this.explain(p, [...chosen.values()].filter((c): c is Pick => !!c), chosen, palette.length > 0, budget, overBudget);
       if (dropped.length) explanations.push(`Чтобы уложиться в бюджет, без: ${dropped.map((d) => SLOT_LABEL[d]?.toLowerCase() ?? d).join(', ')} — их можно добавить вручную`);
       results.push({
-        variantNo, total: total(), overBudget, explanations,
-        items: slots.map((slot) => {
+        variantNo, mainColorId: main, total: total(), overBudget, explanations,
+        items: slots.map((slot, position) => {
           const c = chosen.get(slot) ?? null;
-          return { slot, productId: c?.productId ?? null, variantId: c?.variantId ?? null, price: c?.price ?? null, score: c ? Math.round(c.score * 10) / 10 : null };
+          const alternatives = items[position].alternatives as unknown as { productId: string; variantId: string }[];
+          return { slot, productId: c?.productId ?? null, variantId: c?.variantId ?? null, price: c?.price ?? null, score: c ? Math.round(c.score * 10) / 10 : null, alternatives };
         }),
       });
       if (!userId) continue;

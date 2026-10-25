@@ -21,6 +21,7 @@ export const STAFF_AREAS = {
   payouts: { label: 'Выплаты поставщиков', roles: ['support'] },
   users: { label: 'Пользователи', roles: ['support'] },
   stylist: { label: 'Консультации стилиста', roles: ['stylist'] },
+  premium: { label: 'Заявки премиум', roles: ['support'] },
   system: { label: 'Сотрудники, журнал, настройки', roles: [] },
 } as const satisfies Record<string, { label: string; roles: StaffRoleId[] }>;
 export type StaffArea = keyof typeof STAFF_AREAS;

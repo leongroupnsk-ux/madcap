@@ -13,7 +13,7 @@ import type { Dictionaries, Media, Product, Variant } from '@/lib/types';
 import f from './form.module.css';
 
 type Props = { dict: Dictionaries; initial?: Product };
-type Text = Pick<Product, 'title' | 'brandId' | 'categoryId' | 'gender' | 'fabric' | 'treatment' | 'washing' | 'description' | 'specialtyIds'>;
+type Text = Pick<Product, 'title' | 'brandId' | 'categoryId' | 'gender' | 'fabric' | 'treatment' | 'washing' | 'description' | 'specialtyIds' | 'premium'>;
 type Pack = { weightG: string; lengthMm: string; widthMm: string; heightMm: string };
 
 const emptyVariant = (colorId: string): Variant => ({ sku: '', size: 'M', heightRange: '170–176', colorId, price: 0, oldPrice: null, stock: 0, weightG: null, lengthMm: null, widthMm: null, heightMm: null });
@@ -25,7 +25,7 @@ export function ProductForm({ dict, initial }: Props) {
   const [text, setText] = useState<Text>(() => ({
     title: initial?.title ?? '', brandId: initial?.brandId ?? '', categoryId: initial?.categoryId ?? '', gender: initial?.gender ?? 'unisex',
     fabric: initial?.fabric ?? '', treatment: initial?.treatment ?? '', washing: initial?.washing ?? '', description: initial?.description ?? '',
-    specialtyIds: initial?.specialtyIds ?? [],
+    specialtyIds: initial?.specialtyIds ?? [], premium: initial?.premium ?? false,
   }));
   // У нового товара вариантов нет — они добавляются через окно «Добавить вариант» (кадр new-variant).
   const [variants, setVariants] = useState<Variant[]>(initial?.variants ?? []);
@@ -275,6 +275,14 @@ export function ProductForm({ dict, initial }: Props) {
                 </button>
               </div>
             </div>
+            {/* Премиум-коллекция: товар участвует в премиальном подборе /premium; у опубликованного — через модерацию */}
+            <label className={`${f.field} ${f.span2}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input type="checkbox" checked={text.premium} onChange={(e) => setText({ ...text, premium: e.target.checked })} style={{ width: 18, height: 18, accentColor: 'var(--c-primary)' }} />
+              <span>
+                <span className={f.label}>Премиум-коллекция</span>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--c-text-muted)' }}>Товар попадёт в премиальный подбор капсулы; в каталоге он продаётся как обычно.</span>
+              </span>
+            </label>
           </div>
           <label className={`${f.field} ${f.descr}`}>
             <span className={f.label}>Описание</span>

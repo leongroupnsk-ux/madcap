@@ -8,7 +8,7 @@ import { shortId, slugify } from '../common/slug';
 import { MediaService } from './media.service';
 
 /** Поля, правка которых у опубликованного товара идёт через модерацию (ТЗ §7.3). */
-const TEXT_FIELDS = ['title', 'brandId', 'categoryId', 'gender', 'fabric', 'treatment', 'washing', 'description'] as const;
+const TEXT_FIELDS = ['title', 'brandId', 'categoryId', 'gender', 'fabric', 'treatment', 'washing', 'description', 'premium'] as const;
 type TextFields = Pick<Product, (typeof TEXT_FIELDS)[number]>;
 
 export type RevisionData = TextFields & {
@@ -397,10 +397,11 @@ export function pickText(src: TextFields): TextFields {
     treatment: src.treatment ?? '',
     washing: src.washing ?? '',
     description: src.description ?? '',
+    premium: src.premium ?? false,
   };
 }
 
-function textData(input: Pick<ProductSaveInput, 'title' | 'brandId' | 'categoryId' | 'gender' | 'fabric' | 'treatment' | 'washing' | 'description'>): TextFields {
+function textData(input: Pick<ProductSaveInput, 'title' | 'brandId' | 'categoryId' | 'gender' | 'fabric' | 'treatment' | 'washing' | 'description' | 'premium'>): TextFields {
   return {
     title: input.title,
     brandId: input.brandId,
@@ -410,5 +411,6 @@ function textData(input: Pick<ProductSaveInput, 'title' | 'brandId' | 'categoryI
     treatment: input.treatment || null,
     washing: input.washing || null,
     description: input.description || null,
+    premium: input.premium ?? false,
   };
 }

@@ -28,6 +28,7 @@ export async function bootApp() {
 export async function resetDb(app: INestApplication) {
   const prisma = app.get(PrismaService);
   await prisma.auditLog.deleteMany();
+  await prisma.premiumLead.deleteMany();
   await prisma.order.deleteMany();
   await prisma.payoutRegistry.deleteMany();
   await prisma.webhookEvent.deleteMany();

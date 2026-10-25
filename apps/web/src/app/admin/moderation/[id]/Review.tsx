@@ -8,7 +8,7 @@ import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import type { Media } from '@/lib/types';
 
-type Version = { title: string; brand: string; category: string; gender: string; fabric: string; treatment: string; washing: string; description: string; specialties: string[]; media: Media[] };
+type Version = { title: string; brand: string; category: string; gender: string; fabric: string; treatment: string; washing: string; description: string; premium?: boolean; specialties: string[]; media: Media[] };
 export type Details = {
   id: string; status: string; supplier: { legalName: string; inn: string };
   live: Version; revision: (Version & { id: string; createdAt: string; removedMedia: Media[] }) | null;
@@ -17,7 +17,7 @@ export type Details = {
 
 const FIELDS: [keyof Version, string][] = [
   ['title', 'Название'], ['brand', 'Бренд'], ['category', 'Категория'], ['gender', 'Пол'], ['fabric', 'Состав'],
-  ['treatment', 'Обработка'], ['washing', 'Стирка'], ['description', 'Описание'],
+  ['treatment', 'Обработка'], ['washing', 'Стирка'], ['description', 'Описание'], ['premium', 'Премиум-коллекция'],
 ];
 const GENDER: Record<string, string> = { female: 'Женский', male: 'Мужской', unisex: 'Унисекс' };
 
@@ -44,7 +44,7 @@ export function Review({ d }: { d: Details }) {
     }
   };
 
-  const val = (v: Version, k: keyof Version) => (k === 'gender' ? GENDER[v.gender] : (v[k] as string)) || '—';
+  const val = (v: Version, k: keyof Version) => (k === 'gender' ? GENDER[v.gender] : k === 'premium' ? (v.premium ? 'Да' : 'Нет') : (v[k] as string)) || '—';
 
   return (
     <>

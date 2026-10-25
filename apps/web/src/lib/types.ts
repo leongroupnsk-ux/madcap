@@ -23,7 +23,7 @@ export type Variant = {
 
 export type Product = {
   id: string; slug: string; title: string; brandId: string; categoryId: string; gender: 'female' | 'male' | 'unisex';
-  fabric: string; treatment: string; washing: string; description: string; specialtyIds: string[];
+  fabric: string; treatment: string; washing: string; description: string; specialtyIds: string[]; premium: boolean;
   moderationStatus: 'draft' | 'pending' | 'published' | 'rejected' | 'hidden'; rejectReason: string | null;
   source: 'manual' | 'file' | 'yml'; manualOverride: boolean; externalId: string | null; createdAt: string; updatedAt: string;
   revision: { id: string; status: 'pending' | 'rejected'; rejectReason: string | null; createdAt: string } | null;

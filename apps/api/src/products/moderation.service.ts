@@ -128,6 +128,8 @@ export class ModerationService {
           treatment: data.treatment || null,
           washing: data.washing || null,
           description: data.description || null,
+          // Ревизии до появления флага его не содержат — тогда флаг не меняем
+          ...(typeof data.premium === 'boolean' ? { premium: data.premium } : {}),
         },
       }),
       this.prisma.productSpecialty.deleteMany({ where: { productId: rev.productId } }),

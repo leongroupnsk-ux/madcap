@@ -100,6 +100,8 @@ export const productTextSchema = z.object({
   treatment: z.string().trim().max(200).optional().default(''),
   washing: z.string().trim().max(200).optional().default(''),
   description: z.string().trim().max(5000).optional().default(''),
+  /** Премиум-коллекция — участвует в премиальном подборе /premium */
+  premium: z.boolean().optional().default(false),
   specialtyIds: z.array(z.string().uuid()).max(20).default([]),
 });
 
