@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { BRAND } from '@/lib/brand';
 import { api } from '@/lib/api';
-import s from './cabinet.module.css';
+import s from './shell.module.css';
 
 type Role = 'owner' | 'catalog' | 'warehouse';
-const ITEMS: { href: string; label: string; roles?: Role[]; soon?: string }[] = [
+const ITEMS: { href: string; label: string; roles?: Role[] }[] = [
   { href: '/supplier', label: 'Дашборд' },
   { href: '/supplier/products', label: 'Товары', roles: ['owner', 'catalog'] },
   { href: '/supplier/import', label: 'Импорт', roles: ['owner', 'catalog'] },
@@ -18,39 +18,41 @@ const ITEMS: { href: string; label: string; roles?: Role[]; soon?: string }[] = 
   { href: '/supplier/settings', label: 'Настройки' },
 ];
 
+/** Выход из кабинета — общий для меню слева и меню аккаунта в шапке. */
+export function useSupplierLogout() {
+  const router = useRouter();
+  return async () => {
+    await api('/auth/logout', {});
+    router.replace('/supplier/login');
+    router.refresh();
+  };
+}
+
+/** Боковое меню кабинета (кадр supplier-shell): логотип, разделы по роли участника, ссылки внизу. */
 export function Sidebar({ role }: { role: Role }) {
   const path = usePathname();
-  const router = useRouter();
+  const logout = useSupplierLogout();
   return (
     <aside className={s.side}>
-      <Link href="/supplier" className={s.brand}>
-        {BRAND.mark}
-        <span className={s.brandSub}>Кабинет поставщика</span>
+      <Link href="/supplier" className={s.brand} aria-label="Кабинет поставщика — дашборд">
+        {BRAND.mark.replace(/\.$/, '')}
+        <span className={s.brandDot}>.</span>
       </Link>
+      <div className={s.brandSub}>Кабинет поставщика</div>
       <nav className={s.nav} aria-label="Кабинет поставщика">
-        {ITEMS.filter((i) => !i.roles || i.roles.includes(role)).map((i) =>
-          i.soon ? (
-            <span key={i.href} className={s.soon} title={`Появится на ${i.soon}`}>
-              {i.label} <span className={s.soonTag}>скоро</span>
-            </span>
-          ) : (
-            <Link key={i.href} href={i.href} className={(i.href === '/supplier' ? path === i.href : path.startsWith(i.href)) ? s.active : undefined}>
+        {ITEMS.filter((i) => !i.roles || i.roles.includes(role)).map((i) => {
+          const active = i.href === '/supplier' ? path === i.href : path.startsWith(i.href);
+          return (
+            <Link key={i.href} href={i.href} className={active ? s.active : undefined} aria-current={active ? 'page' : undefined}>
               {i.label}
             </Link>
-          ),
-        )}
+          );
+        })}
       </nav>
       <div className={s.sideFoot}>
-        <Link href="/" style={{ color: 'var(--c-text-muted)', textDecoration: 'none' }}>
-          На витрину
-        </Link>
-        <button
-          onClick={async () => {
-            await api('/auth/logout', {});
-            router.replace('/supplier/login');
-            router.refresh();
-          }}
-        >
+        {/* В макете здесь «Карта платформы», но страницы /map пока нет — ведём на витрину */}
+        <Link href="/">На витрину</Link>
+        <button type="button" className={s.logout} onClick={() => void logout()}>
           Выйти
         </button>
       </div>

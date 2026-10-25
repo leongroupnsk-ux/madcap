@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { AccountMenu } from '@/components/supplier/AccountMenu';
 import { Bell } from '@/components/supplier/Bell';
-import s from '@/components/supplier/cabinet.module.css';
+import c from '@/components/supplier/cabinet.module.css';
+import s from '@/components/supplier/shell.module.css';
 import { Sidebar } from '@/components/supplier/Sidebar';
 import { requireSupplier } from '@/lib/supplier-session';
 
@@ -24,22 +26,24 @@ export default async function CabinetLayout({ children }: { children: React.Reac
     <div className={s.shell}>
       <Sidebar role={me.role} />
       <div className={s.main}>
-        <div className={s.top}>
+        {/* Единая шапка кабинета (ТЗ §12 п.11): статус выплат, уведомления, меню аккаунта */}
+        <header className={s.top}>
           {pay === 'active' ? (
-            <span className={s.payOk}>✓ Выплаты подключены</span>
+            <span className={s.pay}>
+              <img src="/design/icons/sup-check.svg" alt="" width={14} height={14} />
+              <span>Выплаты подключены</span>
+            </span>
           ) : (
-            <Link href="/supplier/payouts" className={s.payWarn}>
-              {pay === 'in_review' ? 'Реквизиты на проверке ЮKassa — товары скрыты с витрины' : 'Выплаты не подключены — товары не появятся на витрине'}
+            <Link href="/supplier/payouts" className={`${s.pay} ${s.payWarn}`}>
+              <span>{pay === 'in_review' ? 'Реквизиты на проверке ЮKassa — товары скрыты с витрины' : 'Выплаты не подключены — товары не появятся на витрине'}</span>
             </Link>
           )}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <div className={s.tools}>
             <Bell />
-            <span className={s.who} title={me.user.email}>
-              {me.supplier.legalName}
-            </span>
-          </span>
-        </div>
-        <div className={s.content}>{children}</div>
+            <AccountMenu name={me.supplier.legalName} email={me.user.email} role={me.role} />
+          </div>
+        </header>
+        <main className={`${s.content} ${c.sup}`}>{children}</main>
       </div>
     </div>
   );

@@ -1,0 +1,392 @@
+/* Каркас кабинета поставщика по кадру supplier-shell (62:2394) и шапке .Partner-* (1:5884).
+   Админка использует свой каркас из cabinet.module.css — здесь только кабинет поставщика. */
+
+.shell {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--c-bg);
+}
+
+/* ── Боковое меню ── */
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: #fffdf8;
+  border-right: 1px solid rgba(23, 61, 50, 0.09);
+  overflow-y: auto;
+}
+.brand {
+  align-self: flex-start;
+  font: 400 24px/32px var(--font-serif);
+  color: var(--c-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brandDot {
+  color: var(--c-sale);
+}
+.brandSub {
+  padding-top: 8px;
+  font: 700 10px/15px var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #65766d;
+  white-space: nowrap;
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 40px;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-text-body);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.nav a:hover {
+  background: var(--c-surface-mint);
+}
+.nav a.active {
+  background: var(--c-primary);
+  color: #fff;
+}
+.sideFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 24px;
+}
+.sideFoot a {
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.logout {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-sale);
+  cursor: pointer;
+}
+.sideFoot a:hover,
+.logout:hover {
+  text-decoration: underline;
+}
+
+/* ── Шапка ── */
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 40px;
+  background: rgba(247, 244, 237, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(23, 61, 50, 0.09);
+}
+.pay {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font: 400 14px/20px var(--font-sans);
+  color: #2e8566;
+  text-decoration: none;
+}
+.pay span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pay img {
+  flex: none;
+}
+.payWarn {
+  color: var(--c-sale);
+}
+.payWarn:hover {
+  text-decoration: underline;
+}
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.content {
+  width: 100%;
+  max-width: 1293px;
+  padding: 40px 40px 64px;
+}
+
+/* ── Колокольчик (note-partner 62:2395) ── */
+.pop {
+  position: relative;
+}
+.bellBtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(23, 61, 50, 0.19);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bellBtn:hover,
+.menuBtn:hover {
+  background: rgba(23, 61, 50, 0.04);
+}
+.bellCount {
+  position: absolute;
+  top: -4px;
+  left: 26px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-sale);
+  color: #fff;
+  font: 700 9px/16px var(--font-sans);
+  text-align: center;
+}
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--c-surface);
+  border: 1px solid rgba(23, 61, 50, 0.09);
+  border-radius: 16px;
+  box-shadow:
+    0 20px 25px rgba(0, 0, 0, 0.1),
+    0 8px 10px rgba(0, 0, 0, 0.1);
+}
+.bellPanel {
+  width: min(340px, calc(100vw - 32px));
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.panelTitle {
+  font: 400 20px/28px var(--font-serif);
+  color: #173d32;
+}
+.textBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 700 12px/16px var(--font-sans);
+  color: var(--c-sale);
+  cursor: pointer;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+.empty {
+  margin: 12px 0 0;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.item {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.item:hover {
+  background: rgba(23, 61, 50, 0.04);
+}
+.unread {
+  background: #e8f0eb;
+}
+.unread:hover {
+  background: #e0eae4;
+}
+.dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 50%;
+}
+.unread .dot {
+  background: var(--c-sale);
+}
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.itemText b {
+  font: 700 14px/20px var(--font-sans);
+  color: #173d32;
+}
+.itemText span {
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.panelFoot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 12px;
+}
+.panelFoot a {
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-sale);
+  text-decoration: none;
+}
+.panelFoot a:hover {
+  text-decoration: underline;
+}
+
+/* ── Меню аккаунта (menu-partner 62:2396) ── */
+.menuBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 8px 14px;
+  border: 1px solid rgba(23, 61, 50, 0.19);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 600 14px/20px var(--font-sans);
+  color: #173d32;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.menuBtn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menuBtn img {
+  flex: none;
+  transition: transform 0.15s;
+}
+.menuBtn[aria-expanded='true'] img {
+  transform: rotate(180deg);
+}
+.menuPanel {
+  width: 256px;
+}
+.menuName {
+  font: 600 16px/24px var(--font-sans);
+  color: #173d32;
+  overflow-wrap: anywhere;
+}
+.menuEmail {
+  padding-top: 4px;
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+.menuRole {
+  padding-top: 12px;
+  font: 400 14px/20px var(--font-sans);
+  color: #173d32;
+}
+.menuPanel .logout {
+  align-self: flex-start;
+  margin-top: 16px;
+}
+
+/* ── Узкие экраны: меню — горизонтальная лента над шапкой ── */
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .side {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+    padding: 16px var(--gutter) 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(23, 61, 50, 0.09);
+    overflow: visible;
+  }
+  .brandSub {
+    padding-top: 6px;
+  }
+  .nav {
+    order: 3;
+    flex-direction: row;
+    gap: 6px;
+    width: 100%;
+    padding-top: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav a {
+    flex: none;
+    height: 38px;
+    padding: 0 14px;
+  }
+  .sideFoot {
+    display: none;
+  }
+  .top {
+    padding: 0 var(--gutter);
+    height: 64px;
+  }
+  .content {
+    padding: 28px var(--gutter) 48px;
+  }
+}
+@media (max-width: 560px) {
+  .menuBtn {
+    max-width: 150px;
+  }
+  .pay {
+    font-size: 13px;
+  }
+}

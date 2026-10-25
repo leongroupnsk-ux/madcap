@@ -36,16 +36,25 @@ export function AuthCard({
 }
 
 /** Переключатель ролей над формой входа (в макете — пара пилюль «Покупатель / Поставщик»). */
-export function RoleSwitch() {
+export function RoleSwitch({ active = 'buyer' }: { active?: 'buyer' | 'supplier' }) {
+  const items = [
+    { key: 'buyer', href: '/login', label: 'Покупатель' },
+    { key: 'supplier', href: '/supplier/login', label: 'Поставщик' },
+  ] as const;
   return (
     <nav className={s.roles} aria-label="Тип входа">
       <span className={s.rolesLabel}>Вход для:</span>
-      <span className={`${s.role} ${s.roleActive}`} aria-current="page">
-        Покупатель
-      </span>
-      <Link href="/supplier/login" className={s.role}>
-        Поставщик
-      </Link>
+      {items.map((i) =>
+        i.key === active ? (
+          <span key={i.key} className={`${s.role} ${s.roleActive}`} aria-current="page">
+            {i.label}
+          </span>
+        ) : (
+          <Link key={i.key} href={i.href} className={s.role}>
+            {i.label}
+          </Link>
+        ),
+      )}
     </nav>
   );
 }

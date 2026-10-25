@@ -3,15 +3,21 @@
 import { PROMO_STATUS_LABEL, formatRub, salePriceOf } from '@aesculap/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
-import { Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
-import { PhaseBadge, type Promo } from '../promotions/shared';
+import { day, type Promo } from '../promotions/shared';
+import f from './form.module.css';
 
 type Row = Omit<Promo, 'stats'> & { price: number; discountPct: number | null; salePrice: number | null; status: string; rejectReason: string | null };
-const STATUS_CLS: Record<string, string> = { approved: 'b_active', pending: 'b_pending', rejected: 'b_rejected', below_min: 'b_rejected', none: 'b_draft' };
 
-/** Блок «Акции» в форме товара (ТЗ §7.3): доступные акции, условия и участие этого товара. */
+/** Подпись участия после названия акции: «участвует», «можно заявить» и т. п. */
+function stateText(p: Row) {
+  if (p.status === 'approved') return 'участвует';
+  if (p.status !== 'none') return PROMO_STATUS_LABEL[p.status].toLowerCase();
+  if (p.acceptsApplications) return 'можно заявить';
+  return p.phase === 'scheduled' ? `заявки с ${day(p.applyFrom)}` : 'приём заявок закрыт';
+}
+
+/** Блок «Акции» в форме товара (ТЗ §7.3, кадр .Partner-Products-Product): доступные акции и участие этого товара. */
 export function ProductPromotions({ productId }: { productId: string }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [pct, setPct] = useState<Record<string, string>>({});
@@ -43,50 +49,55 @@ export function ProductPromotions({ productId }: { productId: string }) {
 
   if (!rows?.length) return null;
   return (
-    <section className={s.panel}>
-      <b>Акции</b>
-      <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
+    <section className={`${f.box} ${f.boxSm}`}>
+      <span className={f.boxTitle}>Акции</span>
+      <div style={{ display: 'grid', gap: 12 }}>
         {rows.map((p) => {
           const n = Number(pct[p.id]);
           const joined = p.status !== 'none';
+          const valid = n >= p.minDiscountPct && n < 100;
+          const sale = valid ? salePriceOf(p.price, n) : null;
           return (
-            <div key={p.id} style={{ display: 'grid', gap: 6, borderTop: '1px solid var(--c-border)', paddingTop: 10 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Link href={`/supplier/promotions/${p.id}`} className={s.link}>
-                  {p.name}
+            <div key={p.id} className={`${f.promo} ${p.status === 'approved' ? f.promoOn : ''}`}>
+              <div className={f.promoHead}>
+                <Link href={`/supplier/promotions/${p.id}`} className={f.promoTitle}>
+                  {p.name} · {stateText(p)}
                 </Link>
-                <PhaseBadge p={{ ...p, stats: { products: 0, pending: 0, soldWeek: 0 } }} />
-                <span className={`${s.badge} ${s[STATUS_CLS[p.status]]}`}>{PROMO_STATUS_LABEL[p.status]}</span>
-              </div>
-              <span className={s.muted}>
-                Скидка от {p.minDiscountPct}% · комиссия {p.commissionBp / 100}% · бейдж «{p.badge}»
-                {p.rejectReason && ` · ${p.rejectReason}`}
-              </span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <input
-                  className={s.input}
-                  style={{ width: 80 }}
-                  type="number"
-                  min={p.minDiscountPct}
-                  max={90}
-                  value={pct[p.id] ?? ''}
-                  disabled={!p.acceptsApplications}
-                  onChange={(e) => setPct({ ...pct, [p.id]: e.target.value })}
-                  aria-label={`Скидка в акции «${p.name}», %`}
+                <button
+                  type="button"
+                  role="switch"
+                  className={f.switch}
+                  aria-checked={joined}
+                  aria-label={joined ? `Выйти из акции «${p.name}»` : `Участвовать в акции «${p.name}»`}
+                  disabled={busy === p.id || (!joined && (!p.acceptsApplications || !valid))}
+                  onClick={() => act(p, !joined)}
                 />
-                <span className={s.muted}>% → от {n > 0 && n < 100 ? formatRub(salePriceOf(p.price, n)) : '—'}</span>
-                {p.acceptsApplications && (
-                  <Button variant={joined ? 'outline' : 'primary'} disabled={busy === p.id || (!joined && n < p.minDiscountPct)} onClick={() => act(p, true)}>
-                    {joined ? 'Изменить скидку' : 'Участвовать'}
-                  </Button>
-                )}
-                {joined && (
-                  <Button variant="ghost" disabled={busy === p.id} onClick={() => act(p, false)}>
-                    Не участвовать
-                  </Button>
-                )}
               </div>
-              {error?.id === p.id && <span className={s.neg}>{error.text}</span>}
+              <p className={f.promoText}>
+                до {day(p.endsAt)}
+                {joined && p.salePrice ? ` · цена ${formatRub(p.salePrice)} (−${p.discountPct}% от ${formatRub(p.price)})` : ` · скидка от ${p.minDiscountPct}%`} · бейдж «{p.badge}» в каталоге · комиссия {p.commissionBp / 100}%
+                {p.rejectReason && ` · ${p.rejectReason}`}
+              </p>
+              {p.acceptsApplications && (
+                <div className={f.promoRow}>
+                  <input
+                    className={f.pct}
+                    type="number"
+                    min={p.minDiscountPct}
+                    max={90}
+                    value={pct[p.id] ?? ''}
+                    onChange={(e) => setPct({ ...pct, [p.id]: e.target.value })}
+                    aria-label={`Скидка в акции «${p.name}», %`}
+                  />
+                  <span>% → цена {sale ? formatRub(sale) : '—'}</span>
+                  {joined && valid && n !== p.discountPct && (
+                    <button type="button" className={f.linkBtn} disabled={busy === p.id} onClick={() => act(p, true)}>
+                      Изменить скидку
+                    </button>
+                  )}
+                </div>
+              )}
+              {error?.id === p.id && <span className={f.errors} style={{ padding: 0 }}>{error.text}</span>}
             </div>
           );
         })}

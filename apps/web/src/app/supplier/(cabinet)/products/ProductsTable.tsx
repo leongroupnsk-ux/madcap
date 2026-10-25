@@ -69,7 +69,7 @@ export function ProductsTable() {
           <h1>Товары{data ? ` · ${data.total}` : ''}</h1>
         </div>
         <div className={s.actions}>
-          <a href="/api/supplier/products/export.csv" className={s.link} style={{ alignSelf: 'center' }}>
+          <a href="/api/supplier/products/export.csv" className={s.link}>
             Экспорт CSV
           </a>
           <ButtonLink href="/supplier/products/new">Добавить товар</ButtonLink>
@@ -77,7 +77,7 @@ export function ProductsTable() {
       </div>
 
       <div className={s.filters}>
-        <input className={s.input} style={{ flex: '1 1 260px', maxWidth: 360 }} placeholder="Поиск по названию или артикулу" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск" />
+        <input className={s.input} style={{ flex: '0 1 290px', minWidth: 0 }} placeholder="Поиск по названию или артикулу" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск" />
         <select className={s.input} value={params.get('status') ?? ''} onChange={(e) => setParam('status', e.target.value)} aria-label="Статус">
           {STATUSES.map(([v, l]) => (
             <option key={v} value={v}>
@@ -106,11 +106,11 @@ export function ProductsTable() {
       </div>
 
       {error && <Alert tone="error">{error}</Alert>}
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
-              <th style={{ width: 36 }} />
+              <th style={{ width: 36, paddingRight: 0 }} aria-label="Выбор" />
               <th>Товар</th>
               <th>Артикул</th>
               <th>Цена</th>
@@ -124,22 +124,22 @@ export function ProductsTable() {
           <tbody>
             {data?.items.map((p) => (
               <tr key={p.id}>
-                <td>
+                <td style={{ paddingRight: 0 }}>
                   <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} aria-label={`Выбрать ${p.title}`} />
                 </td>
                 <td>
-                  <Link href={`/supplier/products/${p.id}`} style={{ display: 'flex', gap: 12, alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+                  <Link href={`/supplier/products/${p.id}`} className={s.productCell}>
                     {p.thumbUrl ? <img src={p.thumbUrl} alt="" className={s.thumb} /> : <span className={s.thumb} />}
                     <span>
                       <b>{p.title}</b>
-                      <div className={s.muted}>{p.brand}</div>
+                      <small>{p.brand}</small>
                     </span>
                   </Link>
                 </td>
-                <td className={s.muted} style={{ whiteSpace: "nowrap" }}>{p.sku}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{p.sku}</td>
                 <td style={{ whiteSpace: "nowrap" }}>{p.priceFrom == null ? "—" : formatRub(p.priceFrom)}</td>
                 <td>{p.sizes || '—'}</td>
-                <td style={{ color: p.stock === 0 ? 'var(--c-sale)' : undefined }}>{p.stock === 0 ? 'Нет в наличии' : `${p.stock} шт.`}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{p.stock === 0 ? 'Нет в наличии' : `${p.stock} шт.`}</td>
                 <td>
                   {p.moderationStatus === 'published' && p.stock === 0 ? <Badge status="hidden">Скрыт · нет остатка</Badge> : <Badge status={p.moderationStatus} />}
                   {p.hasPendingRevision && (
@@ -148,7 +148,7 @@ export function ProductsTable() {
                     </div>
                   )}
                 </td>
-                <td className={s.muted}>{SOURCE[p.source]}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{SOURCE[p.source]}</td>
                 <td>
                   <Link href={`/supplier/products/${p.id}`} className={s.link}>
                     Изменить

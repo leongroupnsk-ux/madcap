@@ -34,53 +34,61 @@ export function ActionOrders() {
   };
 
   return (
-    <section className={`${s.panel} ${s.scroll}`} style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+    <section className={s.panel}>
+      <div className={s.panelHead}>
         <h2>Заказы, требующие действий</h2>
         <Link href="/supplier/orders" className={s.link}>
           Все заказы →
         </Link>
       </div>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
       {rows && rows.length === 0 && <p className={s.muted}>Сейчас всё обработано.</p>}
       {rows && rows.length > 0 && (
-        <table className={s.table}>
-          <thead>
-            <tr>
-              <th>Номер</th>
-              <th>Состав</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.slice(0, 6).map((r) => {
-              const next = NEXT_ACTION[r.status];
-              return (
-                <tr key={r.id} className={r.overdue ? s.rowWarn : undefined}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <Link href={`/supplier/orders/${r.id}`} className={s.link}>
-                      № {r.number}
-                    </Link>
-                  </td>
-                  <td style={{ minWidth: 180 }}>{r.items.join('; ')}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatRub(r.goodsTotal)}</td>
-                  <td>
-                    <StatusBadge status={r.status} overdue={r.overdue} />
-                  </td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {next && (
-                      <Button variant={r.status === 'new' ? 'primary' : 'outline'} disabled={busy === r.id} onClick={() => act(r, next[0])}>
-                        {next[1]}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className={s.tableCard}>
+          <table className={s.table}>
+            <thead>
+              <tr>
+                <th style={{ width: '12%' }}>Номер</th>
+                <th>Состав</th>
+                <th style={{ width: '12%' }}>Сумма</th>
+                <th style={{ width: '17%' }}>Статус</th>
+                <th style={{ width: '17%' }} />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.slice(0, 6).map((r) => {
+                const next = NEXT_ACTION[r.status];
+                return (
+                  <tr key={r.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <Link href={`/supplier/orders/${r.id}`} className={s.strong} style={{ color: 'inherit', textDecoration: 'none' }}>
+                        {r.number}
+                      </Link>
+                    </td>
+                    <td style={{ minWidth: 200 }}>{r.items.join(', ')}</td>
+                    <td className={s.semi} style={{ whiteSpace: 'nowrap' }}>
+                      {formatRub(r.goodsTotal)}
+                    </td>
+                    <td>
+                      <StatusBadge status={r.status} overdue={r.overdue} />
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {next && (
+                        <Button className={s.rowBtn} variant={r.status === 'packed' ? 'outline' : 'primary'} disabled={busy === r.id} onClick={() => act(r, next[0])}>
+                          {next[1]}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

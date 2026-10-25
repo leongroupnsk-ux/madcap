@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import s from '@/components/supplier/public.module.css';
 import { BRAND } from '@/lib/brand';
 import { InviteForm } from './InviteForm';
@@ -10,9 +11,12 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
   return (
     <div className={s.page}>
       <div className={s.card}>
-        <div className={s.logo}>{BRAND.mark}</div>
-        <h1 className={s.title}>Задайте пароль</h1>
-        <p className={s.note}>Пароль нужен для входа в кабинет поставщика.</p>
+        <Link href="/" className={s.logo} aria-label="На главную">
+          {BRAND.mark.replace(/\.$/, '')}
+          <span className={s.logoDot}>.</span>
+        </Link>
+        <h1 className={`${s.title} ${s.titleSm}`}>Задайте пароль</h1>
+        <p className={s.lead}>Пароль нужен для входа в кабинет поставщика.</p>
         <InviteForm token={token ?? ''} />
       </div>
     </div>
