@@ -1,6 +1,7 @@
 import { formatRub } from '@aesculap/shared';
 import Link from 'next/link';
 import type { Card } from '@/lib/catalog';
+import { CARD_SIZES, imgSet } from '@/lib/image';
 import s from './shop.module.css';
 
 /**
@@ -21,7 +22,7 @@ export function ProductCard({ p, priority, lcp }: { p: Card; priority?: boolean;
         {p.images.filter(Boolean).slice(0, 2).map((src, i) => (
           <img
             key={i}
-            src={src!}
+            {...imgSet(p.photos?.[i], CARD_SIZES, src)}
             alt={i === 0 ? p.title : ''}
             loading={priority && i === 0 ? 'eager' : 'lazy'}
             fetchPriority={lcp && i === 0 ? 'high' : i > 0 ? 'low' : undefined}

@@ -278,6 +278,8 @@ export class CatalogService {
           title: p.title,
           brand: p.brand.name,
           images: photosFor(p.media, best.colorId).slice(0, 2).map((m) => this.storage.publicUrl(thumbKey(m))),
+          // Те же фото набором размеров для srcset
+          photos: photosFor(p.media, best.colorId).slice(0, 2).map((m) => this.storage.cardSet(m.storageKey)).filter((x) => x !== null),
           price: price.price,
           oldPrice: price.oldPrice,
           sale: p.variants.some((v) => v.oldPrice != null || v.salePrice != null),
@@ -369,11 +371,14 @@ export class CatalogService {
         url: this.storage.publicUrl(m.storageKey),
         thumbUrl: this.storage.publicUrl(m.type === 'photo' ? m.storageKey.replace(/\.webp$/, '_thumb.webp') : m.posterKey),
         posterUrl: this.storage.publicUrl(m.posterKey),
+        // Наборы для srcset: большое фото — копии оригинала, превью в ленте — копии превью карточки
+        image: m.type === 'photo' ? this.storage.imageSet(m.storageKey, m.width, m.height) : null,
+        thumb: m.type === 'photo' ? this.storage.cardSet(m.storageKey) : null,
       })),
       promo: promo ? { name: promo.name, badge: promo.badge, endsAt: promo.endsAt } : null,
       variants: variants.map((v) => ({ id: v.id, sku: v.sku, size: v.size, heightRange: v.heightRange, color: { id: v.color.id, name: v.color.name, hex: v.color.hex }, ...shown(v), stock: v.stock })),
-      articles: p.articles.map((a) => ({ slug: a.article.slug, title: a.article.title, lead: a.article.lead, coverUrl: this.storage.publicUrl(a.article.coverKey) })),
-      collections: p.collections.map((c) => ({ slug: c.collection.slug, title: c.collection.title, coverUrl: this.storage.publicUrl(c.collection.coverKey), count: c.collection._count.products })),
+      articles: p.articles.map((a) => ({ slug: a.article.slug, title: a.article.title, lead: a.article.lead, coverUrl: this.storage.publicUrl(a.article.coverKey), cover: this.storage.imageSet(a.article.coverKey) })),
+      collections: p.collections.map((c) => ({ slug: c.collection.slug, title: c.collection.title, coverUrl: this.storage.publicUrl(c.collection.coverKey), cover: this.storage.imageSet(c.collection.coverKey), count: c.collection._count.products })),
     };
   }
 
@@ -390,7 +395,7 @@ export class CatalogService {
       this.prisma.brand.findMany({ where: { OR: [{ name: { contains: term, mode: 'insensitive' } }, { name: { contains: alt, mode: 'insensitive' } }] }, take: 4 }),
     ]);
     return {
-      products: products.map((p) => ({ slug: p.slug, title: p.title, brand: p.brand, price: p.price, image: p.images[0] ?? null })),
+      products: products.map((p) => ({ slug: p.slug, title: p.title, brand: p.brand, price: p.price, image: p.images[0] ?? null, imageSet: p.photos[0] ?? null })),
       categories: categories.map((c) => ({ name: c.name, slug: c.slug })),
       brands: brands.map((b) => ({ name: b.name, slug: b.slug })),
     };
@@ -464,7 +469,7 @@ export class CatalogService {
       color: v.color.name,
       ...shown(v),
       stock: v.stock,
-      product: { slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, supplier: v.product.supplier.legalName, image: this.storage.publicUrl(thumbKey(photosFor(v.product.media, v.colorId)[0])) },
+      product: { slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, supplier: v.product.supplier.legalName, image: this.storage.publicUrl(thumbKey(photosFor(v.product.media, v.colorId)[0])), imageSet: this.storage.cardSet(photosFor(v.product.media, v.colorId)[0]?.storageKey) },
     }));
   }
 

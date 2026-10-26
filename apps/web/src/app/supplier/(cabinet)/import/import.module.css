@@ -89,7 +89,8 @@
   padding: 0 8px;
   border-radius: var(--r-pill);
   background: rgba(118, 118, 118, 0.12);
-  color: #767676;
+  /* макет #767676 — на тон темнее: AA для мелкой подписи на сером */
+  color: #666666;
   font: 500 9px/1 var(--font-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;

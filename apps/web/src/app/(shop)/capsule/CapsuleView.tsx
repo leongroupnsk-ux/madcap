@@ -7,10 +7,11 @@ import { Alert, useEscape } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { addCapsule } from '@/lib/cart';
 import c from './capsule.module.css';
+import { imgSet, type ImageSet } from '@/lib/image';
 
 type Item = {
   slot: string; slotLabel: string; pinned: boolean; alternatives: number; unavailable: boolean;
-  product: { id: string; slug: string; title: string; brand: string; image: string | null } | null;
+  product: { id: string; slug: string; title: string; brand: string; image: string | null; imageSet?: ImageSet | null } | null;
   variant: { id: string; size: string; heightRange: string | null; color: string; colorHex: string; price: number; oldPrice: number | null; stock: number } | null;
 };
 export type CapsuleData = {
@@ -18,7 +19,7 @@ export type CapsuleData = {
   /** Предел бюджета из анкеты (в копейках) и вышла ли текущая сумма за него */
   budget?: number | null; overBudget?: boolean;
 };
-type Alt = { productId: string; variantId: string; title: string; brand: string; slug: string; image: string | null; color: string; colorHex: string; size: string; price: number };
+type Alt = { productId: string; variantId: string; title: string; brand: string; slug: string; image: string | null; imageSet?: ImageSet | null; color: string; colorHex: string; size: string; price: number };
 
 /** Строки про бюджет из сборки могут устареть после замены — показываем актуальную по текущей сумме. */
 const BUDGET_LINE = /^(В бюджете до|Не уложились в бюджет)/;
@@ -104,7 +105,7 @@ export function CapsuleView({ initial }: { initial: CapsuleData }) {
               {it.product && it.variant ? (
                 <>
                   <Link href={`/product/${it.product.slug}`} className={c.media} aria-label={`Открыть ${it.product.title}`}>
-                    {it.product.image && <img src={it.product.image} alt="" loading="lazy" />}
+                    {it.product.image && <img {...imgSet(it.product.imageSet, '(max-width: 900px) 50vw, 240px', it.product.image)} alt="" loading="lazy" />}
                     {(it.unavailable || it.pinned) && (
                       <span className={c.badges}>
                         {it.unavailable && <span className={c.out}>Нет в наличии</span>}
@@ -216,7 +217,7 @@ function ReplaceDialog({ label, alts, busy, onChoose, onClose }: { label: string
           <div className={c.alts}>
             {alts.map((a) => (
               <article key={a.variantId} className={c.alt}>
-                <div className={c.altMedia}>{a.image && <img src={a.image} alt="" />}</div>
+                <div className={c.altMedia}>{a.image && <img {...imgSet(a.imageSet, '(max-width: 767px) 50vw, 200px', a.image)} alt="" />}</div>
                 <div className={c.altBody}>
                   <span className={c.brand}>{a.brand}</span>
                   <span className={c.altName}>{a.title}</span>

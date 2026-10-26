@@ -15,7 +15,8 @@
     "db:demo": "tsx prisma/demo.ts",
     "load:seed": "tsx scripts/load-seed.ts",
     "load:test": "tsx scripts/load-test.ts",
-    "capsule:bench": "tsx scripts/capsule-bench.ts"
+    "capsule:bench": "tsx scripts/capsule-bench.ts",
+    "thumbs:backfill": "tsx scripts/thumbs-backfill.ts"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.24",

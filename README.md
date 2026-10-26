@@ -34,6 +34,7 @@ pnpm --filter @aesculap/api admin:create admin@example.ru
 ```
 
 Фоновые задачи (импорт, фото по ссылкам, постеры видео, синк YML раз в 6 часов) выполняются очередью BullMQ на Redis внутри процесса API. Для постеров нужен `ffmpeg` (`brew install ffmpeg`). Файлы в dev лежат в `apps/api/.storage`.
+Фото товаров и обложки журнала хранятся вместе с копиями по ширине 320/640/1200 px (WebP) для `srcset`: они создаются при загрузке, недостающие — при первом запросе файла или командой `pnpm --filter @aesculap/api thumbs:backfill` (подробнее — `apps/api/src/common/image-keys.ts`, docs/PERF.md). Шрифты лежат в `apps/web/src/fonts` (OFL), сборке сайта интернет не нужен.
 Письма в dev не отправляются, а пишутся в лог API (`MAIL_DRIVER=console`): ссылки подтверждения email и сброса пароля берутся оттуда.
 
 ## Заказы, оплата и доставка

@@ -36,10 +36,10 @@ export default function AdminPayoutsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Поставщик</th>
-              <th>Реквизиты</th>
-              <th>Статус</th>
-              <th>ID получателя ЮKassa</th>
+              <th scope="col">Поставщик</th>
+              <th scope="col">Реквизиты</th>
+              <th scope="col">Статус</th>
+              <th scope="col">ID получателя ЮKassa</th>
             </tr>
           </thead>
           <tbody>

@@ -40,10 +40,10 @@ export default async function ContentPage() {
           </colgroup>
           <thead>
             <tr>
-              <th>Материал</th>
-              <th>Тип</th>
-              <th>Модерация</th>
-              <th aria-label="Действие" />
+              <th scope="col">Материал</th>
+              <th scope="col">Тип</th>
+              <th scope="col">Модерация</th>
+              <th scope="col" aria-label="Действие" />
             </tr>
           </thead>
           <tbody>

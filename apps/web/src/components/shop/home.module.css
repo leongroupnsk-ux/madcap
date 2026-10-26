@@ -81,6 +81,8 @@
 }
 
 .premium {
+  /* Playfair подключается на этом блоке (fonts/playfair.ts), --font-display из :root его не видит */
+  --font-display: var(--font-playfair), 'Times New Roman', serif;
   position: relative;
   border-radius: var(--r-md);
   overflow: hidden;

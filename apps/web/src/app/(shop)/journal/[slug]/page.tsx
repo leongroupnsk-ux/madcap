@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import j from '@/components/shop/journal.module.css';
 import { SITE_URL, pubDate, type Card } from '@/lib/catalog';
+import { ARTICLE_COVER_SIZES, imgSet, type ImageSet } from '@/lib/image';
 import { serverApi } from '@/lib/server-api';
 
-type Article = { slug: string; title: string; lead: string | null; body: string; author: string; publishedAt: string; updatedAt: string; coverUrl: string | null; products: Card[] };
+type Article = { slug: string; title: string; lead: string | null; body: string; author: string; publishedAt: string; updatedAt: string; coverUrl: string | null; cover?: ImageSet | null; products: Card[] };
 type P = Promise<{ slug: string }>;
 
 const load = async (slug: string) => (await serverApi<Article>(`/journal/articles/${encodeURIComponent(slug)}`)).data;
@@ -42,7 +43,7 @@ export default async function ArticlePage({ params }: { params: P }) {
         ← Назад
       </Link>
       <div className={j.head}>
-        {a.coverUrl && <img src={a.coverUrl} alt="" className={j.articleCover} />}
+        {a.coverUrl && <img {...imgSet(a.cover, ARTICLE_COVER_SIZES, a.coverUrl)} alt="" className={j.articleCover} fetchPriority="high" />}
         <div className={j.by}>
           <span className={j.upper}>{a.author}</span> · {pubDate(a.publishedAt)}
         </div>
@@ -59,7 +60,7 @@ export default async function ArticlePage({ params }: { params: P }) {
           <div className={j.mini}>
             {a.products.map((p) => (
               <Link key={p.id} href={`/product/${p.slug}`} className={j.miniCard}>
-                {p.images[0] ? <img src={p.images[0]} alt="" loading="lazy" /> : <span className={j.noimg} />}
+                {p.images[0] ? <img {...imgSet(p.photos?.[0], '56px', p.images[0])} alt="" loading="lazy" /> : <span className={j.noimg} />}
                 <span>
                   <b>{p.title}</b>
                   <small>{formatRub(p.price)}</small>

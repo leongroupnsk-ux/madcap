@@ -73,10 +73,10 @@ export default function AdminPremiumLeadPage() {
               <table className={s.table}>
                 <thead>
                   <tr>
-                    <th>Слот</th>
-                    <th>Вещь</th>
-                    <th>Цвет, размер</th>
-                    <th>Цена</th>
+                    <th scope="col">Слот</th>
+                    <th scope="col">Вещь</th>
+                    <th scope="col">Цвет, размер</th>
+                    <th scope="col">Цена</th>
                   </tr>
                 </thead>
                 <tbody>

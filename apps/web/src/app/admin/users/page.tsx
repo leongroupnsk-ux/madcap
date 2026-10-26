@@ -60,12 +60,12 @@ export default function AdminUsersPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Пользователь</th>
-              <th>Роль</th>
-              <th>Заказов</th>
-              <th>Активность</th>
-              <th>Статус</th>
-              <th />
+              <th scope="col">Пользователь</th>
+              <th scope="col">Роль</th>
+              <th scope="col">Заказов</th>
+              <th scope="col">Активность</th>
+              <th scope="col">Статус</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

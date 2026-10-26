@@ -169,7 +169,8 @@
 .b_active,
 .b_approved {
   background: #e5f4e4;
-  color: var(--c-success);
+  /* --c-success (#2e7d5b) на зелёной пилюле даёт 4.4:1 — на тон темнее ради AA */
+  color: #29734f;
 }
 .b_pending,
 .b_checking,
@@ -525,12 +526,13 @@
 }
 .sup .b_s_packed {
   background: rgba(169, 182, 137, 0.3);
-  color: #607168;
+  color: #5b6b63;
 }
 .sup .b_draft,
 .sup .b_hidden {
   background: rgba(0, 0, 0, 0.1);
-  color: #767676;
+  /* макет #767676 — на тон темнее: AA на сером фоне пилюли */
+  color: #666666;
 }
 .sup .b_rejected,
 .sup .b_failed,
@@ -702,7 +704,7 @@
 }
 .sup .b_s_handed_over {
   background: rgba(0, 0, 0, 0.1);
-  color: #767676;
+  color: #666666;
 }
 .sup .search {
   flex: 0 1 270px;
@@ -857,7 +859,7 @@
   flex-direction: column;
   gap: 4px;
   font: 400 14px/20px var(--font-sans);
-  color: #607168;
+  color: #5b6b63;
 }
 .orderItemText b {
   font: 400 20px/28px var(--font-serif);
@@ -881,7 +883,7 @@
   gap: 4px;
   margin-top: 8px;
   font: 400 14px/20px var(--font-sans);
-  color: #607168;
+  color: #5b6b63;
 }
 .orderFees div {
   display: flex;
@@ -907,7 +909,7 @@
   border-radius: 24px;
   background: #e8f0eb;
   font: 400 14px/20px var(--font-sans);
-  color: #607168;
+  color: #5b6b63;
 }
 .darkCard {
   background: #123d32;
@@ -916,6 +918,10 @@
 .mintCard :global(.eyebrow),
 .darkCard :global(.eyebrow) {
   color: var(--c-text-label);
+}
+/* На тёмной карточке подпись светлая — тёмно-зелёная на #123d32 не читается (контраст 2:1) */
+.darkCard :global(.eyebrow) {
+  color: #a9bdb3;
 }
 .cardTitle {
   margin: 12px 0 0;
@@ -1118,7 +1124,7 @@
 .setNote {
   margin: 0;
   font: 400 14px/20px var(--font-sans);
-  color: #607168;
+  color: #5b6b63;
 }
 .tgLink {
   display: grid;
@@ -1352,7 +1358,7 @@
   padding: 12px 24px 12px 0;
   font: 600 11px/14px var(--font-sans);
   letter-spacing: 0.04em;
-  color: #9b9b9b;
+  color: #757575;
   border-bottom: 0;
 }
 .sup .promoGrid td {
@@ -1392,10 +1398,10 @@
 .promoProduct small {
   display: block;
   font-size: 11px;
-  color: #9b9b9b;
+  color: #757575;
 }
 .promoOld {
-  color: #9b9b9b !important;
+  color: #757575 !important;
   white-space: nowrap;
 }
 .promoNew {
@@ -1476,7 +1482,7 @@
     content: attr(data-label);
     font: 600 11px/14px var(--font-sans);
     text-transform: uppercase;
-    color: #9b9b9b;
+    color: #757575;
   }
   .promoFoot2 {
     padding: 14px 16px;
@@ -1515,7 +1521,7 @@
 }
 .cashHint {
   font: 400 12px/16px var(--font-sans);
-  color: #9c9889;
+  color: #757165;
   overflow-wrap: anywhere;
 }
 .cashHintStrong {
@@ -1575,7 +1581,7 @@
   padding: 10px 20px;
   font: 600 11px/14px var(--font-sans);
   letter-spacing: 0.02em;
-  color: #9c9889;
+  color: #757165;
   border-bottom: 1px solid #e8e3d9;
 }
 .sup .cashGrid td,
@@ -1598,7 +1604,7 @@
   white-space: nowrap;
 }
 .cashFaint {
-  color: #9c9889 !important;
+  color: #757165 !important;
   white-space: nowrap;
 }
 .sup .cashTotal td {
@@ -1651,7 +1657,7 @@
     content: attr(data-label);
     font: 600 11px/18px var(--font-sans);
     text-transform: uppercase;
-    color: #9c9889;
+    color: #757165;
   }
   .sup .cashGrid td:empty {
     display: none;

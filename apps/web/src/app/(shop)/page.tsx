@@ -3,8 +3,12 @@ import Link from 'next/link';
 import { ProductGrid } from '@/components/shop/ProductCard';
 import h from '@/components/shop/home.module.css';
 import s from '@/components/shop/shop.module.css';
+import { playfair, playfairFaces } from '@/fonts/playfair';
 import type { Card } from '@/lib/catalog';
 import { serverApi } from '@/lib/server-api';
+
+// Playfair Display — шрифт премиум-баннера; подключён здесь, чтобы предзагружаться только на главной (fonts/playfair.ts)
+void playfairFaces;
 
 export const revalidate = 300;
 
@@ -91,7 +95,7 @@ export default async function HomePage() {
               </Link>
             </div>
           </section>
-          <section className={h.premium}>
+          <section className={`${h.premium} ${playfair.variable}`}>
             <img
               className={h.premiumImg}
               src="/design/premium-banner.webp"

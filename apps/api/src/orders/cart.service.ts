@@ -4,6 +4,7 @@ import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { shown } from '../promotions/price';
 import { visibleWhere } from '../storefront/catalog.service';
+import type { ImageSet } from '../common/image-keys';
 import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
 
 export type CheckedLine = {
@@ -25,7 +26,7 @@ export type CheckedLine = {
   lengthMm: number | null;
   widthMm: number | null;
   heightMm: number | null;
-  product: { id: string; slug: string; title: string; brand: string; image: string | null; imageKey: string | null };
+  product: { id: string; slug: string; title: string; brand: string; image: string | null; imageKey: string | null; imageSet: ImageSet | null };
   supplier: { id: string; name: string; city: string | null };
 };
 
@@ -73,7 +74,8 @@ export class CartService {
     for (const l of lines) {
       const v = rows.find((r) => r.id === l.variantId);
       if (!v || out.some((o) => o.variantId === v.id)) continue;
-      const thumb = thumbKey(photosFor(v.product.media, v.colorId)[0]);
+      const photo = photosFor(v.product.media, v.colorId)[0];
+      const thumb = thumbKey(photo);
       out.push({
         variantId: v.id,
         qty: l.qty,
@@ -91,7 +93,7 @@ export class CartService {
         lengthMm: v.lengthMm,
         widthMm: v.widthMm,
         heightMm: v.heightMm,
-        product: { id: v.product.id, slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, image: this.storage.publicUrl(thumb), imageKey: thumb },
+        product: { id: v.product.id, slug: v.product.slug, title: v.product.title, brand: v.product.brand.name, image: this.storage.publicUrl(thumb), imageKey: thumb, imageSet: this.storage.cardSet(photo?.storageKey) },
         supplier: { id: v.product.supplier.id, name: v.product.supplier.legalName, city: v.product.supplier.warehouseAddress?.split(',')[0] ?? null },
       });
     }

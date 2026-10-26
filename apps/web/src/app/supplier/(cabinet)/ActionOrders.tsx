@@ -52,11 +52,11 @@ export function ActionOrders() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th style={{ width: '12%' }}>Номер</th>
-                <th>Состав</th>
-                <th style={{ width: '12%' }}>Сумма</th>
-                <th style={{ width: '17%' }}>Статус</th>
-                <th style={{ width: '17%' }} />
+                <th scope="col" style={{ width: '12%' }}>Номер</th>
+                <th scope="col">Состав</th>
+                <th scope="col" style={{ width: '12%' }}>Сумма</th>
+                <th scope="col" style={{ width: '17%' }}>Статус</th>
+                <th scope="col" style={{ width: '17%' }} aria-label="Действия" />
               </tr>
             </thead>
             <tbody>

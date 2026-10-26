@@ -31,9 +31,9 @@ export default function AdminLegalPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Документ</th>
-              <th>Версия</th>
-              <th />
+              <th scope="col">Документ</th>
+              <th scope="col">Версия</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

@@ -1,0 +1,33 @@
+/* Запасные шрифты с метриками под шрифты макета (значения — как генерировал next/font/google), чтобы при подмене не было сдвига */
+@font-face {
+  font-family: 'Prata Fallback';
+  src: local('Times New Roman');
+  ascent-override: 83.87%;
+  descent-override: 30.57%;
+  line-gap-override: 0%;
+  size-adjust: 118.4%;
+}
+@font-face {
+  font-family: 'Playfair Display Fallback';
+  src: local('Times New Roman');
+  ascent-override: 97.25%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+  size-adjust: 111.26%;
+}
+@font-face {
+  font-family: 'Manrope Fallback';
+  src: local('Arial');
+  ascent-override: 103.31%;
+  descent-override: 29.07%;
+  line-gap-override: 0%;
+  size-adjust: 103.19%;
+}
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src: local('Arial');
+  ascent-override: 75.79%;
+  descent-override: 22.29%;
+  line-gap-override: 0%;
+  size-adjust: 134.59%;
+}

@@ -82,11 +82,11 @@ export function Registry() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Поставщик</th>
-                <th>Реквизиты</th>
-                <th>Строк</th>
-                <th>Сумма</th>
-                <th />
+                <th scope="col">Поставщик</th>
+                <th scope="col">Реквизиты</th>
+                <th scope="col">Строк</th>
+                <th scope="col">Сумма</th>
+                <th scope="col" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>
@@ -117,10 +117,10 @@ export function Registry() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Реестр</th>
-                <th>Сумма</th>
-                <th>Статус</th>
-                <th />
+                <th scope="col">Реестр</th>
+                <th scope="col">Сумма</th>
+                <th scope="col">Статус</th>
+                <th scope="col" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>

@@ -103,11 +103,11 @@ export default function AdminDictionariesPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Категория</th>
-                <th>Адрес</th>
-                <th>Слот капсулы</th>
-                <th>Товаров</th>
-                <th />
+                <th scope="col">Категория</th>
+                <th scope="col">Адрес</th>
+                <th scope="col">Слот капсулы</th>
+                <th scope="col">Товаров</th>
+                <th scope="col" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>

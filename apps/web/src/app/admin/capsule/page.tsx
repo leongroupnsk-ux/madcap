@@ -137,11 +137,11 @@ export default function AdminCapsulePage() {
                   <table className={s.table}>
                     <thead>
                       <tr>
-                        <th>Слот</th>
-                        <th>Товар</th>
-                        <th>Цвет, размер</th>
-                        <th>Цена</th>
-                        <th>Оценка</th>
+                        <th scope="col">Слот</th>
+                        <th scope="col">Товар</th>
+                        <th scope="col">Цвет, размер</th>
+                        <th scope="col">Цена</th>
+                        <th scope="col">Оценка</th>
                       </tr>
                     </thead>
                     <tbody>

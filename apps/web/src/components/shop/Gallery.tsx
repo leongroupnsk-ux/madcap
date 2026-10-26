@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ProductDetails } from '@/lib/catalog';
+import { STAGE_SIZES, imgSet } from '@/lib/image';
 import p from './product.module.css';
 
 /** Событие выбора цвета в блоке покупки — галерея показывает фото этого цвета (ТЗ §4.3). */
@@ -35,7 +36,7 @@ export function Gallery({ media: all, title, initialColorId }: { media: ProductD
         <div className={p.thumbList}>
           {media.map((m, n) => (
             <button key={m.id} type="button" className={`${p.thumb} ${n === i ? p.thumbOn : ''}`} onClick={() => setI(n)} aria-label={`${m.type === 'video' ? 'Видео' : 'Фото'} ${n + 1}`} aria-pressed={n === i}>
-              {(m.thumbUrl ?? m.posterUrl) && <img src={m.thumbUrl ?? m.posterUrl ?? ''} alt="" />}
+              {(m.thumbUrl ?? m.posterUrl) && <img {...imgSet(m.thumb, '100px', m.thumbUrl ?? m.posterUrl)} alt="" />}
               {m.type === 'video' && (
                 <span className={p.play}>
                   <img src="/design/icons/play.svg" alt="" width={21.6667} height={27} />
@@ -58,8 +59,13 @@ export function Gallery({ media: all, title, initialColorId }: { media: ProductD
         {cur.type === 'video' ? (
           <video src={cur.url} poster={cur.posterUrl ?? undefined} controls playsInline muted />
         ) : (
-          // Главное фото — LCP страницы товара: высокий приоритет загрузки
-          <img src={cur.url} alt={i === 0 ? title : `${title}, фото ${i + 1}`} onClick={() => setZoom(true)} fetchPriority={i === 0 ? 'high' : 'auto'} />
+          // Главное фото — LCP страницы товара: высокий приоритет загрузки, размер под ширину экрана (копии 320/640/1200)
+          <img
+            {...imgSet(cur.image, STAGE_SIZES, cur.url)}
+            alt={i === 0 ? title : `${title}, фото ${i + 1}`}
+            onClick={() => setZoom(true)}
+            fetchPriority={i === 0 ? 'high' : 'auto'}
+          />
         )}
       </div>
       {zoom && cur.type === 'photo' && (

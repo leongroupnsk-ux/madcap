@@ -121,10 +121,10 @@ export default function AdminSystemPage() {
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th>Сотрудник</th>
-                  <th>Роль</th>
-                  <th>Последняя активность</th>
-                  <th />
+                  <th scope="col">Сотрудник</th>
+                  <th scope="col">Роль</th>
+                  <th scope="col">Последняя активность</th>
+                  <th scope="col" aria-label="Действия" />
                 </tr>
               </thead>
               <tbody>
@@ -189,11 +189,11 @@ export default function AdminSystemPage() {
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th>Когда</th>
-                  <th>Кто</th>
-                  <th>Действие</th>
-                  <th>Объект</th>
-                  <th>Данные</th>
+                  <th scope="col">Когда</th>
+                  <th scope="col">Кто</th>
+                  <th scope="col">Действие</th>
+                  <th scope="col">Объект</th>
+                  <th scope="col">Данные</th>
                 </tr>
               </thead>
               <tbody>

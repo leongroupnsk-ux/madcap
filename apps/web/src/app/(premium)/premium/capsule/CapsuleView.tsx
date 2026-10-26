@@ -9,10 +9,11 @@ import { readChoice, usePremiumQuiz, writeChoice, type CapsuleChoice } from '@/c
 import { useEscape } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { LeadModal } from './LeadModal';
+import { imgSet, type ImageSet } from '@/lib/image';
 
 export type Item = {
   slot: string; slotLabel: string; productId: string; variantId: string; slug: string; title: string; brand: string;
-  color: string; colorHex: string; size: string; price: number; oldPrice: number | null; image: string | null;
+  color: string; colorHex: string; size: string; price: number; oldPrice: number | null; image: string | null; imageSet?: ImageSet | null;
 };
 export type PremiumCapsule = {
   variantNo: number; variants: number; title: string; note: string; size: string | null;
@@ -224,7 +225,7 @@ export function CapsuleView() {
 
 /** Карточка вещи капсулы (компонент Frame 1, 285:4098); в окне замены — без ссылки, вся карточка кнопка. */
 export function ProductCard({ item, onReplace, asButton }: { item: Item; onReplace?: () => void; asButton?: boolean }) {
-  const img = item.image && <img src={item.image} alt={item.title} loading="lazy" />;
+  const img = item.image && <img {...imgSet(item.imageSet, '(max-width: 767px) 50vw, 320px', item.image)} alt={item.title} loading="lazy" />;
   return (
     <span className={s.pcard}>
       {asButton ? (

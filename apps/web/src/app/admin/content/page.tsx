@@ -21,10 +21,10 @@ export default async function AdminContentPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Материал</th>
-              <th>Автор</th>
-              <th>Тип</th>
-              <th />
+              <th scope="col">Материал</th>
+              <th scope="col">Автор</th>
+              <th scope="col">Тип</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

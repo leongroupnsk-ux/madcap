@@ -7,6 +7,7 @@ import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { readCart, writeCart, type CartLine } from '@/lib/cart';
 import c from '@/components/shop/checkout.module.css';
+import { imgSet } from '@/lib/image';
 import type { CheckedItem } from '../cart/CartView';
 import { AddressDrawer, addressText, type DeliveryFeatures, type Quote, type SavedAddress } from './AddressDrawer';
 
@@ -279,7 +280,7 @@ export function Checkout({
                   </span>
                 </div>
                 <div className={c.shipThumbs}>
-                  {g.items.map(({ item }) => (item.product.image ? <img key={item.variantId} src={item.product.image} alt={item.product.title} /> : <span key={item.variantId} />))}
+                  {g.items.map(({ item }) => (item.product.image ? <img key={item.variantId} {...imgSet(item.product.imageSet, '80px', item.product.image)} alt={item.product.title} /> : <span key={item.variantId} />))}
                 </div>
                 <div className={c.options}>
                   {(['pvz', 'courier'] as const).map((type) => {

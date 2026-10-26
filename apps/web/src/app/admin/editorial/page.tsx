@@ -34,11 +34,11 @@ export default async function EditorialPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Материал</th>
-              <th>Тип</th>
-              <th>Товаров</th>
-              <th>Статус</th>
-              <th>Изменён</th>
+              <th scope="col">Материал</th>
+              <th scope="col">Тип</th>
+              <th scope="col">Товаров</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Изменён</th>
             </tr>
           </thead>
           <tbody>

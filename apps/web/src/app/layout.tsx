@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Manrope, Playfair_Display, Prata } from 'next/font/google';
+import { fontFaces, fontVariables } from '@/fonts';
 import { BRAND } from '@/lib/brand';
 import './globals.css';
 
-// Шрифты макета: Prata — заголовки, Manrope — текст, JetBrains Mono — надзаголовки (в DM Mono из макета нет кириллицы), Playfair Display — блок «Премиум»
-const prata = Prata({ weight: '400', subsets: ['latin', 'cyrillic'], variable: '--font-prata', display: 'swap' });
-const serif = Playfair_Display({ subsets: ['latin', 'cyrillic'], variable: '--font-playfair', display: 'swap' });
-const mono = JetBrains_Mono({ weight: ['400', '500'], subsets: ['latin', 'cyrillic'], variable: '--font-mono-face', display: 'swap' });
-const sans = Manrope({ subsets: ['latin', 'cyrillic'], variable: '--font-manrope', display: 'swap' });
+// Шрифты макета — локальные файлы (src/fonts): Prata, Playfair Display, Manrope, JetBrains Mono
+void fontFaces;
 
 export const metadata: Metadata = {
   title: { default: `${BRAND.name} — медицинская одежда и рабочая капсула`, template: `%s — ${BRAND.name}` },
@@ -16,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" className={`${prata.variable} ${serif.variable} ${sans.variable} ${mono.variable}`}>
+    <html lang="ru" className={fontVariables}>
       <body>{children}</body>
     </html>
   );

@@ -1,5 +1,7 @@
 /* Премиальная ветка (кадры .Premium, .Premium-Quiz-*, .Premium-capsule, premium-call-me): тёмная тема, свои шапка и подвал */
 .root {
+  /* Playfair подключается на корне раздела (fonts/playfair.ts), --font-display из :root его не видит */
+  --font-display: var(--font-playfair), 'Times New Roman', serif;
   --p-bg: #0b0b0b;
   --p-bg-quiz: #121212;
   --p-card: #0b0b0b;

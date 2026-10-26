@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { onCartChange, readCart, rememberPrices, setQty, writeCart, type CartLine } from '@/lib/cart';
 import c from '@/components/shop/checkout.module.css';
+import { imgSet, type ImageSet } from '@/lib/image';
 
 export type CheckedItem = {
   variantId: string;
@@ -18,7 +19,7 @@ export type CheckedItem = {
   size: string;
   heightRange: string | null;
   color: string;
-  product: { slug: string; title: string; brand: string; image: string | null };
+  product: { slug: string; title: string; brand: string; image: string | null; imageSet?: ImageSet | null };
   supplier: { id: string; name: string; city: string | null };
 };
 
@@ -74,7 +75,7 @@ export function CartView({ signedIn }: { signedIn: boolean }) {
     return (
       <div key={line.variantId} className={`${c.line} ${was !== undefined || over || !it.available ? c.lineChanged : ''} ${!it.available ? c.lineDim : ''}`}>
         <Link href={`/product/${it.product.slug}`} tabIndex={-1} aria-hidden>
-          {it.product.image ? <img src={it.product.image} alt="" className={c.thumb} /> : <span className={c.thumb} style={{ display: 'block' }} />}
+          {it.product.image ? <img {...imgSet(it.product.imageSet, '96px', it.product.image)} alt="" className={c.thumb} /> : <span className={c.thumb} style={{ display: 'block' }} />}
         </Link>
         <div className={c.lineBody}>
           <div className={c.lineMeta}>

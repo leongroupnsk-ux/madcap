@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import j from '@/components/shop/journal.module.css';
 import { SITE_URL, pubDate, type JournalItem } from '@/lib/catalog';
+import { JOURNAL_SIZES, imgSet } from '@/lib/image';
 import { serverApi } from '@/lib/server-api';
 
 export const metadata: Metadata = {
@@ -22,11 +23,12 @@ export default async function JournalPage() {
       {!items.length && <p className={j.empty}>Материалы скоро появятся.</p>}
       {items.length > 0 && (
         <div className={j.grid}>
-          {items.map((it) => {
+          {items.map((it, n) => {
             const collection = it.kind === 'collection';
             return (
               <Link key={`${it.kind}-${it.slug}`} href={collection ? `/collections/${it.slug}` : `/journal/${it.slug}`} className={`${j.card} ${collection ? j.cardCollection : ''}`}>
-                {it.coverUrl ? <img src={it.coverUrl} alt="" className={j.cover} loading="lazy" /> : <span className={j.cover} />}
+                {/* первый ряд — в первом экране, остальные обложки ленивые */}
+                {it.coverUrl ? <img {...imgSet(it.cover, JOURNAL_SIZES, it.coverUrl)} alt="" className={j.cover} loading={n < 3 ? 'eager' : 'lazy'} /> : <span className={j.cover} />}
                 <div className={j.cardBody}>
                   <span className={j.by}>
                     <span className={j.upper}>{it.author}</span> ·{' '}

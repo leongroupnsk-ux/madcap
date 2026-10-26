@@ -208,3 +208,9 @@
   gap: 16px;
   margin-bottom: 20px;
 }
+
+/* Окно получает фокус программно при открытии (см. useDialogFocus) — без рамки вокруг всего окна */
+.modal:focus,
+.drawer:focus {
+  outline: none;
+}

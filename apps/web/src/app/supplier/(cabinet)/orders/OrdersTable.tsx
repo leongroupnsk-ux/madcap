@@ -101,12 +101,12 @@ export function OrdersTable() {
           </colgroup>
           <thead>
             <tr>
-              <th>Номер</th>
-              <th>Состав</th>
-              <th>Сумма</th>
-              <th>Доставка</th>
-              <th>Статус</th>
-              <th aria-label="Действие" />
+              <th scope="col">Номер</th>
+              <th scope="col">Состав</th>
+              <th scope="col">Сумма</th>
+              <th scope="col">Доставка</th>
+              <th scope="col">Статус</th>
+              <th scope="col" aria-label="Действие" />
             </tr>
           </thead>
           <tbody>

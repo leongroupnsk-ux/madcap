@@ -254,7 +254,7 @@ export function ContentEditor({ kind, initial, space = SUPPLIER_SPACE }: { kind:
                     Ссылка
                   </button>
                 </div>
-                <div id="preview" ref={editor} className={e.editor} contentEditable suppressContentEditableWarning aria-label="Текст статьи" />
+                <div id="preview" ref={editor} className={e.editor} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label="Текст статьи" />
               </div>
             </div>
           )}

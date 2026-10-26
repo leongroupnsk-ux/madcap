@@ -71,9 +71,9 @@ export function Review({ d }: { d: Details }) {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Поле</th>
-              {isRevision && <th>На витрине</th>}
-              <th>{isRevision ? 'Предлагается' : 'Значение'}</th>
+              <th scope="col">Поле</th>
+              {isRevision && <th scope="col">На витрине</th>}
+              <th scope="col">{isRevision ? 'Предлагается' : 'Значение'}</th>
             </tr>
           </thead>
           <tbody>
@@ -116,11 +116,11 @@ export function Review({ d }: { d: Details }) {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>SKU</th>
-              <th>Размер</th>
-              <th>Цвет</th>
-              <th>Цена</th>
-              <th>Остаток</th>
+              <th scope="col">SKU</th>
+              <th scope="col">Размер</th>
+              <th scope="col">Цвет</th>
+              <th scope="col">Цена</th>
+              <th scope="col">Остаток</th>
             </tr>
           </thead>
           <tbody>

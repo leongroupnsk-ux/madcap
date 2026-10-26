@@ -237,11 +237,11 @@ export function ImportScreen({ feedUrl, initialJobs }: { feedUrl: string | null;
           <table className={`${s.table} ${i.history}`}>
             <thead>
               <tr>
-                <th>Источник</th>
-                <th>Дата</th>
-                <th>Строк</th>
-                <th>Результат</th>
-                <th>Статус</th>
+                <th scope="col">Источник</th>
+                <th scope="col">Дата</th>
+                <th scope="col">Строк</th>
+                <th scope="col">Результат</th>
+                <th scope="col">Статус</th>
               </tr>
             </thead>
             <tbody>

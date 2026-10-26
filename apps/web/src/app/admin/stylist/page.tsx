@@ -42,9 +42,9 @@ export default function AdminStylistPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Покупатель</th>
-              <th>Вопрос</th>
-              <th>{status === 'open' ? 'Отправлен' : 'Ответ'}</th>
+              <th scope="col">Покупатель</th>
+              <th scope="col">Вопрос</th>
+              <th scope="col">{status === 'open' ? 'Отправлен' : 'Ответ'}</th>
             </tr>
           </thead>
           <tbody>

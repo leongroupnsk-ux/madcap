@@ -6,6 +6,10 @@
 import { PrismaClient, type Gender } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { repriceSales } from '../src/promotions/price';
+import { IMAGE_WIDTHS, variantKey } from '../src/common/image-keys';
+import { StorageService } from '../src/common/storage.service';
+import { backfillThumbs } from '../src/common/thumbs-backfill';
+import { ThumbsService } from '../src/common/thumbs.service';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -24,6 +28,9 @@ const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'demo-aesculap-2026';
 /** Второй демо-поставщик со складом в Санкт-Петербурге — чтобы заказ делился на отправления. */
 const DEMO_INN_2 = '7810000002';
 const SPB_BRANDS = ['Форма+', 'ART MED', 'AVEMED'];
+
+/** Обложка и её копии по ширине */
+const coverFiles = (key: string) => [key, ...IMAGE_WIDTHS.map((w) => variantKey(key, w))];
 
 const put = async (key: string, data: Buffer) => {
   const full = resolve(ROOT, key);
@@ -138,7 +145,7 @@ async function main() {
     });
     if (old) {
       for (const p of old.products) await rm(resolve(ROOT, 'public/products', p.id), { recursive: true, force: true });
-      for (const c of [...old.articles, ...old.collections]) if (c.coverKey) await rm(resolve(ROOT, c.coverKey), { force: true });
+      for (const c of [...old.articles, ...old.collections]) if (c.coverKey) for (const k of coverFiles(c.coverKey)) await rm(resolve(ROOT, k), { force: true });
       await prisma.order.deleteMany({ where: { shipments: { some: { supplierId: old.id } } } });
       await prisma.product.deleteMany({ where: { supplierId: old.id } });
       await prisma.supplier.delete({ where: { id: old.id } });
@@ -150,7 +157,7 @@ async function main() {
   }
   // Материалы редакции (без поставщика) удаляем по слагам
   for (const a of await prisma.article.findMany({ where: { supplierId: null, slug: { in: EDITORIAL_SLUGS } } })) {
-    if (a.coverKey) await rm(resolve(ROOT, a.coverKey), { force: true });
+    if (a.coverKey) for (const k of coverFiles(a.coverKey)) await rm(resolve(ROOT, k), { force: true });
     await prisma.article.delete({ where: { id: a.id } });
   }
   const demoPayout = { status: 'active' as const, payoutStatus: 'active' as const, shipDays: 1, contactPhone: '+79990000000', payoutLegalName: 'демо', payoutInn: DEMO_INN, payoutAccount: '40702810900000000001', payoutBik: '044525225' };
@@ -302,6 +309,10 @@ async function main() {
     await prisma.platformSetting.upsert({ where: { key: 'security' }, update: { value: security }, create: { key: 'security', value: security } });
     console.log('Демо: обязательная 2FA для сотрудников выключена (security.require2faRoles = []); на боевом стенде включите её в «Сотрудники и настройки».');
   }
+
+  // Копии фото 320/640/1200 для srcset витрины (только недостающие)
+  const thumbs = await backfillThumbs(prisma, new ThumbsService(new StorageService()));
+  console.log(`Демо: копии фото для srcset — создано ${thumbs.made}.`);
 
   console.log(`Демо: ${created.length} товаров (премиум: ${created.filter((c) => c.item.premium).length}), 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }

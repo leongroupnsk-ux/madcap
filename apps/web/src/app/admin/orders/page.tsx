@@ -79,11 +79,11 @@ export default function AdminOrdersPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Заказ</th>
-              <th>Покупатель</th>
-              <th>Сумма</th>
-              <th>Статус</th>
-              <th>Отправления</th>
+              <th scope="col">Заказ</th>
+              <th scope="col">Покупатель</th>
+              <th scope="col">Сумма</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Отправления</th>
             </tr>
           </thead>
           <tbody>

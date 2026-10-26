@@ -22,11 +22,11 @@ export default async function ModerationPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Товар</th>
-              <th>Поставщик</th>
-              <th>Тип</th>
-              <th>Ждёт</th>
-              <th />
+              <th scope="col">Товар</th>
+              <th scope="col">Поставщик</th>
+              <th scope="col">Тип</th>
+              <th scope="col">Ждёт</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

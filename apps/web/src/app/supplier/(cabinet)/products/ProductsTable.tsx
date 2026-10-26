@@ -110,15 +110,15 @@ export function ProductsTable() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th style={{ width: 36, paddingRight: 0 }} aria-label="Выбор" />
-              <th>Товар</th>
-              <th>Артикул</th>
-              <th>Цена</th>
-              <th>Размеры</th>
-              <th>Остаток</th>
-              <th>Модерация</th>
-              <th>Источник</th>
-              <th />
+              <th scope="col" style={{ width: 36, paddingRight: 0 }} aria-label="Выбор" />
+              <th scope="col">Товар</th>
+              <th scope="col">Артикул</th>
+              <th scope="col">Цена</th>
+              <th scope="col">Размеры</th>
+              <th scope="col">Остаток</th>
+              <th scope="col">Модерация</th>
+              <th scope="col">Источник</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

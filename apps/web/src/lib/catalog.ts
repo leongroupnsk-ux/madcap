@@ -1,8 +1,11 @@
 import 'server-only';
+import type { ImageSet } from './image';
 import { serverApi } from './server-api';
 
 export type Card = {
-  id: string; slug: string; title: string; brand: string; images: (string | null)[]; price: number; oldPrice: number | null;
+  id: string; slug: string; title: string; brand: string; images: (string | null)[];
+  /** Те же фото набором размеров для srcset */
+  photos?: ImageSet[]; price: number; oldPrice: number | null;
   sale: boolean; color: string; sizes: string; heightRange: string | null; fits?: boolean; promo?: string | null;
 };
 
@@ -53,13 +56,13 @@ export type ProductDetails = {
   specialties: string[];
   promo?: { name: string; badge: string; endsAt: string } | null;
   seller: { name: string; inn: string; city: string | null; shipDays: number };
-  media: { id: string; type: 'photo' | 'video'; colorId: string | null; url: string; thumbUrl: string | null; posterUrl: string | null }[];
+  media: { id: string; type: 'photo' | 'video'; colorId: string | null; url: string; thumbUrl: string | null; posterUrl: string | null; image?: ImageSet | null; thumb?: ImageSet | null }[];
   variants: { id: string; sku: string; size: string; heightRange: string | null; color: { id: string; name: string; hex: string }; price: number; oldPrice: number | null; stock: number }[];
-  articles: { slug: string; title: string; lead: string | null; coverUrl: string | null }[];
-  collections: { slug: string; title: string; coverUrl: string | null; count: number }[];
+  articles: { slug: string; title: string; lead: string | null; coverUrl: string | null; cover?: ImageSet | null }[];
+  collections: { slug: string; title: string; coverUrl: string | null; cover?: ImageSet | null; count: number }[];
 };
 
-export type JournalItem = { kind: 'article' | 'collection'; slug: string; title: string; lead: string | null; author: string; publishedAt: string; coverUrl: string | null; count: number };
+export type JournalItem = { kind: 'article' | 'collection'; slug: string; title: string; lead: string | null; author: string; publishedAt: string; coverUrl: string | null; cover?: ImageSet | null; count: number };
 
 export function toQuery(params: Record<string, string | string[] | undefined>) {
   const q = new URLSearchParams();

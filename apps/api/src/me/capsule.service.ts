@@ -274,7 +274,7 @@ export class CapsuleService {
       pinned: it.pinned,
       alternatives: (it.alternatives as unknown[]).length,
       unavailable: !it.variant || it.variant.stock <= 0,
-      product: it.product && { id: it.product.id, slug: it.product.slug, title: it.product.title, brand: it.product.brand.name, image: this.storage.publicUrl(thumbKey(photosFor(it.product.media, it.variant?.colorId)[0])) },
+      product: it.product && { id: it.product.id, slug: it.product.slug, title: it.product.title, brand: it.product.brand.name, image: this.storage.publicUrl(thumbKey(photosFor(it.product.media, it.variant?.colorId)[0])), imageSet: this.storage.cardSet(photosFor(it.product.media, it.variant?.colorId)[0]?.storageKey) },
       variant: it.variant && { id: it.variant.id, size: it.variant.size, heightRange: it.variant.heightRange, color: it.variant.color.name, colorHex: it.variant.color.hex, ...shown(it.variant), stock: it.variant.stock },
     }));
     const available = items.filter((i) => i.variant && !i.unavailable);
@@ -309,6 +309,7 @@ export class CapsuleService {
       .map((v) => ({
         productId: v.productId, variantId: v.id, title: v.product.title, brand: v.product.brand.name, slug: v.product.slug,
         image: this.storage.publicUrl(thumbKey(photosFor(v.product.media, v.colorId)[0])),
+        imageSet: this.storage.cardSet(photosFor(v.product.media, v.colorId)[0]?.storageKey),
         color: v.color.name, colorHex: v.color.hex, size: v.size, price: effective(v),
       }));
   }

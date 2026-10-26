@@ -52,7 +52,14 @@ const config: NextConfig = {
     return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
   },
   async headers() {
-    return [{ source: '/:path*', headers: security }];
+    return [
+      { source: '/:path*', headers: security },
+      // Статика макета (public/design) без хэша в имени: умеренный кэш — сутки, затем ещё неделю отдаётся из кэша,
+      // пока браузер в фоне проверяет свежесть. Вечный кэш здесь опасен: заменённый файл с тем же именем не обновится.
+      // /_next/static (JS, CSS, шрифты — с хэшем в имени) Next.js сам отдаёт с max-age=31536000, immutable;
+      // /api/files (фото товаров, неизменяемые ключи) — так же, заголовок ставит API.
+      ...(prod ? [{ source: '/design/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }] }] : []),
+    ];
   },
   poweredByHeader: false,
   // Отдельная папка сборки — чтобы прод-сборка для замеров (docs/PERF.md) не мешала запущенному next dev

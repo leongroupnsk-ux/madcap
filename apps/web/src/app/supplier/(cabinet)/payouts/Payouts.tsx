@@ -126,11 +126,11 @@ export function Payouts() {
           <table className={`${s.table} ${s.cashGrid}`}>
             <thead>
               <tr>
-                <th>Заказ</th>
-                <th>Сумма товаров</th>
-                <th>Комиссия</th>
-                <th>Вам перечислено</th>
-                <th>Когда</th>
+                <th scope="col">Заказ</th>
+                <th scope="col">Сумма товаров</th>
+                <th scope="col">Комиссия</th>
+                <th scope="col">Вам перечислено</th>
+                <th scope="col">Когда</th>
               </tr>
             </thead>
             <tbody>

@@ -11,8 +11,9 @@ import { PrismaService } from './prisma.service';
 import { RateLimitService } from './rate-limit.service';
 import { RedisService } from './redis.service';
 import { StorageService } from './storage.service';
+import { ThumbsService } from './thumbs.service';
 
-const services = [SettingsService, AlertService, PrismaService, RedisService, RateLimitService, MailService, StorageService, AuditService, JobsService, LegalService, CaptchaService];
+const services = [SettingsService, AlertService, PrismaService, RedisService, RateLimitService, MailService, StorageService, ThumbsService, AuditService, JobsService, LegalService, CaptchaService];
 
 @Global()
 @Module({ controllers: [FilesController], providers: services, exports: services })

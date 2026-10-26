@@ -10,13 +10,15 @@ import { promisify } from 'node:util';
 import sharp from 'sharp';
 import { JobsService } from '../common/jobs.service';
 import { PrismaService } from '../common/prisma.service';
+import { photoVariantKeys, thumbOf } from '../common/image-keys';
 import { StorageService } from '../common/storage.service';
+import { ThumbsService } from '../common/thumbs.service';
 import { fetchRemote } from './remote-fetch';
 
 const run = promisify(execFile);
 export const MAX_VIDEOS = 2;
 
-const thumbKey = (key: string) => key.replace(/\.webp$/, '_thumb.webp');
+const thumbKey = thumbOf;
 
 @Injectable()
 export class MediaService implements OnModuleInit {
@@ -26,6 +28,7 @@ export class MediaService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly jobs: JobsService,
+    private readonly thumbs: ThumbsService,
   ) {}
 
   onModuleInit() {
@@ -49,7 +52,7 @@ export class MediaService implements OnModuleInit {
     };
   }
 
-  /** Фото → WebP до 2000 px + превью 600 px; метаданные (EXIF, геометки) не переносятся. */
+  /** Фото → WebP до 2000 px + превью 600 px + копии 320/640/1200 для srcset; метаданные (EXIF, геометки) не переносятся. */
   private async storePhoto(productId: string, input: Buffer) {
     let img: ReturnType<typeof sharp>;
     let meta: Awaited<ReturnType<ReturnType<typeof sharp>['metadata']>>;
@@ -68,6 +71,7 @@ export class MediaService implements OnModuleInit {
     const thumb = await img.clone().resize({ width: 600, height: 800, fit: 'cover' }).webp({ quality: 78 }).toBuffer();
     await this.storage.put(key, full.data);
     await this.storage.put(thumbKey(key), thumb);
+    await this.thumbs.ensurePhoto(key, full.data, thumb);
     return { id, key, width: full.info.width, height: full.info.height, size: full.data.length };
   }
 
@@ -159,7 +163,7 @@ export class MediaService implements OnModuleInit {
 
   async deleteFiles(m: ProductMedia) {
     await this.storage.remove(m.storageKey);
-    if (m.type === 'photo') await this.storage.remove(thumbKey(m.storageKey));
+    if (m.type === 'photo') for (const k of [thumbKey(m.storageKey), ...photoVariantKeys(m.storageKey)]) await this.storage.remove(k);
     await this.storage.remove(m.posterKey);
   }
 

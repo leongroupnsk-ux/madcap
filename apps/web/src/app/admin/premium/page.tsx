@@ -46,11 +46,11 @@ export default function AdminPremiumPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Клиент</th>
-              <th>Связь</th>
-              <th>Капсула</th>
-              <th>Статус</th>
-              <th>Создана</th>
+              <th scope="col">Клиент</th>
+              <th scope="col">Связь</th>
+              <th scope="col">Капсула</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Создана</th>
             </tr>
           </thead>
           <tbody>

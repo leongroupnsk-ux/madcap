@@ -6,9 +6,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import site from '../site.module.css';
 import s from './search.module.css';
+import { imgSet, type ImageSet } from '@/lib/image';
 
 type Suggest = {
-  products: { slug: string; title: string; brand: string; price: number; image: string | null }[];
+  products: { slug: string; title: string; brand: string; price: number; image: string | null; imageSet?: ImageSet | null }[];
   categories: { name: string; slug: string }[];
   brands: { name: string; slug: string }[];
 };
@@ -101,7 +102,7 @@ export function SearchBox() {
           )}
           {data.products.map((p) => (
             <Link key={p.slug} href={`/product/${p.slug}`} className={s.row}>
-              {p.image ? <img src={p.image} alt="" /> : <span className={s.noimg} />}
+              {p.image ? <img {...imgSet(p.imageSet, '64px', p.image)} alt="" /> : <span className={s.noimg} />}
               <span>
                 <b>{p.title}</b>
                 <small>{p.brand}</small>

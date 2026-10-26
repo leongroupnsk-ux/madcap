@@ -97,12 +97,12 @@ export function PromotionProducts({ id, baseBp, embedded }: { id: string; baseBp
           </colgroup>
           <thead>
             <tr>
-              <th>Товар</th>
-              <th>Обычная</th>
-              <th>Акционная</th>
-              <th>Скидка</th>
-              <th>Статус</th>
-              <th>Участие</th>
+              <th scope="col">Товар</th>
+              <th scope="col">Обычная</th>
+              <th scope="col">Акционная</th>
+              <th scope="col">Скидка</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Участие</th>
             </tr>
           </thead>
           <tbody>

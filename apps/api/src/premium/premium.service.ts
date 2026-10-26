@@ -14,6 +14,7 @@ import { config } from '../config';
 import { CapsuleService, type Profile } from '../me/capsule.service';
 import { shown } from '../promotions/price';
 import { visibleWhere } from '../storefront/catalog.service';
+import type { ImageSet } from '../common/image-keys';
 import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
 
 const SLOT_LABEL: Record<string, string> = { top: 'Топ', pants: 'Брюки', gown: 'Халат', shoes: 'Обувь', accessory: 'Аксессуар' };
@@ -31,7 +32,7 @@ export function capsuleTitle(color: string | null): string {
 
 type ItemView = {
   slot: string; slotLabel: string; productId: string; variantId: string; slug: string; title: string; brand: string;
-  color: string; colorHex: string; size: string; price: number; oldPrice: number | null; image: string | null;
+  color: string; colorHex: string; size: string; price: number; oldPrice: number | null; image: string | null; imageSet: ImageSet | null;
 };
 
 /**
@@ -133,6 +134,7 @@ export class PremiumService {
       return {
         slot, slotLabel: SLOT_LABEL[slot] ?? slot, productId: r.productId, variantId: r.id, slug: r.product.slug, title: r.product.title, brand: r.product.brand.name,
         color: r.color.name, colorHex: r.color.hex, size: r.size, ...shown(r), image: this.storage.publicUrl(thumbKey(photosFor(r.product.media, r.colorId)[0])),
+        imageSet: this.storage.cardSet(photosFor(r.product.media, r.colorId)[0]?.storageKey),
       };
     };
     const items = chosen

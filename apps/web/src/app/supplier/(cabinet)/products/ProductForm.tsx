@@ -266,7 +266,7 @@ export function ProductForm({ dict, initial }: Props) {
               <span className={f.label}>Специальности</span>
               <div className={f.chips}>
                 {text.specialtyIds.map((id) => (
-                  <button key={id} type="button" className={f.chip} onClick={() => setText({ ...text, specialtyIds: text.specialtyIds.filter((x) => x !== id) })} title="Убрать">
+                  <button key={id} type="button" className={f.chip} onClick={() => setText({ ...text, specialtyIds: text.specialtyIds.filter((x) => x !== id) })} title="Убрать" aria-label={`Убрать специальность «${specName.get(id)}»`}>
                     {specName.get(id)} <span aria-hidden>×</span>
                   </button>
                 ))}
@@ -384,12 +384,12 @@ export function ProductForm({ dict, initial }: Props) {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>Размер-рост</th>
-                    <th>Цвет</th>
-                    <th>Цена, ₽</th>
-                    <th>Старая, ₽</th>
-                    <th>Ост., шт</th>
-                    <th>SKU</th>
+                    <th scope="col">Размер-рост</th>
+                    <th scope="col">Цвет</th>
+                    <th scope="col">Цена, ₽</th>
+                    <th scope="col">Старая, ₽</th>
+                    <th scope="col">Ост., шт</th>
+                    <th scope="col">SKU</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -655,7 +655,7 @@ function MediaGrid(props: {
                 e.stopPropagation();
                 props.onRemove(m.id);
               }}
-              aria-label="Убрать"
+              aria-label="Убрать фото"
             >
               <img src="/design/icons/circle-x.svg" alt="" width={36} height={36} />
             </button>

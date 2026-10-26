@@ -10,6 +10,7 @@ import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
 import { StorageService } from '../common/storage.service';
+import { ThumbsService } from '../common/thumbs.service';
 import { config } from '../config';
 import { CatalogService, visibleWhere } from './catalog.service';
 
@@ -34,6 +35,7 @@ export class ContentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly thumbs: ThumbsService,
     private readonly catalog: CatalogService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
@@ -52,6 +54,7 @@ export class ContentService {
     }
     const key = `public/content/${randomUUID()}.webp`;
     await this.storage.put(key, data);
+    await this.thumbs.ensureCover(key, data);
     return { key, url: this.storage.publicUrl(key) };
   }
 
@@ -227,8 +230,8 @@ export class ContentService {
       }),
     ]);
     return [
-      ...articles.map((a) => ({ kind: 'article' as const, slug: a.slug, title: a.title, lead: a.lead, author: a.supplier?.legalName ?? config.brandName, publishedAt: a.publishedAt!, coverUrl: this.storage.publicUrl(a.coverKey), count: 0 })),
-      ...collections.map((c) => ({ kind: 'collection' as const, slug: c.slug, title: c.title, lead: c.description, author: c.supplier?.legalName ?? config.brandName, publishedAt: c.publishedAt!, coverUrl: this.storage.publicUrl(c.coverKey), count: c.products.length })),
+      ...articles.map((a) => ({ kind: 'article' as const, slug: a.slug, title: a.title, lead: a.lead, author: a.supplier?.legalName ?? config.brandName, publishedAt: a.publishedAt!, coverUrl: this.storage.publicUrl(a.coverKey), cover: this.storage.imageSet(a.coverKey), count: 0 })),
+      ...collections.map((c) => ({ kind: 'collection' as const, slug: c.slug, title: c.title, lead: c.description, author: c.supplier?.legalName ?? config.brandName, publishedAt: c.publishedAt!, coverUrl: this.storage.publicUrl(c.coverKey), cover: this.storage.imageSet(c.coverKey), count: c.products.length })),
     ].sort((a, b) => +b.publishedAt - +a.publishedAt);
   }
 
@@ -244,6 +247,7 @@ export class ContentService {
       publishedAt: a.publishedAt,
       updatedAt: a.updatedAt,
       coverUrl: this.storage.publicUrl(a.coverKey),
+      cover: this.storage.imageSet(a.coverKey),
       products: await this.catalog.cards(a.products.map((p) => p.productId)),
     };
   }
@@ -258,6 +262,7 @@ export class ContentService {
       author: c.supplier?.legalName ?? config.brandName,
       publishedAt: c.publishedAt,
       coverUrl: this.storage.publicUrl(c.coverKey),
+      cover: this.storage.imageSet(c.coverKey),
       products: await this.catalog.cards(c.products.map((p) => p.productId)),
     };
   }

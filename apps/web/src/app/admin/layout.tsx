@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import s from '@/components/supplier/cabinet.module.css';
 import { BRAND } from '@/lib/brand';
 import { getSessionUser } from '@/lib/session';
+import { AdminNav } from './AdminNav';
 
 export const metadata: Metadata = { title: { default: 'Админка', template: '%s — админка' }, robots: { index: false } };
 
@@ -24,13 +25,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {BRAND.mark}
           <span className={s.brandSub}>Админка</span>
         </Link>
-        <nav className={s.nav}>
-          {NAV.filter((n) => !setupOnly && canAccess(user.staffRole, n.area)).map((n) => (
-            <Link key={n.href} href={n.href}>
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+        <AdminNav
+          items={NAV.filter((n) => !setupOnly && canAccess(user.staffRole, n.area)).map(({ href, label }) => ({ href, label }))}
+          className={s.nav}
+          activeClass={s.active}
+        />
         <div className={s.sideFoot}>
           {user.email}
           <div style={{ opacity: 0.7 }}>{STAFF_ROLES[user.staffRole ?? 'owner']}</div>
@@ -40,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </aside>
       <div className={s.main}>
-        <div className={s.content}>{children}</div>
+        <main className={s.content}>{children}</main>
       </div>
     </div>
   );

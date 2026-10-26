@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import s from './ui.module.css';
 
 type Variant = 'primary' | 'accent' | 'outline' | 'soft' | 'ghost';
@@ -102,6 +102,48 @@ export function useEscape(onClose: () => void) {
   }, [onClose]);
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/**
+ * Фокус модального окна (WAI-ARIA dialog): при открытии — в окно (на первое поле формы, иначе на само окно,
+ * чтобы Enter случайно не нажал «Отправить»), Tab и Shift+Tab ходят по кругу внутри окна,
+ * при закрытии фокус возвращается на элемент, который открыл окно.
+ */
+function useDialogFocus() {
+  const ref = useRef<HTMLDivElement & HTMLElement>(null);
+  // Элемент с фокусом до открытия — запоминаем при первом рендере, до autoFocus полей внутри окна
+  const [opener] = useState(() => (typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)));
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    if (!box.contains(document.activeElement)) {
+      const field = box.querySelector<HTMLElement>('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])');
+      (field ?? box).focus({ preventScroll: true });
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (!items.length) return e.preventDefault();
+      const first = items[0]!;
+      const last = items[items.length - 1]!;
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === box || !box.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !box.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [opener]);
+  return ref;
+}
+
 function PanelHead({ eyebrow, title, onClose }: { eyebrow?: string; title: string; onClose: () => void }) {
   return (
     <div className={s.panelHead}>
@@ -109,7 +151,7 @@ function PanelHead({ eyebrow, title, onClose }: { eyebrow?: string; title: strin
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h2 style={{ fontSize: 30 }}>{title}</h2>
       </div>
-      <button className={s.close} onClick={onClose} aria-label="Закрыть">
+      <button type="button" className={s.close} onClick={onClose} aria-label="Закрыть">
         ×
       </button>
     </div>
@@ -119,9 +161,10 @@ function PanelHead({ eyebrow, title, onClose }: { eyebrow?: string; title: strin
 /** Модальное окно по центру (таблица размеров, «Заменить»). */
 export function Modal({ eyebrow, title, onClose, children }: { eyebrow?: string; title: string; onClose: () => void; children: ReactNode }) {
   useEscape(onClose);
+  const ref = useDialogFocus();
   return (
     <div className={s.overlay} onClick={onClose}>
-      <div className={s.modal} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div ref={ref} tabIndex={-1} className={s.modal} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <PanelHead eyebrow={eyebrow} title={title} onClose={onClose} />
         {children}
       </div>
@@ -132,9 +175,10 @@ export function Modal({ eyebrow, title, onClose, children }: { eyebrow?: string;
 /** Боковая панель справа (фильтры, адрес доставки). */
 export function Drawer({ eyebrow, title, onClose, children }: { eyebrow?: string; title: string; onClose: () => void; children: ReactNode }) {
   useEscape(onClose);
+  const ref = useDialogFocus();
   return (
     <div className={s.overlay} onClick={onClose}>
-      <aside className={s.drawer} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <aside ref={ref} tabIndex={-1} className={s.drawer} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <PanelHead eyebrow={eyebrow} title={title} onClose={onClose} />
         {children}
       </aside>

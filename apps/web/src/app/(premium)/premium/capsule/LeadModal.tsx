@@ -5,6 +5,7 @@ import { useState } from 'react';
 import s from '@/components/premium/premium.module.css';
 import { useEscape } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
+import { imgSet } from '@/lib/image';
 import type { PremiumCapsule } from './CapsuleView';
 
 /** Маска телефона: +7 (999) 123-45-67 */
@@ -75,7 +76,7 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
           <div className={s.thumbs}>
             {cap.items.map((it) => (
               <div key={it.slot} className={s.thumb}>
-                {it.image ? <img src={it.image} alt="" /> : <img alt="" />}
+                {it.image ? <img {...imgSet(it.imageSet, '96px', it.image)} alt="" /> : <img alt="" />}
                 <b title={it.title}>{it.title}</b>
                 <span>{formatRub(it.price)}</span>
               </div>

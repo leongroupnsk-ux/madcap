@@ -8,6 +8,7 @@ import { ProductBuy } from '@/components/shop/ProductBuy';
 import p from '@/components/shop/product.module.css';
 import { BRAND } from '@/lib/brand';
 import { SITE_URL, type ProductDetails } from '@/lib/catalog';
+import { imgSet } from '@/lib/image';
 import { serverApi } from '@/lib/server-api';
 
 type P = Promise<{ slug: string }>;
@@ -125,7 +126,7 @@ export default async function ProductPage({ params }: { params: P }) {
               <div className={p.related}>
                 {product.articles.map((a) => (
                   <Link key={a.slug} href={`/journal/${a.slug}`} className={`${p.relCard} ${p.relArticle}`}>
-                    {a.coverUrl ? <img src={a.coverUrl} alt="" /> : <span className={p.noimg} />}
+                    {a.coverUrl ? <img {...imgSet(a.cover, '56px', a.coverUrl)} alt="" loading="lazy" /> : <span className={p.noimg} />}
                     <span>
                       <b>{a.title}</b>
                       {a.lead && <small>{a.lead}</small>}
@@ -142,7 +143,7 @@ export default async function ProductPage({ params }: { params: P }) {
               <div className={p.related}>
                 {product.collections.map((c) => (
                   <Link key={c.slug} href={`/collections/${c.slug}`} className={p.relCard}>
-                    {c.coverUrl ? <img src={c.coverUrl} alt="" /> : <span className={p.noimg} />}
+                    {c.coverUrl ? <img {...imgSet(c.cover, '56px', c.coverUrl)} alt="" loading="lazy" /> : <span className={p.noimg} />}
                     <span>
                       <b>{c.title}</b>
                       <small>

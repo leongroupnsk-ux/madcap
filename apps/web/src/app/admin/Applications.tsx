@@ -37,12 +37,12 @@ export function Applications({ initial }: { initial: Application[] }) {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Компания</th>
-              <th>Контакт</th>
-              <th>Ассортимент</th>
-              <th>Дата</th>
-              <th>Статус</th>
-              <th />
+              <th scope="col">Компания</th>
+              <th scope="col">Контакт</th>
+              <th scope="col">Ассортимент</th>
+              <th scope="col">Дата</th>
+              <th scope="col">Статус</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>

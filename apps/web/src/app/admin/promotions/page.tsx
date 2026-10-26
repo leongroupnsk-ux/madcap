@@ -132,12 +132,12 @@ export default function AdminPromotionsPage() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Акция</th>
-                <th>Поставщик</th>
-                <th>Товар</th>
-                <th>Скидка</th>
-                <th>Цена</th>
-                <th />
+                <th scope="col">Акция</th>
+                <th scope="col">Поставщик</th>
+                <th scope="col">Товар</th>
+                <th scope="col">Скидка</th>
+                <th scope="col">Цена</th>
+                <th scope="col" aria-label="Действия" />
               </tr>
             </thead>
             <tbody>
@@ -172,12 +172,12 @@ export default function AdminPromotionsPage() {
         <table className={s.table}>
           <thead>
             <tr>
-              <th>Акция</th>
-              <th>Статус</th>
-              <th>Заявки</th>
-              <th>Проведение</th>
-              <th>Условия</th>
-              <th />
+              <th scope="col">Акция</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Заявки</th>
+              <th scope="col">Проведение</th>
+              <th scope="col">Условия</th>
+              <th scope="col" aria-label="Действия" />
             </tr>
           </thead>
           <tbody>
