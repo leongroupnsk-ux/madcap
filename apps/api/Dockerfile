@@ -13,7 +13,7 @@ RUN pnpm --filter @aesculap/shared build \
  && pnpm --filter @aesculap/api exec prisma generate \
  && pnpm --filter @aesculap/api build \
  && pnpm --filter @aesculap/api deploy --prod --legacy /out \
- && cp -r apps/api/dist apps/api/prisma apps/api/scripts /out/ \
+ && cp -r apps/api/dist apps/api/prisma apps/api/scripts apps/api/prisma.config.ts /out/ \
  && cd /out && npx prisma generate
 
 FROM node:22-bookworm-slim
@@ -26,5 +26,5 @@ USER app
 ENV NODE_ENV=production API_PORT=4100 STORAGE_LOCAL_DIR=/data/storage
 EXPOSE 4100
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:4100/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-# Миграции применяются при старте; прежняя версия продолжает работать, пока новая не прошла healthcheck
+# Миграции применяются при старте (prisma.config.ts в /app указывает схему и миграции; DATABASE_URL — из окружения); прежняя версия продолжает работать, пока новая не прошла healthcheck
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

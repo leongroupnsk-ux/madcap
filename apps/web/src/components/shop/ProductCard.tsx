@@ -3,7 +3,11 @@ import Link from 'next/link';
 import type { Card } from '@/lib/catalog';
 import s from './shop.module.css';
 
-export function ProductCard({ p, priority }: { p: Card; priority?: boolean }) {
+/**
+ * priority — карточка в первом экране: фото грузится сразу (eager); lcp — первая карточка выдачи, её фото обычно
+ * LCP-элемент на телефоне, поэтому fetchPriority="high". Второе фото (по наведению) всегда ленивое — не отнимает канал у первого.
+ */
+export function ProductCard({ p, priority, lcp }: { p: Card; priority?: boolean; lcp?: boolean }) {
   const meta = [p.color, p.sizes, p.heightRange].filter(Boolean).join(' · ');
   return (
     <Link href={`/product/${p.slug}`} className={s.card}>
@@ -15,7 +19,14 @@ export function ProductCard({ p, priority }: { p: Card; priority?: boolean }) {
           </div>
         )}
         {p.images.filter(Boolean).slice(0, 2).map((src, i) => (
-          <img key={i} src={src!} alt={i === 0 ? p.title : ''} loading={priority ? 'eager' : 'lazy'} />
+          <img
+            key={i}
+            src={src!}
+            alt={i === 0 ? p.title : ''}
+            loading={priority && i === 0 ? 'eager' : 'lazy'}
+            fetchPriority={lcp && i === 0 ? 'high' : i > 0 ? 'low' : undefined}
+            decoding="async"
+          />
         ))}
       </div>
       <div className={s.body}>
@@ -31,11 +42,12 @@ export function ProductCard({ p, priority }: { p: Card; priority?: boolean }) {
   );
 }
 
-export function ProductGrid({ items }: { items: Card[] }) {
+/** eager — сетка в первом экране страницы (подборка); на главной сетки ниже хиро и грузятся лениво, не мешая LCP. */
+export function ProductGrid({ items, eager = false }: { items: Card[]; eager?: boolean }) {
   return (
     <div className={s.grid}>
       {items.map((p, i) => (
-        <ProductCard key={p.id} p={p} priority={i < 5} />
+        <ProductCard key={p.id} p={p} priority={eager && i < 5} lcp={eager && i === 0} />
       ))}
     </div>
   );

@@ -281,7 +281,7 @@ export function LoadMore({ initial, page, pages }: { initial: Card[]; page: numb
     <>
       <div className={`${s.grid} ${c.grid}`}>
         {items.map((p, i) => (
-          <ProductCard key={p.id} p={p} priority={i < 5} />
+          <ProductCard key={p.id} p={p} priority={i < 5} lcp={i === 0} />
         ))}
       </div>
       {last < pages && (

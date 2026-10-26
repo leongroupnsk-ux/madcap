@@ -44,6 +44,28 @@ export const platformSettingsSchema = z.object({
 });
 export type PlatformSettings = z.infer<typeof platformSettingsSchema>;
 
+/**
+ * Безопасность админки: роли сотрудников, которым двухфакторный вход обязателен.
+ * Владелец в списке всегда — без него владелец с украденным паролем видел бы всё.
+ */
+export const securitySettingsSchema = z.object({
+  require2faRoles: z
+    .array(z.enum(['owner', 'moderator', 'editor', 'support', 'stylist']))
+    .refine((r) => r.includes('owner'), 'Для владельца 2FA обязательна')
+    .transform((r) => [...new Set(r)]),
+});
+export type SecuritySettings = { require2faRoles: StaffRoleId[] };
+export const DEFAULT_SECURITY: SecuritySettings = { require2faRoles: ['owner'] };
+
+/** Нужна ли сотруднику настройка 2FA прямо сейчас: роль из обязательного списка, а 2FA ещё не включена. */
+export function twofaSetupRequired(
+  user: { role: string; staffRole?: StaffRoleId | null; totpEnabled: boolean },
+  security: SecuritySettings,
+): boolean {
+  if (user.role !== 'admin' || user.totpEnabled) return false;
+  return security.require2faRoles.includes(user.staffRole ?? 'owner');
+}
+
 /** Запрос покупателя на консультацию стилиста (ТЗ §8) */
 export const stylistRequestSchema = z.object({
   question: z.string().trim().min(10, 'Опишите вопрос — от 10 символов').max(1000, 'До 1000 символов'),

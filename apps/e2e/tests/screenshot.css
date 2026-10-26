@@ -1,0 +1,4 @@
+/* Подключается только на время снимков toHaveScreenshot */
+nextjs-portal {
+  display: none !important;
+}

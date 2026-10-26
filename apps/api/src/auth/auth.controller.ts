@@ -51,7 +51,8 @@ export class AuthController {
   async login(@Body(new ZodPipe(loginSchema)) body: LoginInput, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = await this.auth.login(body, ip(req), captchaToken(req));
     await this.sessions.create(user.id, req, res);
-    return { user: publicUser(user) };
+    // twofaSetupRequired — клиент сразу ведёт сотрудника на страницу включения 2FA
+    return { user: { ...publicUser(user), twofaSetupRequired: await this.auth.twofaSetupRequired(user) } };
   }
 
   @Post('logout')
@@ -63,7 +64,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(AuthGuard)
   async me(@CurrentUser() user: User) {
-    return { user: { ...publicUser(user), hasCapsule: await this.auth.hasCapsule(user.id) } };
+    return { user: { ...publicUser(user), hasCapsule: await this.auth.hasCapsule(user.id), twofaSetupRequired: await this.auth.twofaSetupRequired(user) } };
   }
 
   @Post('verify-email')
@@ -119,7 +120,8 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(AuthGuard)
   async totpEnable(@CurrentUser() user: User, @Body(new ZodPipe(totpCodeSchema)) body: { code: string }) {
-    return { user: publicUser(await this.auth.totpEnable(user, body.code)) };
+    const updated = await this.auth.totpEnable(user, body.code);
+    return { user: { ...publicUser(updated), twofaSetupRequired: await this.auth.twofaSetupRequired(updated) } };
   }
 
   @Post('totp/disable')

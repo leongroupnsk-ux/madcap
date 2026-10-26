@@ -12,3 +12,4 @@ coverage
 .storage-test
 .env.production
 backups
+.next-perf

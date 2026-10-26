@@ -20,6 +20,10 @@ export async function api<T = unknown>(path: string, body?: unknown, method = bo
       errors: data.errors,
       code: data.code,
     };
+    // Обязательная 2FA ещё не включена (или правило включили, пока страница была открыта) — на страницу настройки
+    if (err.code === 'twofa_setup_required' && typeof window !== 'undefined' && window.location.pathname !== '/admin/security') {
+      window.location.assign('/admin/security');
+    }
     throw err;
   }
   return data as T;

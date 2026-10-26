@@ -293,6 +293,15 @@ async function main() {
 
   // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
   await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
+  // Демо-админ — владелец без 2FA: его пароль знают все, кому показывают стенд, и 2FA на нём заперла бы демо-вход
+  // за тем, кто первым её включит. Поэтому только на локальной машине разработки обязательная 2FA
+  // выключается целиком (security.require2faRoles = []). На любом сервере (NODE_ENV=production, в т.ч. демо-стенд
+  // с настоящим владельцем) настройка не трогается и действует правило по умолчанию: владельцу, в т.ч. демо-админу, 2FA обязательна.
+  if (process.env.NODE_ENV !== 'production') {
+    const security = { require2faRoles: [] };
+    await prisma.platformSetting.upsert({ where: { key: 'security' }, update: { value: security }, create: { key: 'security', value: security } });
+    console.log('Демо: обязательная 2FA для сотрудников выключена (security.require2faRoles = []); на боевом стенде включите её в «Сотрудники и настройки».');
+  }
 
   console.log(`Демо: ${created.length} товаров (премиум: ${created.filter((c) => c.item.premium).length}), 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
 }

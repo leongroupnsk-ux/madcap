@@ -34,7 +34,7 @@ export function Sidebar({ role }: { role: Role }) {
   const logout = useSupplierLogout();
   return (
     <aside className={s.side}>
-      <Link href="/supplier" className={s.brand} aria-label="Кабинет поставщика — дашборд">
+      <Link href="/supplier" className={s.brand} aria-label={`${BRAND.name} — кабинет поставщика, дашборд`}>
         {BRAND.mark.replace(/\.$/, '')}
         <span className={s.brandDot}>.</span>
       </Link>

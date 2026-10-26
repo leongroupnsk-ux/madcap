@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DEFAULT_CAPSULE_WEIGHTS, DEFAULT_STOREFRONT, type CapsuleWeights, type PlatformSettings, type StorefrontSettings } from '@aesculap/shared';
+import { DEFAULT_CAPSULE_WEIGHTS, DEFAULT_SECURITY, DEFAULT_STOREFRONT, type CapsuleWeights, type PlatformSettings, type SecuritySettings, type StorefrontSettings } from '@aesculap/shared';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 
@@ -12,6 +12,7 @@ const KEY = 'platform';
 @Injectable()
 export class SettingsService {
   private cache: { value: PlatformSettings; until: number } | null = null;
+  private securityCache: { value: SecuritySettings; until: number } | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -30,6 +31,26 @@ export class SettingsService {
   /** Сбросить кэш (после изменения в обход set — например, в тестах) */
   invalidate() {
     this.cache = null;
+    this.securityCache = null;
+  }
+
+  /**
+   * Безопасность админки: кому 2FA обязательна. Читается на каждом запросе к админке — поэтому кэш на 30 секунд
+   * (в процессе, который сохранил настройку, он сбрасывается сразу). Нет записи — действует DEFAULT_SECURITY (владелец).
+   */
+  async security(): Promise<SecuritySettings> {
+    if (this.securityCache && this.securityCache.until > Date.now()) return this.securityCache.value;
+    const row = await this.prisma.platformSetting.findUnique({ where: { key: 'security' } });
+    const v = (row?.value as Partial<SecuritySettings> | undefined) ?? {};
+    const value: SecuritySettings = { require2faRoles: Array.isArray(v.require2faRoles) ? v.require2faRoles : DEFAULT_SECURITY.require2faRoles };
+    this.securityCache = { value, until: Date.now() + 30_000 };
+    return value;
+  }
+
+  async setSecurity(value: SecuritySettings, actorId: string) {
+    await this.prisma.platformSetting.upsert({ where: { key: 'security' }, update: { value, updatedBy: actorId }, create: { key: 'security', value, updatedBy: actorId } });
+    this.securityCache = null;
+    return this.security();
   }
 
   async set(value: PlatformSettings, actorId: string) {

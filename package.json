@@ -9,6 +9,7 @@
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter @aesculap/api prisma:migrate",
     "db:seed": "pnpm --filter @aesculap/api prisma:seed",
-    "db:demo": "pnpm --filter @aesculap/api db:demo"
+    "db:demo": "pnpm --filter @aesculap/api db:demo",
+    "e2e": "pnpm --filter @aesculap/e2e e2e"
   }
 }

@@ -58,7 +58,8 @@ export function Gallery({ media: all, title, initialColorId }: { media: ProductD
         {cur.type === 'video' ? (
           <video src={cur.url} poster={cur.posterUrl ?? undefined} controls playsInline muted />
         ) : (
-          <img src={cur.url} alt={i === 0 ? title : `${title}, фото ${i + 1}`} onClick={() => setZoom(true)} />
+          // Главное фото — LCP страницы товара: высокий приоритет загрузки
+          <img src={cur.url} alt={i === 0 ? title : `${title}, фото ${i + 1}`} onClick={() => setZoom(true)} fetchPriority={i === 0 ? 'high' : 'auto'} />
         )}
       </div>
       {zoom && cur.type === 'photo' && (

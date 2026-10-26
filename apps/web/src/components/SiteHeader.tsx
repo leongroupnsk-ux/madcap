@@ -15,7 +15,7 @@ export async function SiteHeader() {
     <header className={s.header}>
       <CartSync userId={user?.id ?? null} />
       <div className={`container ${s.top}`}>
-        <Link href="/" className={s.logo} aria-label="На главную">
+        <Link href="/" className={s.logo} aria-label="aesculap — на главную">
           <Logo />
         </Link>
         <Link href="/catalog" className={s.catalogBtn}>

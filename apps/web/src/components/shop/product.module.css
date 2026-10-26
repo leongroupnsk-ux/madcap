@@ -26,7 +26,7 @@
   font: 500 10px/15px var(--font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .crumbs a {
   color: inherit;
@@ -140,7 +140,7 @@
 .meta {
   font: 500 10px/15px var(--font-mono);
   letter-spacing: 0.15em;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .title {
   margin-top: 12px;
@@ -201,7 +201,7 @@
   font: 700 12px/16px var(--font-sans);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #65766d;
+  color: #5b6a62;
 }
 .chartLink {
   border: 0;

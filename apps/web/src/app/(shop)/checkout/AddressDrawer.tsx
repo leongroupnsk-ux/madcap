@@ -47,7 +47,7 @@ function CityInput({ value, onPick, autoFocus }: { value: City | null; onPick: (
   }, [q, value?.city]);
   return (
     <>
-      <input className={c.formInput} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Начните вводить: Казань" autoComplete="address-level2" autoFocus={autoFocus} />
+      <input className={c.formInput} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Начните вводить: Казань" aria-label="Город" autoComplete="address-level2" autoFocus={autoFocus} />
       {list.length > 0 && (
         <div className={c.suggest} role="listbox">
           {list.map((x) => (
@@ -116,6 +116,7 @@ function StreetInput({
           onChange(e.target.value);
         }}
         onBlur={() => setTimeout(() => setList([]), 150)}
+        aria-label="Улица и дом"
         autoComplete="street-address"
         maxLength={200}
       />
@@ -520,7 +521,7 @@ function PointPicker({
         ) : (
           <div className={c.markers} aria-hidden={!points?.length}>
             {shown.slice(0, 40).map((p, i) => (
-              <button key={p.code} type="button" className={p.code === open ? c.markerOn : c.marker} onClick={() => setOpen(p.code)} aria-label={p.address}>
+              <button key={p.code} type="button" className={p.code === open ? c.markerOn : c.marker} onClick={() => setOpen(p.code)} aria-label={`${i + 1}. ${p.address}`}>
                 {i + 1}
               </button>
             ))}

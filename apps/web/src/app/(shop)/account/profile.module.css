@@ -9,7 +9,7 @@
   font: 500 10px/15px var(--font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .title {
   font-size: 48px;
@@ -212,7 +212,7 @@
   align-items: center;
   margin-top: 16px;
   font-weight: 500;
-  color: rgba(23, 61, 50, 0.5);
+  color: rgba(23, 61, 50, 0.7);
   cursor: pointer;
 }
 .consent input {

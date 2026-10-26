@@ -55,6 +55,8 @@ const config: NextConfig = {
     return [{ source: '/:path*', headers: security }];
   },
   poweredByHeader: false,
+  // Отдельная папка сборки — чтобы прод-сборка для замеров (docs/PERF.md) не мешала запущенному next dev
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
 };
 
 export default config;

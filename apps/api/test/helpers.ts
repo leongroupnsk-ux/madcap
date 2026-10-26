@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import sharp from 'sharp';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { newTotpSecret, totpCode } from '../src/auth/totp';
 import { setupApp } from '../src/bootstrap';
 import { MailService } from '../src/common/mail.service';
 import { PrismaService } from '../src/common/prisma.service';
@@ -63,10 +64,18 @@ export async function resetDb(app: INestApplication) {
 export const agent = (app: INestApplication) => request.agent(app.getHttpServer());
 export type Agent = ReturnType<typeof agent>;
 
-export async function makeUser(app: INestApplication, email: string, role: 'buyer' | 'admin' = 'buyer') {
-  await app.get(PrismaService).user.create({ data: { email, role, emailVerifiedAt: new Date(), passwordHash: await argon2.hash(PASSWORD) } });
+/**
+ * Пользователь с сессией. Сотрудник админки по умолчанию создаётся с включённой 2FA и входит с кодом —
+ * владельцу она обязательна, и без неё вся админка отвечает twofa_setup_required. { twofa: false } — без 2FA.
+ */
+export async function makeUser(app: INestApplication, email: string, role: 'buyer' | 'admin' = 'buyer', opts: { twofa?: boolean } = {}) {
+  const twofa = opts.twofa ?? role === 'admin';
+  const totpSecret = twofa ? newTotpSecret() : null;
+  await app.get(PrismaService).user.create({
+    data: { email, role, emailVerifiedAt: new Date(), passwordHash: await argon2.hash(PASSWORD), totpSecret, totpEnabledAt: twofa ? new Date() : null },
+  });
   const a = agent(app);
-  const res = await a.post('/api/auth/login').set('Origin', ORIGIN).send({ email, password: PASSWORD });
+  const res = await a.post('/api/auth/login').set('Origin', ORIGIN).send({ email, password: PASSWORD, ...(totpSecret ? { totp: totpCode(totpSecret) } : {}) });
   if (res.status !== 200) throw new Error(`login ${email}: ${res.status}`);
   return a;
 }

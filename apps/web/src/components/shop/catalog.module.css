@@ -4,7 +4,7 @@
   padding-bottom: 48px;
 }
 .crumbs {
-  color: #6c8377;
+  color: var(--c-text-label);
   font-weight: 500;
 }
 .crumbs a {
@@ -218,7 +218,7 @@
   border-bottom: 1px solid rgba(23, 61, 50, 0.09);
 }
 .sheetEyebrow {
-  color: #6c8377;
+  color: var(--c-text-label);
   font-weight: 500;
 }
 .sheetHead h2 {
@@ -260,7 +260,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #65766d;
+  color: #5b6a62;
 }
 .opts {
   display: flex;

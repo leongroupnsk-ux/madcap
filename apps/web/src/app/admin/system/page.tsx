@@ -1,6 +1,6 @@
 'use client';
 
-import { STAFF_AREAS, STAFF_ROLES, platformSettingsSchema, type PlatformSettings, type StaffRoleId } from '@aesculap/shared';
+import { STAFF_AREAS, STAFF_ROLES, platformSettingsSchema, type PlatformSettings, type SecuritySettings, type StaffRoleId } from '@aesculap/shared';
 import { useCallback, useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Chip, Field } from '@/components/ui';
@@ -26,6 +26,9 @@ export default function AdminSystemPage() {
   const [log, setLog] = useState<Log[]>([]);
   const [filter, setFilter] = useState({ action: '', actor: '' });
   const [settings, setSettings] = useState<Record<keyof PlatformSettings, string> | null>(null);
+  const [security, setSecurity] = useState<StaffRoleId[] | null>(null);
+  // Владельцу 2FA обязательна; на демо-стенде правило может быть выключено (список пуст) — тогда предупреждаем
+  const [ownerExempt, setOwnerExempt] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
 
@@ -47,6 +50,10 @@ export default function AdminSystemPage() {
 
   useEffect(() => {
     void api<Staff[]>('/admin/system/staff').then(setStaff);
+    void api<SecuritySettings>('/admin/system/settings/security').then((v) => {
+      setOwnerExempt(!v.require2faRoles.includes('owner'));
+      setSecurity([...new Set<StaffRoleId>(['owner', ...v.require2faRoles])]);
+    });
     void api<PlatformSettings>('/admin/system/settings').then((v) => setSettings({ defaultCommissionPct: String(v.defaultCommissionPct), confirmHours: String(v.confirmHours), payMinutes: String(v.payMinutes) }));
   }, []);
   const loadLog = useCallback(() => {
@@ -231,6 +238,43 @@ export default function AdminSystemPage() {
               Сохранить
             </Button>
           </div>
+        </section>
+      )}
+
+      {tab === 'settings' && security && (
+        <section className={s.panel} style={{ marginTop: 16, maxWidth: 560 }}>
+          <h2>Безопасность</h2>
+          <p className={s.muted}>
+            Роли, которым вход в админку разрешён только с кодом из приложения (2FA). Сотрудник такой роли без включённой 2FA после входа видит только страницу её настройки. Сотрудники
+            без 2FA сейчас: {staff.filter((u) => !u.twoFactor && security.includes(u.staffRole)).map((u) => u.email).join(', ') || 'нет'}.
+          </p>
+          {ownerExempt && <Alert tone="error">Сейчас обязательная 2FA выключена для всех (демо-стенд). Сохранение включит её для владельца и отмеченных ролей.</Alert>}
+          <div style={{ display: 'grid', gap: 8, margin: '12px 0' }}>
+            {Object.entries(STAFF_ROLES).map(([id, label]) => (
+              <label key={id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="checkbox"
+                  checked={security.includes(id as StaffRoleId)}
+                  disabled={id === 'owner'}
+                  onChange={(e) => setSecurity(e.target.checked ? [...security, id as StaffRoleId] : security.filter((r) => r !== id))}
+                />
+                {label}
+                {id === 'owner' && <span className={s.muted}>— обязательно всегда</span>}
+              </label>
+            ))}
+          </div>
+          {errors.require2faRoles && <Alert tone="error">{errors.require2faRoles}</Alert>}
+          <Button
+            onClick={async () => {
+              const r = await run(() => api<SecuritySettings>('/admin/system/settings/security', { require2faRoles: security }, 'PUT'), 'Настройки безопасности сохранены');
+              if (r) {
+                setSecurity(r.require2faRoles);
+                setOwnerExempt(false);
+              }
+            }}
+          >
+            Сохранить
+          </Button>
         </section>
       )}
     </>

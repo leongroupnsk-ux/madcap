@@ -66,7 +66,7 @@
 }
 .btnAccent {
   background: var(--c-accent);
-  color: #fff;
+  color: var(--c-on-accent);
 }
 .btnAccent:hover {
   background: var(--c-accent-hover);
@@ -185,9 +185,11 @@
   border-radius: var(--r-lg);
   background: var(--c-primary);
 }
-.how .eyebrow {
+.how :global(.eyebrow) {
   font-weight: 500;
-  color: #6c8377;
+  /* Класс eyebrow глобальный — без :global правило не применялось, и надзаголовок был тёмным на тёмном (1.6:1).
+     Цвет — макетный #6c8377, осветлённый до контраста AA на тёмно-зелёном. */
+  color: #8fa399;
 }
 .how h2 {
   margin-top: 12px;
@@ -267,9 +269,9 @@
   gap: 24px;
   flex-wrap: wrap;
 }
-.ctaInner .eyebrow {
+.ctaInner :global(.eyebrow) {
   font-weight: 500;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .ctaInner h2 {
   margin-top: 12px;

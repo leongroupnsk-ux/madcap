@@ -41,7 +41,7 @@ export default async function CollectionPage({ params }: { params: P }) {
       )}
       {c.products.length > 0 && (
         <div className={j.collectionGrid}>
-          <ProductGrid items={c.products} />
+          <ProductGrid items={c.products} eager />
         </div>
       )}
     </section>

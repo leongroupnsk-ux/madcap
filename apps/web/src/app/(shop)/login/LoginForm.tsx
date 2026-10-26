@@ -15,13 +15,15 @@ export function LoginForm({ next }: { next: string }) {
   // Сотрудникам с включённой 2FA сервер отвечает totp_required — тогда показываем поле кода
   const [needTotp, setNeedTotp] = useState(false);
   const { errors, formError, pending, submit, captcha } = useForm(loginSchema, async (data, { headers }) => {
+    let res: { user: { twofaSetupRequired?: boolean } };
     try {
-      await api('/auth/login', data, undefined, headers);
+      res = await api('/auth/login', data, undefined, headers);
     } catch (e) {
       if (isApiError(e) && e.code === 'totp_required') setNeedTotp(true);
       throw e;
     }
-    router.replace(next);
+    // Сотруднику, которому 2FA обязательна, сначала — её настройка
+    router.replace(res.user.twofaSetupRequired ? '/admin/security' : next);
     router.refresh();
   });
   const registerHref = next === '/account' ? '/register' : `/register?next=${encodeURIComponent(next)}`;

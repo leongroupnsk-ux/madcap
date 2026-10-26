@@ -1,7 +1,18 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 
-export type SessionUser = { id: string; email: string; phone?: string | null; staffRole?: 'owner' | 'moderator' | 'editor' | 'support' | null; role: 'buyer' | 'supplier_staff' | 'admin'; emailVerified: boolean; hasCapsule?: boolean };
+export type SessionUser = {
+  id: string;
+  email: string;
+  phone?: string | null;
+  staffRole?: 'owner' | 'moderator' | 'editor' | 'support' | 'stylist' | null;
+  role: 'buyer' | 'supplier_staff' | 'admin';
+  emailVerified: boolean;
+  hasCapsule?: boolean;
+  totpEnabled?: boolean;
+  /** Сотруднику обязательна 2FA, а она не включена — админка закрыта до настройки (/admin/security) */
+  twofaSetupRequired?: boolean;
+};
 
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4100';
 

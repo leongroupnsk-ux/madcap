@@ -55,7 +55,7 @@ export default async function SupplierLoginPage() {
           </div>
         </section>
         <section className={s.form}>
-          <Link href="/" className={s.logo} aria-label="На главную">
+          <Link href="/" className={s.logo} aria-label="aesculap — на главную">
             {BRAND.mark.replace(/\.$/, '')}
             <span className={s.logoDot}>.</span>
           </Link>

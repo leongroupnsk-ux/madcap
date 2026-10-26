@@ -65,7 +65,7 @@ a.role:hover {
 }
 .eyebrow {
   margin-top: 48px;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .title {
   margin: 12px 0 0;
@@ -213,7 +213,8 @@ a.role:hover {
 .note {
   margin: 0;
   font: 500 15px/1.33 var(--font-sans);
-  color: rgba(23, 61, 50, 0.5);
+  /* макет — 50% прозрачности (2.8:1); 70% даёт AA на белом */
+  color: rgba(23, 61, 50, 0.7);
 }
 
 /* Согласие на ПДн и оферту */
@@ -227,7 +228,7 @@ a.role:hover {
   align-items: center;
   gap: 10px;
   font: 500 15px/18px var(--font-sans);
-  color: rgba(23, 61, 50, 0.5);
+  color: rgba(23, 61, 50, 0.7);
   cursor: pointer;
 }
 .check a {

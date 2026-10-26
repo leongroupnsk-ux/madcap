@@ -11,7 +11,7 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
   return (
     <div className={s.page}>
       <div className={s.card}>
-        <Link href="/" className={s.logo} aria-label="На главную">
+        <Link href="/" className={s.logo} aria-label="aesculap — на главную">
           {BRAND.mark.replace(/\.$/, '')}
           <span className={s.logoDot}>.</span>
         </Link>

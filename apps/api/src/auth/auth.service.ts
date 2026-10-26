@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthTokenType, type User } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { type LoginInput, type RegisterInput } from '@aesculap/shared';
+import { twofaSetupRequired, type LoginInput, type RegisterInput } from '@aesculap/shared';
+import { AuditService } from '../common/audit.service';
+import { SettingsService } from '../common/settings.service';
 import { LegalService } from '../common/legal.service';
 import { PrismaService } from '../common/prisma.service';
 import { MailService } from '../common/mail.service';
@@ -33,7 +35,15 @@ export class AuthService {
     private readonly limits: RateLimitService,
     private readonly legal: LegalService,
     private readonly captcha: CaptchaService,
+    private readonly settings: SettingsService,
+    private readonly audit: AuditService,
   ) {}
+
+  /** Сотруднику нужно включить 2FA, прежде чем работать в админке (настройка «Безопасность»). */
+  async twofaSetupRequired(user: User): Promise<boolean> {
+    if (user.role !== 'admin') return false;
+    return twofaSetupRequired({ role: user.role, staffRole: user.staffRole, totpEnabled: Boolean(user.totpEnabledAt) }, await this.settings.security());
+  }
 
   async register(input: RegisterInput, ip: string, captchaToken?: string): Promise<User> {
     await this.limits.hit('register', ip, 10, 3600, this.captcha.gate(captchaToken, ip));
@@ -163,15 +173,23 @@ export class AuthService {
     if (!user.totpSecret || !verifyTotp(user.totpSecret, code)) {
       throw new BadRequestException({ message: 'Неверный код', errors: { code: 'Неверный код' } });
     }
-    return this.prisma.user.update({ where: { id: user.id }, data: { totpEnabledAt: new Date() } });
+    const updated = await this.prisma.user.update({ where: { id: user.id }, data: { totpEnabledAt: new Date() } });
+    if (user.role === 'admin') await this.audit.log(user.id, 'auth.2fa.enable', 'user', user.id);
+    return updated;
   }
 
   async totpDisable(user: User, code: string) {
+    // Для ролей из обязательного списка выключить нельзя — иначе админка сразу закроется до повторной настройки
+    if (user.role === 'admin' && (await this.settings.security()).require2faRoles.includes(user.staffRole ?? 'owner')) {
+      throw new BadRequestException({ message: 'Для вашей роли двухфакторная защита обязательна — отключить её нельзя', code: 'twofa_required_by_policy' });
+    }
     await this.limits.hit('totp', user.id, 5, 900);
     if (!user.totpSecret || !user.totpEnabledAt || !verifyTotp(user.totpSecret, code)) {
       throw new BadRequestException({ message: 'Неверный код', errors: { code: 'Неверный код' } });
     }
-    return this.prisma.user.update({ where: { id: user.id }, data: { totpEnabledAt: null, totpSecret: null } });
+    const updated = await this.prisma.user.update({ where: { id: user.id }, data: { totpEnabledAt: null, totpSecret: null } });
+    if (user.role === 'admin') await this.audit.log(user.id, 'auth.2fa.disable', 'user', user.id);
+    return updated;
   }
 
   private async issueToken(userId: string, type: AuthTokenType, ttlMinutes: number): Promise<string> {

@@ -52,7 +52,7 @@ export function Review({ groups }: { groups: Dictionaries['specialtyGroups'] }) 
 
   return (
     <div className={s.reviewWrap}>
-      <div className="eyebrow" style={{ color: '#6c8377' }}>
+      <div className="eyebrow" style={{ color: 'var(--c-text-label)' }}>
         Ваши данные
       </div>
       <h1 className={s.title}>Всё выглядит верно?</h1>

@@ -1041,7 +1041,7 @@
   font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(205, 187, 173, 0.5);
+  color: rgba(205, 187, 173, 0.75);
 }
 .emptyState {
   max-width: 576px;
@@ -1338,7 +1338,7 @@
   padding: 22px 40px 0;
   font-size: 10px;
   line-height: 16px;
-  color: rgba(26, 26, 26, 0.6);
+  color: rgba(26, 26, 26, 0.68);
 }
 .secure img {
   flex-shrink: 0;
@@ -1354,7 +1354,7 @@
   justify-content: center;
   font-size: 10px;
   line-height: 16px;
-  color: rgba(26, 26, 26, 0.6);
+  color: rgba(26, 26, 26, 0.68);
   cursor: pointer;
 }
 .policy input {

@@ -76,3 +76,13 @@ pnpm test
 ```
 
 e2e-тесты API работают с базой `aesculap_test` и Redis db 6.
+
+Браузерные e2e (Playwright, пакет `apps/e2e`) гоняются против запущенного dev-стенда (`pnpm dev`, база с `pnpm db:demo`):
+
+```bash
+pnpm --filter @aesculap/e2e exec playwright install chromium   # один раз
+pnpm e2e                                   # все сценарии, axe и скриншоты
+pnpm e2e tests/visual.spec.ts --update-snapshots   # обновить эталоны после намеренной правки вёрстки
+```
+
+Сценарии: заказ гостя с двумя отправлениями и оплатой → подтверждение поставщиком, анкета → капсула → корзина, премиум-заявка, мобильная вёрстка 360 px, проверки доступности axe (WCAG 2.1 AA, падают на serious/critical). Каждый прогон создаёт новых покупателей `e2e-<время>@example.ru` и заказы в dev-базе. Пароль демо-поставщика скрипт берёт из `apps/api/prisma/demo.ts` (или `E2E_DEMO_PASSWORD`). Эталоны скриншотов сняты на macOS — на другой ОС их нужно переснять. Замеры Lighthouse и доступности — [docs/PERF.md](docs/PERF.md).

@@ -65,7 +65,7 @@ export function QuizStep({ step, groups }: { step: number; groups: Dictionaries[
 
   return (
     <div className={s.wrap}>
-      <Link href="/" className={s.logo} aria-label="На главную">
+      <Link href="/" className={s.logo} aria-label="aesculap — на главную">
         <Logo size={20} />
       </Link>
       {/* Счётчик «N из 6» идёт по шагу: в макете он застыл на «1 из 6» — ошибка макета (ТЗ §12 п.12). */}

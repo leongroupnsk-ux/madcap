@@ -16,6 +16,16 @@ docker compose -f docker-compose.prod.yml exec api npx tsx prisma/seed.ts       
 docker compose -f docker-compose.prod.yml exec api npx tsx scripts/create-admin.ts admin@домен
 ```
 
+Владельцу (и ролям, отмеченным в «Сотрудники и настройки» → «Настройки платформы» → «Безопасность») вход в админку разрешён только с 2FA: после первого входа по паролю админка открывает лишь страницу «Профиль и безопасность», пока не подключено приложение-аутентификатор. Потерян телефон с кодами — сброс 2FA и всех сессий пользователя (запись `auth.2fa.reset` в журнале действий), после чего он входит по паролю и настраивает 2FA заново:
+
+```bash
+docker compose -f docker-compose.prod.yml exec api npx tsx scripts/reset-2fa.ts admin@домен
+```
+
+`pnpm db:demo` выключает обязательную 2FA только на локальной машине разработки (NODE_ENV≠production). На серверах, включая демо-стенд, правило действует всегда: демо-админу `demo.admin@example.ru` там тоже нужна 2FA.
+
+Prisma CLI настраивается `apps/api/prisma.config.ts` (схема, миграции, seed); `.env` он читает сам через dotenv, в контейнере `DATABASE_URL` берётся из окружения.
+
 API не стартует, если в продакшене остались заглушки оплаты, почты или доставки, или `WEB_ORIGIN` не https — список проблем печатается в лог (`docker compose logs api`). Для демо-стенда без ключей — `ALLOW_TEST_PROVIDERS=1` в `.env.production`.
 
 ## Внешние сервисы

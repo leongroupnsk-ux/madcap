@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer className={s.footer}>
       <div className="container">
         <div className={s.footerRow}>
-          <Link href="/" aria-label="На главную">
+          <Link href="/" aria-label="aesculap — на главную">
             <Logo size={20} />
           </Link>
           <Link href="/legal/offer">Оферта</Link>

@@ -275,6 +275,13 @@
   .cta {
     display: none;
   }
+  /* «Корзина» здесь последняя в ряду: вынесенный вправо счётчик вылезал за поле экрана (e2e, 360 px) — ставим его в строку */
+  .badge {
+    position: static;
+    display: inline-block;
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
 }
 @media (min-width: 901px) and (max-width: 1180px) {
   .actions {

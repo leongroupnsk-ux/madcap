@@ -35,7 +35,7 @@
   font: 700 10px/15px var(--font-sans);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #65766d;
+  color: #5b6a62;
   white-space: nowrap;
 }
 .nav {
@@ -115,7 +115,7 @@
   gap: 4px;
   min-width: 0;
   font: 400 14px/20px var(--font-sans);
-  color: #2e8566;
+  color: #287a5d;
   text-decoration: none;
 }
 .pay span {

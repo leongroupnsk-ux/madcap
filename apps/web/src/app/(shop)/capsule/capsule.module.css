@@ -4,7 +4,7 @@
   padding-bottom: 48px;
 }
 .page :global(.eyebrow) {
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .title {
   margin: 12px 0 0;
@@ -316,7 +316,7 @@
   gap: 16px;
 }
 .dialogHead :global(.eyebrow) {
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .dialogTitle {
   margin: 8px 0 0;

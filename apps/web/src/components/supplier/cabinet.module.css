@@ -356,7 +356,7 @@
   color: #173d32;
 }
 .sup :global(.eyebrow) {
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .sup .head {
   align-items: flex-end;
@@ -398,7 +398,7 @@
 .sup .tileLabel {
   font: 700 14px/16px var(--font-sans);
   letter-spacing: 0.1em;
-  color: #65766d;
+  color: #5b6a62;
 }
 .sup .tile b {
   margin: 16px 0 0;
@@ -461,7 +461,7 @@
   padding: 15px 20px;
   font: 700 12px/16px var(--font-sans);
   letter-spacing: 0.1em;
-  color: #65766d;
+  color: #5b6a62;
   border-bottom-color: var(--sup-line);
 }
 .sup .table td {
@@ -677,7 +677,7 @@
   display: block;
   padding-top: 4px;
   font: 400 11.2px/16px var(--font-sans);
-  color: #65766d;
+  color: #5b6a62;
 }
 .productCell:hover b {
   text-decoration: underline;
@@ -720,7 +720,7 @@
 .sub {
   margin-top: 4px;
   font: 400 12px/16px var(--font-sans);
-  color: #65766d;
+  color: #5b6a62;
 }
 .orderNo {
   font-weight: 700;
@@ -778,7 +778,7 @@
     font: 700 11px/20px var(--font-sans);
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #65766d;
+    color: #5b6a62;
   }
   .sup .ordersTable td.rowAction {
     display: block;
@@ -915,7 +915,7 @@
 }
 .mintCard :global(.eyebrow),
 .darkCard :global(.eyebrow) {
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .cardTitle {
   margin: 12px 0 0;

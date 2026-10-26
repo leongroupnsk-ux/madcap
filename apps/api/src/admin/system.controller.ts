@@ -1,5 +1,5 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, HttpCode, NotFoundException, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
-import { STAFF_ROLES, platformSettingsSchema, staffInviteSchema, type PlatformSettings, type StaffRoleId } from '@aesculap/shared';
+import { STAFF_ROLES, platformSettingsSchema, securitySettingsSchema, staffInviteSchema, type PlatformSettings, type SecuritySettings, type StaffRoleId } from '@aesculap/shared';
 import type { Prisma, User } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'node:crypto';
@@ -106,6 +106,20 @@ export class SystemController {
     const before = await this.settings.get();
     const after = await this.settings.set(body, admin.id);
     await this.audit.log(admin.id, 'settings.update', 'platform', undefined, { before, after } as unknown as Prisma.InputJsonValue);
+    return after;
+  }
+
+  /** Безопасность: роли, которым обязательна 2FA (владелец — всегда) */
+  @Get('settings/security')
+  getSecurity() {
+    return this.settings.security();
+  }
+
+  @Put('settings/security')
+  async saveSecurity(@Body(new ZodPipe(securitySettingsSchema)) body: SecuritySettings, @CurrentUser() admin: User) {
+    const before = await this.settings.security();
+    const after = await this.settings.setSecurity(body, admin.id);
+    await this.audit.log(admin.id, 'settings.security', 'platform', undefined, { before, after } as unknown as Prisma.InputJsonValue);
     return after;
   }
 }

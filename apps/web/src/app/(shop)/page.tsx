@@ -60,7 +60,15 @@ export default async function HomePage() {
       <div className="container">
         <div className={h.banner}>
           <section className={h.hero}>
-            <img className={h.heroImg} src="/design/hero.webp" alt="" fetchPriority="high" />
+            {/* LCP главной: высокий приоритет и уменьшенные копии для телефонов (docs/PERF.md) */}
+            <img
+              className={h.heroImg}
+              src="/design/hero.webp"
+              srcSet="/design/hero-768.webp 768w, /design/hero-1024.webp 1024w, /design/hero.webp 1536w"
+              sizes="(max-width: 900px) 100vw, 840px"
+              alt=""
+              fetchPriority="high"
+            />
             <div className={h.heroText}>
               {hero.eyebrow && <div className="eyebrow">{hero.eyebrow}</div>}
               <h1>
@@ -84,7 +92,13 @@ export default async function HomePage() {
             </div>
           </section>
           <section className={h.premium}>
-            <img className={h.premiumImg} src="/design/premium-banner.webp" alt="" />
+            <img
+              className={h.premiumImg}
+              src="/design/premium-banner.webp"
+              srcSet="/design/premium-banner-640.webp 640w, /design/premium-banner.webp 1100w"
+              sizes="(max-width: 900px) 100vw, 490px"
+              alt=""
+            />
             <span className={h.mark}>
               aesculap<span>. </span>
               <small>premium</small>

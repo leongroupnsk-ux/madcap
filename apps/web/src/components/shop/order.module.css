@@ -22,7 +22,7 @@
   font: 500 10px/15px var(--font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .head {
   display: flex;
@@ -114,7 +114,7 @@
   font: 500 10px/15px var(--font-mono);
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #6c8377;
+  color: var(--c-text-label);
 }
 .factAction {
   display: flex;
@@ -268,7 +268,7 @@
 .meta {
   font-size: 12px;
   line-height: 16px;
-  color: #65766d;
+  color: #5b6a62;
 }
 .name {
   display: block;
