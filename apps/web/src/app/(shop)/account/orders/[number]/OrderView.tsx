@@ -1,9 +1,10 @@
 'use client';
 
-import { ORDER_STATUS_LABEL, RETURN_DAYS, SHIPMENT_FLOW, SHIPMENT_STATUS_LABEL, cdekTrackUrl, formatRub } from '@aesculap/shared';
+import { ORDER_STATUS_LABEL, REVIEW_STATUS_LABEL, RETURN_DAYS, SHIPMENT_FLOW, SHIPMENT_STATUS_LABEL, cdekTrackUrl, formatRub } from '@aesculap/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ReviewForm, type MyReview } from '@/components/shop/ReviewForm';
 import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { addToCart } from '@/lib/cart';
@@ -50,6 +51,13 @@ export function OrderView({ initial }: { initial: OrderData }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Отзывы: товары из доставленных отправлений, на которые можно написать отзыв, и уже написанные
+  const [reviews, setReviews] = useState<{ reviews: MyReview[]; eligible: { id: string; slug: string; title: string }[] } | null>(null);
+  const [reviewing, setReviewing] = useState<{ id: string; title: string } | null>(null);
+  const hasDelivered = order.shipments.some((s) => s.status === 'delivered');
+  useEffect(() => {
+    if (hasDelivered) api<typeof reviews>('/me/reviews').then(setReviews).catch(() => undefined);
+  }, [hasDelivered]);
 
   const run = async (fn: () => Promise<OrderData | void>) => {
     setBusy(true);
@@ -74,7 +82,7 @@ export function OrderView({ initial }: { initial: OrderData }) {
   };
 
   const many = order.shipments.length > 1;
-  const items = order.shipments.flatMap((s) => s.items.map((i) => ({ ...i, shipmentNo: s.no })));
+  const items = order.shipments.flatMap((s) => s.items.map((i) => ({ ...i, shipmentNo: s.no, delivered: s.status === 'delivered' })));
   const qty = items.reduce((n, i) => n + i.qty, 0);
   // Способ доставки задаётся по отправлению (ТЗ §12 п.8) — здесь сводка по всем отправлениям заказа
   const methods = [...new Set(order.shipments.map((s) => (s.deliveryType === 'pvz' ? 'Пункт выдачи СДЭК' : 'Курьер СДЭК')))].join(', ');
@@ -246,6 +254,21 @@ export function OrderView({ initial }: { initial: OrderData }) {
                 <span className={o.name}>{i.title}</span>
               )}
               {i.returnedQty > 0 && <div className={o.warn}>Возвращено: {i.returnedQty} шт.</div>}
+              {i.delivered && i.slug && reviews && (() => {
+                const mine = reviews.reviews.find((rv) => rv.product.slug === i.slug);
+                if (mine)
+                  return (
+                    <Link href="/account#reviews" className={o.link} style={{ alignSelf: 'flex-start' }}>
+                      Ваш отзыв: {REVIEW_STATUS_LABEL[mine.status].toLowerCase()} →
+                    </Link>
+                  );
+                const can = reviews.eligible.find((e) => e.slug === i.slug);
+                return can ? (
+                  <button type="button" className={o.link} style={{ alignSelf: 'flex-start' }} onClick={() => setReviewing({ id: can.id, title: can.title })}>
+                    ★ Оставить отзыв
+                  </button>
+                ) : null;
+              })()}
               <div className={o.itemRow}>
                 <span>
                   Количество: {i.qty}
@@ -281,6 +304,17 @@ export function OrderView({ initial }: { initial: OrderData }) {
           </Button>
         </aside>
       </div>
+
+      {reviewing && (
+        <ReviewForm
+          product={reviewing}
+          onClose={() => setReviewing(null)}
+          onSaved={() => {
+            setReviewing(null);
+            void api<typeof reviews>('/me/reviews').then(setReviews);
+          }}
+        />
+      )}
 
       {confirmCancel && (
         <Modal eyebrow={`Заказ № ${order.number}`} title="Отменить заказ?" onClose={() => setConfirmCancel(false)}>

@@ -11,3 +11,4 @@ export * from './staff.js';
 export * from './storefront.js';
 export * from './legal.js';
 export * from './premium.js';
+export * from './reviews.js';

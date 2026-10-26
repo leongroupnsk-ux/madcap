@@ -6,6 +6,7 @@ import { repriceSales } from '../promotions/price';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
 import { MediaService } from './media.service';
+import { RestockService } from '../favorites/restock.service';
 
 /** Поля, правка которых у опубликованного товара идёт через модерацию (ТЗ §7.3). */
 const TEXT_FIELDS = ['title', 'brandId', 'categoryId', 'gender', 'fabric', 'treatment', 'washing', 'description', 'premium'] as const;
@@ -42,6 +43,7 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly restock: RestockService,
   ) {}
 
   // ─── чтение ──────────────────────────────────────────────────────────
@@ -307,6 +309,8 @@ export class ProductsService {
       }
       throw e;
     }
+    // Остаток мог вырасти с нуля — подписчикам «Сообщить о поступлении» уйдёт письмо (если подписки есть)
+    await this.restock.check({ variantIds: (await this.prisma.productVariant.findMany({ where: { productId }, select: { id: true } })).map((v) => v.id) }).catch(() => undefined);
   }
 
   async submit(supplier: Supplier, id: string, actor: User) {

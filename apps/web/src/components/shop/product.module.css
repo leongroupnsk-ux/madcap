@@ -265,6 +265,15 @@
   color: var(--c-text-strike);
   cursor: not-allowed;
 }
+/* Нет в наличии, но выбрать можно — чтобы подписаться на поступление */
+.sizeOut:not(.sizeOn) {
+  color: var(--c-text-strike);
+  border-style: dashed;
+}
+.sizeOut.sizeOn {
+  background: var(--c-text-strike);
+  border-color: var(--c-text-strike);
+}
 .rec {
   position: absolute;
   top: 45px;

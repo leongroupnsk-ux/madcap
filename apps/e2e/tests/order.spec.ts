@@ -12,8 +12,9 @@ test.describe.serial('Заказ гостя и подтверждение пос
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
-    // Главная → каталог
+    // Главная → каталог: «Каталог» в шапке открывает мегаменю, из него — «Весь каталог»
     await page.getByRole('banner').getByRole('link', { name: 'Каталог', exact: true }).click();
+    await page.getByRole('navigation', { name: 'Каталог' }).getByRole('link', { name: 'Весь каталог' }).click();
     await expect(page).toHaveURL(/\/catalog$/);
     await expect(page.getByRole('heading', { level: 1, name: /Медицинская одежда/ })).toBeVisible();
 

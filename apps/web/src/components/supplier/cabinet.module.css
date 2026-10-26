@@ -285,7 +285,8 @@
 }
 .b_s_delivered {
   background: #e5f4e4;
-  color: var(--c-success);
+  /* как у .b_published: --c-success на зелёной пилюле — 4.37:1, на тон темнее ради AA */
+  color: #29734f;
 }
 .b_s_cancelled,
 .b_s_rejected,

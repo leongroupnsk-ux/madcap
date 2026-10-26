@@ -55,6 +55,9 @@ model User {
   premiumAnswers       PremiumAnswers?
   premiumLeads         PremiumLead[]
   newsletterDeliveries NewsletterDelivery[]
+  reviews              Review[]
+  favorites            Favorite[]
+  restockSubscriptions RestockSubscription[]
 
   @@map("users")
 }
@@ -397,6 +400,8 @@ model Product {
   articles     ArticleProduct[]
   collections  CollectionProduct[]
   capsuleItems CapsuleItem[]
+  reviews      Review[]
+  favorites    Favorite[]
 
   @@unique([supplierId, externalId])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_title_trgm_idx")
@@ -435,12 +440,13 @@ model ProductVariant {
   widthMm         Int?
   heightMm        Int?
 
-  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  color         Color          @relation(fields: [colorId], references: [id])
-  capsuleItems  CapsuleItem[]
-  cartItems     CartItem[]
-  orderItems    ShipmentItem[]
-  salePromotion Promotion?     @relation(fields: [salePromotionId], references: [id], onDelete: SetNull)
+  product              Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  color                Color                 @relation(fields: [colorId], references: [id])
+  capsuleItems         CapsuleItem[]
+  cartItems            CartItem[]
+  orderItems           ShipmentItem[]
+  salePromotion        Promotion?            @relation(fields: [salePromotionId], references: [id], onDelete: SetNull)
+  restockSubscriptions RestockSubscription[]
 
   @@unique([productId, sku])
   @@index([productId])
@@ -1256,4 +1262,93 @@ model PremiumLead {
   @@index([status, createdAt])
   @@index([userId])
   @@map("premium_leads")
+}
+
+// ─── Улучшения продукта: отзывы, избранное, «Сообщить о поступлении» ─────
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+/// «Размер подошёл»: маломерит / в размер / большемерит
+enum ReviewFit {
+  small
+  true_to_size
+  large
+}
+
+/// Отзыв покупателя о товаре. Оставить можно только после доставки (позиция в отправлении delivered, возвращена
+/// не целиком), один на товар от покупателя; новый и отредактированный отзыв ждёт модерации.
+/// Ответ продавца — один, публикуется сразу (без модерации), но виден только у одобренного отзыва.
+model Review {
+  id            String       @id @default(uuid()) @db.Uuid
+  productId     String       @db.Uuid
+  userId        String       @db.Uuid
+  /// Имя на витрине — снимок имени из анкеты на момент отзыва; после удаления аккаунта — «Покупатель»
+  authorName    String
+  rating        Int
+  fit           ReviewFit
+  text          String
+  /// Ключи фото в хранилище (public/reviews/<uuid>.webp), до 3, без EXIF
+  photos        String[]     @default([])
+  status        ReviewStatus @default(pending)
+  rejectReason  String?
+  moderatedAt   DateTime?
+  moderatedById String?      @db.Uuid
+  /// Когда отзыв впервые одобрен — дата на витрине
+  publishedAt   DateTime?
+  reply         String?
+  replyAt       DateTime?
+  replyById     String?      @db.Uuid
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId, status, publishedAt])
+  @@index([status, updatedAt])
+  @@index([userId])
+  @@map("reviews")
+}
+
+/// Избранное вошедшего покупателя; у гостя — в браузере, переносится при входе
+model Favorite {
+  userId    String   @db.Uuid
+  productId String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([productId])
+  @@map("favorites")
+}
+
+/// Подписка «Сообщить о поступлении» на вариант (цвет + размер + ростовка). Одна строка на вариант и email:
+/// после письма подписка закрыта (notifiedAt), повторная подписка открывает её снова.
+model RestockSubscription {
+  id          String    @id @default(uuid()) @db.Uuid
+  variantId   String    @db.Uuid
+  /// Вошедший покупатель; у гостя — null
+  userId      String?   @db.Uuid
+  email       String
+  /// Гость дал согласие на обработку email (152-ФЗ); у вошедшего — согласие при регистрации
+  consentAt   DateTime  @default(now())
+  ip          String?
+  createdAt   DateTime  @default(now())
+  notifiedAt  DateTime?
+  cancelledAt DateTime?
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  user    User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, email])
+  @@index([email])
+  @@index([userId])
+  @@map("restock_subscriptions")
 }

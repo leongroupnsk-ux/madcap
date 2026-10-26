@@ -5,6 +5,7 @@ import { serverApi } from '@/lib/server-api';
 import { requireSupplier } from '@/lib/supplier-session';
 import type { Dictionaries, Product } from '@/lib/types';
 import { ProductForm } from '../ProductForm';
+import { SupplierReviews } from '../SupplierReviews';
 
 export const metadata: Metadata = { title: 'Товар' };
 
@@ -22,6 +23,7 @@ export default async function EditProductPage({ params, searchParams }: { params
         </div>
       )}
       <ProductForm key={product.data.updatedAt} dict={dict.data!} initial={product.data} />
+      <SupplierReviews productId={product.data.id} />
     </>
   );
 }

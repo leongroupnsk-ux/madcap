@@ -1,0 +1,362 @@
+/* Мегаменю «Каталог» — макета нет (ТЗ §12 п.17), стиль перенесённых страниц: кремовый фон, мятные плашки, Prata в заголовках */
+
+/* ── Десктоп: панель во всю ширину под шапкой ── */
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--c-bg);
+  border-top: 1px solid var(--c-border-soft);
+  border-bottom: 1px solid var(--c-border);
+  /* Тень + затемнение страницы под панелью; clip-path срезает затемнение над панелью, чтобы шапка осталась светлой */
+  box-shadow:
+    0 24px 48px rgba(18, 61, 50, 0.14),
+    0 0 0 100vmax rgba(18, 61, 50, 0.18);
+  clip-path: inset(0 -100vmax -100vmax -100vmax);
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mobileHead {
+  display: none;
+}
+.grid {
+  /* Подразделы активного раздела позиционируются от сетки — в средней колонке */
+  position: relative;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 340px;
+  gap: 48px;
+  padding-top: 32px;
+  padding-bottom: 36px;
+  min-height: 360px;
+}
+.grid :global(.eyebrow) {
+  font-weight: 500;
+  color: var(--c-text-label);
+}
+.catsCol {
+  grid-column: 1;
+}
+.cats {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.catRow {
+  display: flex;
+  align-items: center;
+}
+.catLink {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  margin-left: -14px;
+  border-radius: var(--r-pill);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--c-text-nav);
+  text-decoration: none;
+}
+.catActive > .catRow .catLink {
+  background: var(--c-chip);
+  color: var(--c-primary);
+  font-weight: 600;
+}
+.catActive > .catRow .catLink::after {
+  content: '→';
+  font-weight: 400;
+}
+.toggle {
+  display: none;
+}
+.sub {
+  display: none;
+  position: absolute;
+  top: 32px;
+  /* Отступ контейнера + первая колонка + промежуток */
+  left: calc(var(--gutter) + 260px + 48px);
+  right: calc(var(--gutter) + 340px + 48px);
+  padding-left: 48px;
+  border-left: 1px solid var(--c-border-soft);
+  min-height: 280px;
+}
+.catActive > .sub {
+  display: block;
+}
+.subAll {
+  display: inline-block;
+  font-family: var(--font-serif);
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.04em;
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.subAll:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.subList {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 32px;
+}
+.subList a {
+  display: block;
+  padding: 8px 0;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--c-text-body);
+  text-decoration: none;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.subList a:hover {
+  color: var(--c-primary);
+}
+.subNote {
+  margin: 16px 0 0;
+  max-width: 360px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--c-text-muted);
+}
+
+.side {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.picks {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border-strong);
+  background: var(--c-surface-mint);
+  text-decoration: none;
+}
+.pick b {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-primary);
+}
+.pick span {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-text-muted);
+}
+.pick:hover {
+  border-color: var(--c-primary);
+}
+.pickCapsule {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+.pickCapsule b {
+  color: var(--c-accent);
+}
+.pickCapsule span {
+  color: #d5e3dc;
+}
+.pickCapsule:hover {
+  background: var(--c-primary-hover);
+}
+.pickSale {
+  background: var(--c-surface-cream);
+}
+.pickSale b {
+  color: var(--c-sale);
+}
+.pickPremium {
+  background: var(--c-premium);
+  border-color: var(--c-premium);
+}
+.pickPremium b {
+  color: var(--c-premium-text);
+}
+.pickPremium span {
+  color: var(--c-premium-accent);
+}
+.pickPremium:hover {
+  border-color: var(--c-premium-accent);
+}
+.chips {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chips a {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border-strong);
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.chips a:hover {
+  background: var(--c-chip);
+}
+.howLink {
+  align-self: flex-start;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--c-primary);
+}
+
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: 220px minmax(0, 1fr) 280px;
+    gap: 32px;
+  }
+  .sub {
+    left: calc(var(--gutter) + 220px + 32px);
+    right: calc(var(--gutter) + 280px + 32px);
+    padding-left: 32px;
+  }
+  .subList {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Телефон и планшет: полноэкранная панель с аккордеоном ── */
+@media (max-width: 900px) {
+  .panel {
+    /* У шапки backdrop-filter — для fixed-потомков она становится контейнером. Шапка прилипает к верху экрана,
+       поэтому top: 0 совпадает с верхом окна, а высоту задаём явно. */
+    position: fixed;
+    top: 0;
+    bottom: auto;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    z-index: 30;
+    border: 0;
+    box-shadow: none;
+    clip-path: none;
+  }
+  .mobileHead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px var(--gutter);
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .mobileTitle {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    line-height: 32px;
+    letter-spacing: -0.04em;
+    color: var(--c-primary);
+  }
+  .close {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--c-border-strong);
+    background: transparent;
+    color: var(--c-primary);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .grid {
+    display: block;
+    min-height: 0;
+    padding-top: 20px;
+    padding-bottom: 32px;
+  }
+  .cats {
+    margin-top: 8px;
+    border-top: 1px solid var(--c-border-soft);
+  }
+  .cat {
+    border-bottom: 1px solid var(--c-border-soft);
+  }
+  .catLink,
+  .catActive > .catRow .catLink {
+    margin: 0;
+    padding: 13px 0;
+    border-radius: 0;
+    background: none;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--c-primary);
+  }
+  .catActive > .catRow .catLink::after {
+    content: none;
+  }
+  .toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .toggle img {
+    transition: transform 0.15s;
+  }
+  .toggle[aria-expanded='true'] img {
+    transform: rotate(180deg);
+  }
+  /* Подразделы: на телефоне — по раскрытию, а не по активному разделу */
+  .sub,
+  .catActive > .sub {
+    display: none;
+    position: static;
+    min-height: 0;
+    padding: 0 0 12px 16px;
+    border-left: 0;
+  }
+  .catOpen > .sub {
+    display: block;
+  }
+  .subAll {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+  .subList {
+    margin-top: 4px;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .subList a {
+    border-bottom: 0;
+  }
+  .side {
+    margin-top: 28px;
+  }
+}

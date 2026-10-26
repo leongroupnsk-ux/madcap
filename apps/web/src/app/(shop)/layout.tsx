@@ -1,9 +1,12 @@
 import { CookieBanner } from '@/components/CookieBanner';
+import { FavoritesSync } from '@/components/FavoritesSync';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import s from '@/components/site.module.css';
+import { getSessionUser } from '@/lib/session';
 
-export default function ShopLayout({ children }: { children: React.ReactNode }) {
+export default async function ShopLayout({ children }: { children: React.ReactNode }) {
+  const user = await getSessionUser();
   return (
     // Подвал прижат к низу экрана и на коротких страницах
     <div className={s.shell}>
@@ -11,6 +14,8 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <main className={s.main}>{children}</main>
       <SiteFooter />
       <CookieBanner />
+      {/* Избранное гостя переносится в аккаунт при входе */}
+      <FavoritesSync userId={user?.id ?? null} />
     </div>
   );
 }

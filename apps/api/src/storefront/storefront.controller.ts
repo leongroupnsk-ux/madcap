@@ -57,6 +57,12 @@ export class StorefrontController {
     return this.catalog.product(slug, await this.fit(req));
   }
 
+  /** Одобренные отзывы товара: сводка и страница списка */
+  @Get('catalog/products/:slug/reviews')
+  reviews(@Param('slug') slug: string, @Query('page') page?: string) {
+    return this.catalog.reviews(slug, page);
+  }
+
   @Get('catalog/suggest')
   suggest(@Query('q') q = '') {
     return this.catalog.suggest(q.slice(0, 100));

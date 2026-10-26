@@ -8,6 +8,7 @@ import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { config } from '../config';
+import { ReviewsService } from '../reviews/reviews.service';
 
 const DAY = 86400000;
 /** Фото хранятся до отзыва согласия или 12 месяцев без активности (ТЗ §11) */
@@ -28,6 +29,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly jobs: JobsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -49,9 +51,17 @@ export class PrivacyService implements OnApplicationBootstrap {
         premiumLeads: { orderBy: { createdAt: 'asc' } },
         orders: { include: { shipments: { include: { items: true } } }, orderBy: { createdAt: 'asc' } },
         sessions: { select: { createdAt: true, lastSeenAt: true, userAgent: true, ip: true } },
+        reviews: { include: { product: { select: { title: true } } }, orderBy: { createdAt: 'asc' } },
+        favorites: { include: { product: { select: { title: true } } }, orderBy: { createdAt: 'asc' } },
       },
     });
     if (!u) throw new NotFoundException();
+    // Подписки «Сообщить о поступлении» — и сделанные гостем на тот же email
+    const restock = await this.prisma.restockSubscription.findMany({
+      where: { OR: [{ userId }, { email: u.email.toLowerCase() }] },
+      include: { variant: { include: { color: true, product: { select: { title: true } } } } },
+      orderBy: { createdAt: 'asc' },
+    });
     const p = u.buyerProfile;
     return {
       exportedAt: new Date(),
@@ -73,6 +83,15 @@ export class PrivacyService implements OnApplicationBootstrap {
         number: o.number, createdAt: o.createdAt, status: o.status, total: o.total / 100,
         recipient: { name: o.recipientName, phone: o.recipientPhone, email: o.recipientEmail },
         shipments: o.shipments.map((s) => ({ no: s.no, status: s.status, address: s.address, items: s.items.map((i) => ({ title: i.title, size: i.size, qty: i.qty, price: i.price / 100 })) })),
+      })),
+      reviews: u.reviews.map((r) => ({
+        product: r.product.title, rating: r.rating, fit: r.fit, text: r.text, photos: r.photos.length, status: r.status, rejectReason: r.rejectReason,
+        authorName: r.authorName, createdAt: r.createdAt, updatedAt: r.updatedAt, sellerReply: r.reply,
+      })),
+      favorites: u.favorites.map((f) => ({ product: f.product.title, addedAt: f.createdAt })),
+      restockSubscriptions: restock.map((s) => ({
+        product: s.variant.product.title, variant: [s.variant.color.name, s.variant.size, s.variant.heightRange].filter(Boolean).join(', '), email: s.email,
+        consentAt: s.consentAt, createdAt: s.createdAt, notifiedAt: s.notifiedAt, cancelledAt: s.cancelledAt,
       })),
       sessions: u.sessions,
     };
@@ -101,6 +120,8 @@ export class PrivacyService implements OnApplicationBootstrap {
       this.prisma.premiumAnswers.deleteMany({ where: { userId: user.id } }),
       this.prisma.premiumLead.deleteMany({ where: { userId: user.id } }),
       this.prisma.cartItem.deleteMany({ where: { userId: user.id } }),
+      this.prisma.favorite.deleteMany({ where: { userId: user.id } }),
+      this.prisma.restockSubscription.deleteMany({ where: { OR: [{ userId: user.id }, { email: user.email.toLowerCase() }] } }),
       this.prisma.address.deleteMany({ where: { userId: user.id } }),
       this.prisma.notification.deleteMany({ where: { userId: user.id } }),
       this.prisma.notificationSetting.deleteMany({ where: { userId: user.id } }),
@@ -113,9 +134,11 @@ export class PrivacyService implements OnApplicationBootstrap {
         data: { email: `deleted-${user.id}@deleted.invalid`, passwordHash: `!${randomUUID()}`, phone: null, totpSecret: null, totpEnabledAt: null, deletedAt: now },
       }),
     ]);
+    // Отзывы остаются на витрине обезличенными («Покупатель», текст сохраняется), их фото удаляются
+    const reviews = await this.reviews.anonymize(user.id);
     // Неоплаченные заказы отменит таймер оплаты и вернёт резерв; файлы фото удаляем сразу.
     for (const ph of photos) await this.storage.remove(ph.storageKey).catch(() => undefined);
-    await this.audit.log(opts.byAdmin?.id ?? user.id, opts.byAdmin ? 'user.delete.admin' : 'user.delete', 'user', user.id, { photos: photos.length });
+    await this.audit.log(opts.byAdmin?.id ?? user.id, opts.byAdmin ? 'user.delete.admin' : 'user.delete', 'user', user.id, { photos: photos.length, reviews });
     await this.mail.send({ to: user.email, subject: `Аккаунт удалён — ${config.brandName}`, text: 'Ваш аккаунт и персональные данные профиля удалены. Сведения о заказах хранятся для бухгалтерского учёта.' }).catch(() => undefined);
     return { ok: true };
   }

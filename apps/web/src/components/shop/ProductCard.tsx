@@ -1,7 +1,9 @@
-import { formatRub } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared';
 import Link from 'next/link';
 import type { Card } from '@/lib/catalog';
 import { CARD_SIZES, imgSet } from '@/lib/image';
+import { FavButton } from './FavButton';
+import r from './reviews.module.css';
 import s from './shop.module.css';
 
 /**
@@ -11,6 +13,8 @@ import s from './shop.module.css';
 export function ProductCard({ p, priority, lcp }: { p: Card; priority?: boolean; lcp?: boolean }) {
   const meta = [p.color, p.sizes, p.heightRange].filter(Boolean).join(' · ');
   return (
+    // Сердечко — соседний с ссылкой элемент поверх фото: кнопка внутри ссылки недопустима
+    <div className={s.cardWrap}>
     <Link href={`/product/${p.slug}`} className={s.card}>
       <div className={s.media}>
         {(p.sale || p.fits || p.promo) && (
@@ -31,7 +35,19 @@ export function ProductCard({ p, priority, lcp }: { p: Card; priority?: boolean;
         ))}
       </div>
       <div className={s.body}>
-        <span className={s.brand}>{p.brand}</span>
+        {/* Оценка — в строке бренда, чтобы высота карточки не зависела от наличия отзывов */}
+        <span className={r.cardBrandRow}>
+          <span className={s.brand}>{p.brand}</span>
+          {p.rating && (
+            <span className={r.cardRating}>
+              <span aria-hidden>★</span> {p.rating.avg.toLocaleString('ru-RU', { minimumFractionDigits: 1 })}
+              <span className={r.cardRatingCount}>
+                {' '}({p.rating.count}
+                <span className="visually-hidden"> {plural(p.rating.count, 'отзыв', 'отзыва', 'отзывов')}</span>)
+              </span>
+            </span>
+          )}
+        </span>
         <span className={s.title}>{p.title}</span>
         <span className={s.meta}>{meta} в наличии</span>
         <span className={s.price}>
@@ -40,6 +56,8 @@ export function ProductCard({ p, priority, lcp }: { p: Card; priority?: boolean;
         </span>
       </div>
     </Link>
+    <FavButton productId={p.id} title={p.title} />
+    </div>
   );
 }
 

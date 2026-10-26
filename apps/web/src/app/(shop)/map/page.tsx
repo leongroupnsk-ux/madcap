@@ -41,6 +41,7 @@ export default async function MapPage() {
       tags: 'auth · catalog · capsule',
       items: [
         { label: 'Главная', href: '/' },
+        { label: 'Как это работает', href: '/how' },
         { label: 'Регистрация', href: '/register' },
         { label: 'Авторизация', href: '/login' },
         { label: 'Восстановление пароля', href: '/reset-password' },

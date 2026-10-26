@@ -93,7 +93,7 @@ export class CatalogService {
   ) {}
 
   /** Короткий кэш в Redis для тяжёлых расчётов выдачи (ТЗ §11: p95 каталога ≤ 300 мс). */
-  private async cached<T>(key: string, ttlS: number, load: () => Promise<T>): Promise<T> {
+  async cached<T>(key: string, ttlS: number, load: () => Promise<T>): Promise<T> {
     if (process.env.CATALOG_CACHE === 'off') return load();
     const ver = (await this.redis.client.get(CATALOG_VERSION_KEY)) ?? '0';
     const k = `catalog:v${ver}:${key}`;
@@ -263,6 +263,7 @@ export class CatalogService {
       },
     });
     const byId = new Map(rows.map((r) => [r.id, r]));
+    const ratings = await this.ratings(rows.map((r) => r.id));
     return ids
       .map((id) => byId.get(id))
       .filter((p): p is NonNullable<typeof p> => p !== undefined && p.variants.length > 0)
@@ -288,8 +289,80 @@ export class CatalogService {
           sizes: sizes.length > 2 ? `${sizes[0]}–${sizes.at(-1)}` : sizes.join(', '),
           heightRange: best.heightRange,
           fits: fit ? fitsProduct(p, fit) : false,
+          /** Средняя оценка и число одобренных отзывов; null — отзывов нет */
+          rating: ratings.get(p.id) ?? null,
         };
       });
+  }
+
+  /** Средняя оценка и число одобренных отзывов по товарам — для карточек (без кэша: один groupBy по индексу) */
+  async ratings(ids: string[]) {
+    const out = new Map<string, { avg: number; count: number }>();
+    if (!ids.length) return out;
+    const rows = await this.prisma.review.groupBy({ by: ['productId'], where: { productId: { in: ids }, status: 'approved' }, _avg: { rating: true }, _count: { _all: true } });
+    for (const r of rows) out.set(r.productId, { avg: Math.round((r._avg.rating ?? 0) * 10) / 10, count: r._count._all });
+    return out;
+  }
+
+  /**
+   * Сводка отзывов товара: средняя, число, распределение по звёздам, посадка, 5 свежих для микроразметки.
+   * Кэшируется в версии каталога: одобрение и снятие отзыва (moderation.review.*) сбрасывают кэш.
+   */
+  reviewSummary(productId: string) {
+    return this.cached(`reviews:${productId}`, 300, async () => {
+      const where = { productId, status: 'approved' as const };
+      const [byRating, byFit, latest] = await Promise.all([
+        this.prisma.review.groupBy({ by: ['rating'], where, _count: { _all: true } }),
+        this.prisma.review.groupBy({ by: ['fit'], where, _count: { _all: true } }),
+        this.prisma.review.findMany({ where, orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }], take: 5, select: { authorName: true, rating: true, text: true, publishedAt: true } }),
+      ]);
+      const count = byRating.reduce((n, r) => n + r._count._all, 0);
+      const sum = byRating.reduce((n, r) => n + r.rating * r._count._all, 0);
+      const distribution = [5, 4, 3, 2, 1].map((stars) => ({ stars, count: byRating.find((r) => r.rating === stars)?._count._all ?? 0 }));
+      const fit = { small: 0, true_to_size: 0, large: 0 } as Record<'small' | 'true_to_size' | 'large', number>;
+      for (const f of byFit) fit[f.fit] = f._count._all;
+      const top = (Object.entries(fit) as [keyof typeof fit, number][]).sort((a, b) => b[1] - a[1])[0];
+      return {
+        count,
+        avg: count ? Math.round((sum / count) * 10) / 10 : null,
+        distribution,
+        fit,
+        /** Преобладающая посадка — «Размер: в основном в размер» */
+        fitMost: count && top[1] > 0 ? top[0] : null,
+        latest: latest.map((r) => ({ author: r.authorName, rating: r.rating, text: r.text, publishedAt: r.publishedAt })),
+      };
+    });
+  }
+
+  /** Одобренные отзывы товара на витрине: по 10, свежие сверху; с фото и ответом продавца */
+  async reviews(slug: string, pageParam?: string) {
+    const p = await this.prisma.product.findFirst({ where: { AND: [{ slug }, visibleWhere()] }, select: { id: true, supplier: { select: { legalName: true } } } });
+    if (!p) throw new NotFoundException({ message: 'Товар не найден или снят с продажи' });
+    const perPage = 10;
+    const summary = await this.reviewSummary(p.id);
+    const pages = Math.max(1, Math.ceil(summary.count / perPage));
+    const page = Math.min(pages, Math.max(1, Number(pageParam) || 1));
+    const rows = await this.prisma.review.findMany({
+      where: { productId: p.id, status: 'approved' },
+      orderBy: [{ publishedAt: 'desc' }, { id: 'asc' }],
+      skip: (page - 1) * perPage,
+      take: perPage,
+    });
+    return {
+      summary: { count: summary.count, avg: summary.avg, distribution: summary.distribution, fit: summary.fit, fitMost: summary.fitMost },
+      page,
+      pages,
+      items: rows.map((r) => ({
+        id: r.id,
+        author: r.authorName,
+        rating: r.rating,
+        fit: r.fit,
+        text: r.text,
+        publishedAt: r.publishedAt,
+        photos: r.photos.map((key) => ({ url: this.storage.publicUrl(key), image: this.storage.imageSet(key) })),
+        reply: r.reply ? { text: r.reply, at: r.replyAt, seller: p.supplier.legalName } : null,
+      })),
+    };
   }
 
   /** Значения фильтров со счётчиками в пределах категории и поиска (ТЗ §4.4). */
@@ -346,7 +419,9 @@ export class CatalogService {
     const variants = [...p.variants].sort((a, b) => sizeRank(a.size) - sizeRank(b.size));
     const promo = variants.find((v) => v.salePromotion)?.salePromotion;
     const recommended = fit ? { size: fit.sizeFor(p.category.slot), heightRange: fit.heightRange } : null;
+    const reviews = await this.reviewSummary(p.id);
     return {
+      reviews,
       fits: fit ? fitsProduct(p, fit) : false,
       recommended,
       id: p.id,

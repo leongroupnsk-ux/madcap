@@ -5,11 +5,13 @@ import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
 import { Gallery } from '@/components/shop/Gallery';
 import { ProductBuy } from '@/components/shop/ProductBuy';
+import { ProductReviews } from '@/components/shop/ProductReviews';
 import p from '@/components/shop/product.module.css';
 import { BRAND } from '@/lib/brand';
-import { SITE_URL, type ProductDetails } from '@/lib/catalog';
+import { SITE_URL, type ProductDetails, type ReviewsPage } from '@/lib/catalog';
 import { imgSet } from '@/lib/image';
 import { serverApi } from '@/lib/server-api';
+import { getSessionUser } from '@/lib/session';
 
 type P = Promise<{ slug: string }>;
 const GENDER: Record<string, string> = { female: 'Женский', male: 'Мужской', unisex: 'Унисекс' };
@@ -34,6 +36,8 @@ export async function generateMetadata({ params }: { params: P }): Promise<Metad
 export default async function ProductPage({ params }: { params: P }) {
   const product = await load((await params).slug);
   if (!product) notFound();
+  const [reviews, user] = await Promise.all([serverApi<ReviewsPage>(`/catalog/products/${encodeURIComponent(product.slug)}/reviews`).then((r) => r.data), getSessionUser()]);
+  const summary = product.reviews;
   const cat = product.category;
   const inStock = product.variants.filter((v) => v.stock > 0);
   const jsonLd = {
@@ -55,6 +59,19 @@ export default async function ProductPage({ params }: { params: P }) {
           availability: 'https://schema.org/InStock',
           seller: { '@type': 'Organization', name: product.seller.name },
         },
+        // Оценка и последние отзывы — только одобренные модератором
+        ...(summary && summary.count > 0
+          ? {
+              aggregateRating: { '@type': 'AggregateRating', ratingValue: summary.avg, reviewCount: summary.count, bestRating: 5, worstRating: 1 },
+              review: (summary.latest ?? []).map((r) => ({
+                '@type': 'Review',
+                author: { '@type': 'Person', name: r.author },
+                datePublished: r.publishedAt?.slice(0, 10),
+                reviewBody: r.text,
+                reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+              })),
+            }
+          : {}),
       },
       {
         '@type': 'BreadcrumbList',
@@ -97,7 +114,7 @@ export default async function ProductPage({ params }: { params: P }) {
 
       <div className={p.layout}>
         <Gallery media={product.media} title={product.title} initialColorId={product.variants.find((v) => v.stock > 0)?.color.id ?? null} />
-        <ProductBuy product={product} />
+        <ProductBuy product={product} viewer={user && user.role === 'buyer' ? { email: user.email } : null} />
       </div>
 
       <div className={p.sections}>
@@ -117,6 +134,8 @@ export default async function ProductPage({ params }: { params: P }) {
           </dl>
         </section>
       </div>
+
+      {reviews && <ProductReviews product={{ id: product.id, slug: product.slug, title: product.title }} initial={reviews} signedIn={user?.role === 'buyer'} />}
 
       {(product.articles.length > 0 || product.collections.length > 0) && (
         <div className={`${p.sections} ${p.relatedSections}`}>

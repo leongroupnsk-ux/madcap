@@ -42,6 +42,10 @@ export async function resetDb(app: INestApplication) {
   await prisma.platformSetting.deleteMany();
   await prisma.legalVersion.deleteMany();
   app.get(SettingsService).invalidate();
+  // Отзывы, избранное и подписки «Сообщить о поступлении» (каскадом удалились бы с товарами и пользователями — чистим явно)
+  await prisma.review.deleteMany();
+  await prisma.favorite.deleteMany();
+  await prisma.restockSubscription.deleteMany();
   await prisma.importJob.deleteMany();
   await prisma.productRevision.deleteMany();
   await prisma.product.deleteMany();

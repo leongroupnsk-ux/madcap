@@ -6,6 +6,7 @@ export const NAV: { href: string; label: string; area: StaffArea }[] = [
   { href: '/admin', label: 'Заявки поставщиков', area: 'suppliers' },
   { href: '/admin/moderation', label: 'Модерация товаров', area: 'moderation' },
   { href: '/admin/content', label: 'Модерация контента', area: 'moderation' },
+  { href: '/admin/reviews', label: 'Модерация отзывов', area: 'moderation' },
   { href: '/admin/storefront', label: 'Витрина', area: 'catalog' },
   { href: '/admin/editorial', label: 'Журнал редакции', area: 'editorial' },
   { href: '/admin/dictionaries', label: 'Справочники', area: 'catalog' },

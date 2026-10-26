@@ -7,6 +7,8 @@ export type Card = {
   /** Те же фото набором размеров для srcset */
   photos?: ImageSet[]; price: number; oldPrice: number | null;
   sale: boolean; color: string; sizes: string; heightRange: string | null; fits?: boolean; promo?: string | null;
+  /** Средняя оценка и число одобренных отзывов; null — отзывов нет */
+  rating?: { avg: number; count: number } | null;
 };
 
 export type Facets = {
@@ -46,8 +48,23 @@ export function categoryChips(tree: CategoryTree, current?: { slug: string; pare
   return chips;
 }
 
+/** Сводка одобренных отзывов товара (кэш каталога) */
+export type ReviewSummary = {
+  count: number; avg: number | null; distribution: { stars: number; count: number }[];
+  fit: Record<'small' | 'true_to_size' | 'large', number>; fitMost: 'small' | 'true_to_size' | 'large' | null;
+  latest?: { author: string; rating: number; text: string; publishedAt: string }[];
+};
+
+export type ReviewItem = {
+  id: string; author: string; rating: number; fit: 'small' | 'true_to_size' | 'large'; text: string; publishedAt: string;
+  photos: { url: string; image: ImageSet | null }[]; reply: { text: string; at: string; seller: string } | null;
+};
+
+export type ReviewsPage = { summary: ReviewSummary; page: number; pages: number; items: ReviewItem[] };
+
 export type ProductDetails = {
   fits?: boolean;
+  reviews?: ReviewSummary;
   recommended?: { size: string | null; heightRange: string | null } | null;
   id: string; slug: string; title: string; brand: { name: string; slug: string };
   sizeChart: { clothes: { columns: string[]; rows: string[][] }; shoes: { columns: string[]; rows: string[][] } };

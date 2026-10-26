@@ -12,6 +12,7 @@ import { shortId, slugify } from '../common/slug';
 import { StorageService } from '../common/storage.service';
 import { config } from '../config';
 import { MediaService } from '../products/media.service';
+import { RestockService } from '../favorites/restock.service';
 import { pickText, type RevisionData } from '../products/products.service';
 import { fetchRemote, RemoteFetchError } from '../products/remote-fetch';
 import { ParseError, parseCsv, parseXlsx, parseYml, type RawRow } from './parse';
@@ -47,6 +48,7 @@ export class ImportService implements OnModuleInit {
     private readonly audit: AuditService,
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
+    private readonly restock: RestockService,
   ) {}
 
   async onModuleInit() {
@@ -242,6 +244,8 @@ export class ImportService implements OnModuleInit {
       // Синк обновляет цену поставщика; акционная цена пересчитывается от неё, а не перетирается (ТЗ §7.7).
       await repriceSales(this.prisma);
       await this.prisma.importJob.update({ where: { id: jobId }, data: { status: 'applied', appliedAt: new Date(), payload: Prisma.DbNull } });
+      // Импорт или синк фида пополнил остатки — письма подписчикам «Сообщить о поступлении»
+      await this.restock.check({ supplierId: job.supplierId }).catch((e: Error) => this.logger.warn(`restock ${jobId}: ${e.message}`));
       await this.notifyOwners(
         job.supplierId,
         job.source === 'yml' ? 'Фид синхронизирован' : 'Импорт применён',

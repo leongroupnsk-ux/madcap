@@ -7,6 +7,8 @@ import { useRef, useState } from 'react';
 import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { writeCart } from '@/lib/cart';
+import { clearFavorites } from '@/lib/favorites';
+import { MyReviews } from './MyReviews';
 import { orderLabel } from './orders/[number]/OrderView';
 import p from './profile.module.css';
 import { Stylist } from './Stylist';
@@ -130,6 +132,17 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
             </Link>
           </div>
 
+          {/* Избранного и отзывов нет в макете — такой же мятной плашкой, как капсула */}
+          <div className={p.soft}>
+            <div>
+              <div className={p.eyebrow}>Избранное</div>
+              <p className={p.note}>Отложенные товары и подписки «Сообщить о поступлении».</p>
+            </div>
+            <Link href="/account/favorites" className={p.link}>
+              Открыть избранное →
+            </Link>
+          </div>
+
         </div>
 
         <div className={p.col}>
@@ -226,6 +239,7 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 onClick={async () => {
                   await api('/auth/logout', {});
                   writeCart([]);
+                  clearFavorites();
                   localStorage.removeItem('cart-owner');
                   router.replace('/');
                   router.refresh();
@@ -280,10 +294,12 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
         )}
       </div>
 
+      <MyReviews />
+
       {deleting && (
         <Modal eyebrow="Аккаунт" title="Удалить аккаунт?" onClose={() => setDeleting(false)}>
           <p style={{ marginBottom: 12 }}>
-            Удалятся анкета, фото, капсулы, адреса и корзина; согласия будут отозваны. Сведения о заказах сохранятся — их требует бухгалтерский учёт. Отменить удаление нельзя.
+            Удалятся анкета, фото, капсулы, адреса, корзина, избранное и подписки на поступление; согласия будут отозваны, отзывы останутся без имени. Сведения о заказах сохранятся — их требует бухгалтерский учёт. Отменить удаление нельзя.
           </p>
           <Field label="Пароль для подтверждения" type="password" value={password} error={deleteError ?? undefined} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
           <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
@@ -294,6 +310,7 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 try {
                   await api('/me/delete', { password });
                   writeCart([]);
+                  clearFavorites();
                   localStorage.removeItem('cart-owner');
                   localStorage.removeItem('quiz-draft-v1');
                   router.replace('/');

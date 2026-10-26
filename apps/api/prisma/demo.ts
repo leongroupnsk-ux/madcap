@@ -298,6 +298,8 @@ async function main() {
   }
   await repriceSales(prisma);
 
+  await demoReviews(byTitles, passwordHash);
+
   // Демо-админ для dev-стенда (пароль тот же DEMO_PASSWORD).
   await prisma.user.upsert({ where: { email: 'demo.admin@example.ru' }, update: { passwordHash }, create: { email: 'demo.admin@example.ru', role: 'admin', passwordHash, emailVerifiedAt: new Date() } });
   // Демо-админ — владелец без 2FA: его пароль знают все, кому показывают стенд, и 2FA на нём заперла бы демо-вход
@@ -315,6 +317,81 @@ async function main() {
   console.log(`Демо: копии фото для srcset — создано ${thumbs.made}.`);
 
   console.log(`Демо: ${created.length} товаров (премиум: ${created.filter((c) => c.item.premium).length}), 4 статьи, 2 подборки. Поставщики «${supplier.legalName}» и «${supplierSpb.legalName}».`);
+}
+
+/**
+ * Отзывы для витрины: одобренные отзывы демо-покупателей на 4 товара (вымышленные имена, адреса @example.ru),
+ * один — с ответом продавца. У «Халата «Классика»» размер XXL без остатка — на нём видна кнопка «Сообщить о поступлении».
+ * Покупатель demo.buyer1 получил «Брюки «Хирург»» и ещё не оставил отзыв — в профиле у заказа есть «Оставить отзыв».
+ */
+async function demoReviews(byTitles: (t: string[]) => string[], passwordHash: string) {
+  const names = ['Анна', 'Мария', 'Игорь', 'Ольга', 'Дмитрий'];
+  const buyers = [];
+  for (const [i, name] of names.entries()) {
+    const email = `demo.buyer${i + 1}@example.ru`;
+    const u = await prisma.user.upsert({ where: { email }, update: { passwordHash }, create: { email, role: 'buyer', passwordHash, emailVerifiedAt: new Date() } });
+    await prisma.buyerProfile.upsert({ where: { userId: u.id }, update: { name }, create: { userId: u.id, name } });
+    buyers.push({ id: u.id, name });
+  }
+  type R = [buyer: number, rating: number, fit: 'small' | 'true_to_size' | 'large', text: string, reply?: string];
+  const plan: [string, R[]][] = [
+    ['Костюм «Хирург»', [
+      [0, 5, 'true_to_size', 'Ношу третий месяц: после стирок при 60° цвет не ушёл, брюки не вытянулись. Карманы глубокие — телефон не выпадает.', 'Спасибо! Рады, что костюм выдерживает ваш график.'],
+      [1, 4, 'true_to_size', 'Ткань плотная и при этом дышит, в операционной не жарко. Минус один — топ немного длинноват на мой рост 164.'],
+      [2, 5, 'small', 'Хороший костюм, но брал на размер больше по совету из таблицы — и правильно, маломерит в плечах.'],
+      [3, 5, 'true_to_size', 'Отличный цвет, на смене получаю комплименты. Шов не натирает даже за сутки.'],
+    ]],
+    ['Халат женский «Классика»', [
+      [1, 5, 'true_to_size', 'Классический белый халат, хорошо держит форму, пуговицы пришиты крепко.'],
+      [3, 4, 'large', 'Качество отличное, но рукава длинноваты — пришлось подвернуть. Возьму на размер меньше в следующий раз.'],
+    ]],
+    ['Брюки джоггеры', [
+      [2, 5, 'true_to_size', 'Самые удобные брюки за последние годы: резинка не давит, манжеты не задираются.'],
+      [4, 3, 'small', 'Удобные, но после первой стирки немного сели по длине. Советую брать ростовку выше.'],
+    ]],
+    ['Сабо ортопедические', [
+      [0, 5, 'true_to_size', 'Нога не устаёт за 12 часов, подошва не скользит на мокром полу.'],
+      [4, 4, 'true_to_size', 'Лёгкие и легко моются. Первые пару дней привыкал к стельке.'],
+    ]],
+  ];
+  let n = 0;
+  for (const [title, reviews] of plan) {
+    const [productId] = byTitles([title]);
+    for (const [b, rating, fit, text, reply] of reviews) {
+      const at = new Date(Date.now() - (++n * 3 + 2) * 86400_000);
+      await prisma.review.create({
+        data: {
+          productId, userId: buyers[b].id, authorName: buyers[b].name, rating, fit, text, status: 'approved', publishedAt: at, moderatedAt: at, createdAt: at,
+          ...(reply ? { reply, replyAt: new Date(at.getTime() + 86400_000) } : {}),
+        },
+      });
+    }
+  }
+  // Вариант без остатка для «Сообщить о поступлении»
+  const [gown] = byTitles(['Халат «Классика»']);
+  await prisma.productVariant.updateMany({ where: { productId: gown, size: 'XXL' }, data: { stock: 0 } });
+
+  // Доставленный заказ demo.buyer1 без отзыва — «Оставить отзыв» в профиле
+  const [pantsId] = byTitles(['Брюки «Хирург»']);
+  const pants = await prisma.product.findUniqueOrThrow({ where: { id: pantsId }, include: { variants: { include: { color: true }, take: 1 }, brand: true } });
+  const v = pants.variants[0];
+  const [{ nextval }] = await prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('order_number_seq')`;
+  const deliveredAt = new Date(Date.now() - 2 * 86400_000);
+  await prisma.order.create({
+    data: {
+      number: String(nextval), userId: buyers[0].id, status: 'paid', paymentStatus: 'succeeded', paymentMethod: 'Карта •••• 4242', goodsTotal: v.price, deliveryTotal: 0, total: v.price,
+      recipientName: 'Анна', recipientPhone: '+79990000000', recipientEmail: 'demo.buyer1@example.ru', expiresAt: deliveredAt, paidAt: new Date(deliveredAt.getTime() - 3 * 86400_000),
+      shipments: {
+        create: {
+          no: 1, supplierId: pants.supplierId, status: 'delivered', deliveryType: 'pvz', tariffCode: 136, cityCode: 44, address: 'Москва, ПВЗ СДЭК (демо)', deliveryPrice: 0, periodMin: 1, periodMax: 2,
+          goodsTotal: v.price, commissionBp: 1000, commission: Math.round(v.price / 10), deliveredAt,
+          items: { create: { variantId: v.id, productSlug: pants.slug, title: pants.title, brand: pants.brand.name, sku: v.sku, size: v.size, heightRange: v.heightRange, color: v.color.name, price: v.price, qty: 1 } },
+          events: { create: [{ status: 'delivered', at: deliveredAt }] },
+        },
+      },
+    },
+  });
+  console.log(`Демо: ${n} одобренных отзывов на ${plan.length} товара, покупатели demo.buyer1…${names.length}@example.ru (пароль DEMO_PASSWORD).`);
 }
 
 main().finally(() => prisma.$disconnect());

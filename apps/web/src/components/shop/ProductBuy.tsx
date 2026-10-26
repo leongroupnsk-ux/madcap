@@ -1,16 +1,20 @@
 'use client';
 
-import { formatRub } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import type { ProductDetails } from '@/lib/catalog';
 import { COLOR_EVENT } from './Gallery';
+import { FavButton } from './FavButton';
+import { RestockNotify } from './RestockNotify';
+import { Stars } from './Stars';
+import r from './reviews.module.css';
 import { SizeChart } from './SizeChart';
 import p from './product.module.css';
 
 /** Выбор цвета → размера → ростовки; недоступные сочетания неактивны (ТЗ §4.5). */
-export function ProductBuy({ product }: { product: ProductDetails }) {
+export function ProductBuy({ product, viewer = null }: { product: ProductDetails; viewer?: { email: string } | null }) {
   const vs = product.variants;
   const colors = useMemo(() => [...new Map(vs.map((v) => [v.color.id, v.color])).values()], [vs]);
   const rec = product.recommended;
@@ -69,6 +73,17 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         {product.treatment && <span className={p.tag}>{product.treatment}</span>}
         {product.washing && <span className={p.tag}>Стирка {washDeg ? `${washDeg}°` : product.washing}</span>}
       </div>
+      <div className={r.headRow}>
+        {product.reviews && product.reviews.count > 0 && (
+          <a href="#reviews" className={r.ratingLink}>
+            <Stars value={product.reviews.avg ?? 0} />
+            <span>
+              {(product.reviews.avg ?? 0).toLocaleString('ru-RU', { minimumFractionDigits: 1 })} · {product.reviews.count} {plural(product.reviews.count, 'отзыв', 'отзыва', 'отзывов')}
+            </span>
+          </a>
+        )}
+        <FavButton productId={product.id} title={product.title} variant="page" />
+      </div>
       <div className={p.priceRow}>
         <span className={p.price}>{formatRub(price)}</span>
         {oldPrice && <span className={p.old}>{formatRub(oldPrice)}</span>}
@@ -101,7 +116,14 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
         </div>
         <div className={p.sizes}>
           {sizes.map((s) => (
-            <button key={s} type="button" className={`${p.size} ${s === size ? p.sizeOn : ''}`} onClick={() => pickSize(s)} disabled={!sizeAvailable(s)} aria-pressed={s === size}>
+            <button
+              key={s}
+              type="button"
+              className={`${p.size} ${s === size ? p.sizeOn : ''} ${sizeAvailable(s) ? '' : p.sizeOut}`}
+              onClick={() => pickSize(s)}
+              aria-pressed={s === size}
+              aria-label={sizeAvailable(s) ? undefined : `${s} — нет в наличии`}
+            >
               {s}
               {rec?.size?.toUpperCase() === s.toUpperCase() && <small className={p.rec}>Рекомендуем</small>}
             </button>
@@ -118,7 +140,7 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
             {heights.map((h) => {
               const ok = ofColor.some((v) => v.size === size && v.heightRange === h && v.stock > 0);
               return (
-                <button key={h} type="button" className={`${p.size} ${p.sizeWide} ${h === height ? p.sizeOn : ''}`} disabled={!ok} onClick={() => {
+                <button key={h} type="button" className={`${p.size} ${p.sizeWide} ${h === height ? p.sizeOn : ''} ${ok ? '' : p.sizeOut}`} aria-label={ok ? undefined : `${h} — нет в наличии`} onClick={() => {
                     setHeight(h);
                     setAdded(false);
                   }} aria-pressed={h === height}>
@@ -134,41 +156,52 @@ export function ProductBuy({ product }: { product: ProductDetails }) {
       <div className={p.stock}>
         {variant && variant.stock > 0
           ? `${size}${height ? ` · ${height}` : ''} в наличии: ${variant.stock} шт., ${ship}`
-          : 'Этого сочетания нет в наличии — выберите другой размер или цвет'}
+          : variant
+            ? `${size}${height ? ` · ${height}` : ''} — нет в наличии. Сообщим, когда появится`
+            : 'Этого сочетания нет в наличии — выберите другой размер или цвет'}
       </div>
 
-      <div className={p.buy}>
-        <div className={p.qty}>
-          <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Меньше">
-            −
-          </button>
-          <span aria-live="polite">{qty}</span>
-          <button type="button" onClick={() => setQty((q) => Math.min(variant?.stock ?? 1, q + 1))} aria-label="Больше">
-            +
-          </button>
-        </div>
-        {/* Состояние «в корзине» — компонент button-in-cart (Figma 32:4840): повторное нажатие ведёт в корзину */}
-        {added ? (
-          <Link href="/cart" className={`${p.toCart} ${p.toCartOn}`} aria-live="polite">
-            ✓ Добавлено в корзину
+      {variant && variant.stock === 0 ? (
+        // Вместо «В корзину» — подписка на поступление выбранного варианта (цвет + размер + ростовка)
+        <RestockNotify key={variant.id} variantId={variant.id} productId={product.id} viewer={viewer} rowClass={p.buy} buttonClass={p.toCart}>
+          <Link href="/quiz/1" className={p.toCapsule}>
+            Добавить в капсулу
           </Link>
-        ) : (
-          <button
-            type="button"
-            className={p.toCart}
-            disabled={!variant || variant.stock === 0}
-            onClick={() => {
-              addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
-              setAdded(true);
-            }}
-          >
-            Добавить в корзину
-          </button>
-        )}
-        <Link href="/quiz/1" className={p.toCapsule}>
-          Добавить в капсулу
-        </Link>
-      </div>
+        </RestockNotify>
+      ) : (
+        <div className={p.buy}>
+          <div className={p.qty}>
+            <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Меньше">
+              −
+            </button>
+            <span aria-live="polite">{qty}</span>
+            <button type="button" onClick={() => setQty((q) => Math.min(variant?.stock ?? 1, q + 1))} aria-label="Больше">
+              +
+            </button>
+          </div>
+          {/* Состояние «в корзине» — компонент button-in-cart (Figma 32:4840): повторное нажатие ведёт в корзину */}
+          {added ? (
+            <Link href="/cart" className={`${p.toCart} ${p.toCartOn}`} aria-live="polite">
+              ✓ Добавлено в корзину
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className={p.toCart}
+              disabled={!variant || variant.stock === 0}
+              onClick={() => {
+                addToCart(variant!.id, Math.min(qty, variant!.stock), variant!.price);
+                setAdded(true);
+              }}
+            >
+              Добавить в корзину
+            </button>
+          )}
+          <Link href="/quiz/1" className={p.toCapsule}>
+            Добавить в капсулу
+          </Link>
+        </div>
+      )}
 
       <div className={p.delivery}>
         <img src="/design/icons/delivery.svg" alt="" width={20} height={20} />

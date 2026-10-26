@@ -13,6 +13,7 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
   { name: 'премиум', path: '/premium', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'вход', path: '/login', ready: (p) => expect(p.getByRole('button', { name: 'Войти' })).toBeVisible() },
   { name: 'регистрация', path: '/register', ready: (p) => expect(p.getByRole('button', { name: 'Создать аккаунт' })).toBeVisible() },
+  { name: 'как это работает', path: '/how', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'журнал', path: '/journal', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
   { name: 'вход поставщика', path: '/supplier/login', ready: (p) => expect(p.getByRole('button', { name: 'Войти в кабинет' })).toBeVisible() },
 ];

@@ -236,6 +236,7 @@ test.describe('админка', () => {
     ['заявки поставщиков', '/admin'],
     ['модерация товаров', '/admin/moderation'],
     ['модерация контента', '/admin/content'],
+    ['модерация отзывов', '/admin/reviews'],
     ['справочники', '/admin/dictionaries'],
     ['витрина', '/admin/storefront'],
     ['подбор', '/admin/capsule'],

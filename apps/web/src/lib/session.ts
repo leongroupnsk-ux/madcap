@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 export type SessionUser = {
   id: string;
@@ -16,8 +17,8 @@ export type SessionUser = {
 
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4100';
 
-/** Текущий пользователь на сервере: cookie сессии пробрасывается в API. */
-export async function getSessionUser(): Promise<SessionUser | null> {
+/** Текущий пользователь на сервере: cookie сессии пробрасывается в API. Один запрос на рендер (шапка, лэйаут, страница). */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const sid = (await cookies()).get('sid')?.value;
   if (!sid) return null;
   try {
@@ -27,4 +28,4 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
-}
+});

@@ -46,6 +46,18 @@
   width: 16px;
   height: 16px;
 }
+.catalogBtn[aria-expanded='true'] {
+  background: var(--c-primary-hover);
+}
+/* Обёртка кнопки и панели мегаменю не участвует в раскладке шапки: кнопка остаётся flex-элементом ряда,
+   а панель (position: absolute) позиционируется от шапки — она sticky, ближайший позиционированный предок */
+.catalogWrap,
+.megaHost {
+  display: contents;
+}
+.megaHost[hidden] {
+  display: none;
+}
 .search {
   flex: 0 1 500px;
   min-width: 0;

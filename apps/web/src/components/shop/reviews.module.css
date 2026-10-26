@@ -1,0 +1,705 @@
+/* Отзывы, избранное и «Сообщить о поступлении» — в стиле страницы товара и профиля (макетов этих блоков нет) */
+
+/* ─── сердечко ─────────────────────────────────────────────────────── */
+.favCard {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--c-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: transform 0.15s, color 0.15s;
+}
+.favCard:hover {
+  transform: scale(1.06);
+}
+.favPage {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  font: 700 12px/16px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.favPage:hover {
+  border-color: var(--c-primary);
+}
+.favOn {
+  color: var(--c-sale);
+}
+.favPage.favOn span {
+  color: var(--c-primary);
+}
+.favCard:focus-visible,
+.favPage:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* ─── звёзды и оценка в карточке ───────────────────────────────────── */
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.starOn {
+  color: #e08a3c;
+}
+.starOff {
+  color: #c9d3cd;
+}
+.cardBrandRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* ровно строка бренда (15 px): с оценкой и без карточки одной высоты */
+  height: 15px;
+  gap: 8px;
+  min-width: 0;
+}
+.cardBrandRow > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cardRating {
+  flex: none;
+  font: 700 11px/15px var(--font-sans);
+  color: var(--c-primary);
+  white-space: nowrap;
+}
+.cardRating > span[aria-hidden] {
+  color: #e08a3c;
+}
+.cardRatingCount {
+  font-weight: 500;
+  color: var(--c-text-muted);
+}
+
+/* ─── шапка товара: оценка рядом с тегами ──────────────────────────── */
+.headRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding-top: 14px;
+}
+.ratingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/18px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.ratingLink:hover span:last-child {
+  text-decoration: underline;
+}
+
+/* ─── «Сообщить о поступлении» ─────────────────────────────────────── */
+.notify {
+  flex: 0 1 260px;
+}
+.notifyForm {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: 484px;
+  margin-top: 4px;
+  padding: 16px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-mint);
+}
+.notifyForm p {
+  font: 400 13px/18px var(--font-sans);
+  color: var(--c-text-body);
+}
+.notifyRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.notifyRow input[type='email'] {
+  flex: 1 1 200px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text);
+}
+.notifyConsent {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-text-body);
+}
+.notifyConsent a {
+  color: var(--c-primary);
+}
+.notifyDone {
+  width: 100%;
+  max-width: 484px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-mint);
+  font: 600 13px/18px var(--font-sans);
+  color: var(--c-primary);
+}
+.notifyError {
+  font: 600 12px/16px var(--font-sans);
+  color: var(--c-error);
+}
+
+/* ─── блок «Отзывы» на странице товара ─────────────────────────────── */
+.reviews {
+  margin-top: 48px;
+  padding-top: 40px;
+  border-top: 1px solid var(--c-border);
+  scroll-margin-top: 96px;
+}
+.reviewsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.reviewsHead h2 {
+  font: 400 30px/36px var(--font-serif);
+  color: var(--c-primary);
+}
+.reviewsGrid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 40px;
+  margin-top: 24px;
+}
+.summary {
+  align-self: start;
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface-soft);
+  border: 1px solid var(--c-border-soft);
+}
+.avg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.avg b {
+  font: 400 44px/1 var(--font-serif);
+  color: var(--c-primary);
+}
+.avg small {
+  display: block;
+  margin-top: 4px;
+  font: 500 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.dist {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dist li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 8px;
+  font: 600 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.bar {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-border);
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #e08a3c;
+}
+.fitNote {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  font: 600 13px/18px var(--font-sans);
+  color: var(--c-primary);
+}
+.fitNote span {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--c-text-muted);
+}
+.list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.empty {
+  padding: 24px;
+  border-radius: var(--r-lg);
+  border: 1px dashed var(--c-border-strong);
+  font: 400 14px/22px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.item {
+  padding: 20px 24px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+}
+.itemHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.itemHead b {
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.fitChip {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font: 700 11px/15px var(--font-sans);
+  color: var(--c-primary);
+}
+.itemText {
+  margin-top: 10px;
+  font: 400 14px/22px var(--font-sans);
+  color: var(--c-text-body);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.photos a,
+.photos img {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+}
+.reply {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--c-accent);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  background: var(--c-surface-cream);
+  font: 400 13px/20px var(--font-sans);
+  color: var(--c-text-body);
+}
+.reply b {
+  display: block;
+  margin-bottom: 2px;
+  font: 700 12px/16px var(--font-sans);
+  color: var(--c-primary);
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.pager button {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.pager button[aria-current='page'] {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.pager button:disabled {
+  cursor: default;
+}
+.writeBtn {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.writeBtn:hover {
+  background: var(--c-chip-strong);
+}
+.writeNote {
+  font: 500 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+/* ─── форма отзыва (модальное окно) ────────────────────────────────── */
+.form {
+  display: grid;
+  gap: 16px;
+}
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font: 700 12px/16px var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5b6a62;
+}
+.rateRow {
+  display: flex;
+  gap: 4px;
+}
+.rateRow label {
+  cursor: pointer;
+  font-size: 30px;
+  line-height: 1;
+  color: #c9d3cd;
+}
+.rateRow label.rateOn {
+  color: #e08a3c;
+}
+.rateRow input,
+.fitRow input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.rateRow input:focus-visible + span,
+.fitRow input:focus-visible + span {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.fitRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fitRow label span {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.fitRow input:checked + span {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: var(--c-on-primary);
+}
+.textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: 12px 16px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  font: 400 14px/22px var(--font-sans);
+  color: var(--c-text);
+  resize: vertical;
+}
+.counter {
+  margin-top: 4px;
+  font: 400 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+  text-align: right;
+}
+.fieldError {
+  margin-top: 4px;
+  font: 600 12px/16px var(--font-sans);
+  color: var(--c-error);
+}
+.formPhotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.formPhoto {
+  position: relative;
+}
+.formPhoto img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+}
+.formPhoto button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font: 700 14px/24px var(--font-sans);
+  cursor: pointer;
+}
+.addPhoto {
+  width: 72px;
+  height: 72px;
+  border: 1px dashed var(--c-border-strong);
+  border-radius: var(--r-sm);
+  background: transparent;
+  font: 600 12px/16px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ─── избранное и мои отзывы в профиле ─────────────────────────────── */
+.favGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.favItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border-soft);
+  background: var(--c-surface-soft);
+  overflow: hidden;
+}
+.favItem img,
+.favNoImg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 251 / 274;
+  object-fit: cover;
+  background: var(--c-surface-mint);
+}
+.favOut img {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
+.favBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px 16px;
+}
+.favTitle {
+  font: 400 17px/20px var(--font-serif);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+a.favTitle:hover {
+  text-decoration: underline;
+}
+.favMeta {
+  font: 500 12px/16px var(--font-sans);
+  color: var(--c-text-muted);
+}
+.favPrice {
+  margin-top: 6px;
+  font: 600 16px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.outBadge {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: #f4e2dc;
+  font: 700 11px/15px var(--font-sans);
+  color: var(--c-sale);
+}
+.favActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+.textBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 700 13px/18px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.textBtnMuted {
+  composes: textBtn;
+  color: var(--c-text-muted);
+}
+.subs {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.subs li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  font: 400 14px/20px var(--font-sans);
+}
+.subs a {
+  color: var(--c-primary);
+  font-weight: 600;
+}
+.mine {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.mineItem {
+  display: grid;
+  gap: 6px;
+  padding: 16px 20px;
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+}
+.mineHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+}
+.mineHead a {
+  font: 700 15px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.status {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font: 700 11px/15px var(--font-sans);
+  background: var(--c-chip);
+  color: var(--c-primary);
+}
+.status_pending {
+  background: #fbefdc;
+  color: #7a4a10;
+}
+.status_rejected {
+  background: #f4e2dc;
+  color: var(--c-sale);
+}
+.reject {
+  font: 600 13px/18px var(--font-sans);
+  color: var(--c-sale);
+}
+.eligible {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .favGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .reviewsGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+@media (max-width: 640px) {
+  .favGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .reviews {
+    margin-top: 32px;
+    padding-top: 28px;
+  }
+  .reviewsHead h2 {
+    font-size: 26px;
+    line-height: 32px;
+  }
+  .item {
+    padding: 16px;
+  }
+  .photos a,
+  .photos img {
+    width: 72px;
+    height: 72px;
+  }
+  .favCard {
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+  }
+}

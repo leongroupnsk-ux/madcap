@@ -90,7 +90,7 @@ export default async function HomePage() {
               <Link href="/quiz/1" className={h.btnAccent}>
                 {hero.cta}
               </Link>
-              <Link href="/#how" className={h.btnGhost}>
+              <Link href="/how" className={h.btnGhost}>
                 Как это работает
               </Link>
             </div>

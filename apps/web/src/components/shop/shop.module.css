@@ -3,6 +3,16 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
+/* Обёртка карточки: ссылка-карточка и сердечко «В избранное» поверх фото */
+.cardWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cardWrap > .card {
+  flex: 1;
+}
 /* Карточка товара — компонент product-card макета */
 .card {
   display: flex;
@@ -42,7 +52,8 @@
   position: absolute;
   top: 12px;
   left: 12px;
-  right: 12px;
+  /* справа — место под сердечко «В избранное» */
+  right: 56px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;

@@ -11,6 +11,7 @@ import { config } from '../config';
 import { parcelOf, DeliveryService } from '../delivery/delivery.service';
 import { PAYMENTS_PROVIDER, type PaymentsProvider, type Receipt, type Transfer } from '../payments/payments.provider';
 import { CartService, type CheckedLine } from './cart.service';
+import { RestockService } from '../favorites/restock.service';
 
 const DAY = 86400000;
 type FullShipment = Shipment & { items: ShipmentItem[]; supplier: Supplier };
@@ -39,6 +40,7 @@ export class OrdersService {
     @Inject(PAYMENTS_PROVIDER) readonly payments: PaymentsProvider,
     private readonly notifications: NotificationsService,
     private readonly settings: SettingsService,
+    private readonly restock: RestockService,
   ) {}
 
   // ─── оформление ──────────────────────────────────────────────────────
@@ -328,16 +330,21 @@ export class OrdersService {
 
   /** Неоплаченный заказ: отмена и снятие резерва (ТЗ §6.3). */
   async cancelUnpaid(orderId: string, reason: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const released: (string | null)[] = [];
+    const done = await this.prisma.$transaction(async (tx) => {
       const r = await tx.order.updateMany({ where: { id: orderId, status: 'pending_payment' }, data: { status: 'cancelled', cancelledAt: new Date(), cancelReason: reason } });
       if (r.count === 0) return false;
       const shipments = await tx.shipment.findMany({ where: { orderId }, include: { items: true } });
       for (const s of shipments) {
         await tx.shipment.update({ where: { id: s.id }, data: { status: 'cancelled', events: { create: { status: 'cancelled', note: reason } } } });
         await this.releaseStock(tx, s.items);
+        released.push(...s.items.map((i) => i.variantId));
       }
       return true;
     });
+    // Резерв вернулся на склад — вариант мог снова появиться в наличии
+    if (done) await this.restock.check({ variantIds: released }).catch((e: Error) => this.logger.warn(`restock ${orderId}: ${e.message}`));
+    return done;
   }
 
   /** Перед отменой по таймеру сверяемся с платёжкой: вебхук мог потеряться. */
@@ -368,6 +375,7 @@ export class OrdersService {
       return true;
     });
     if (!moved) return;
+    await this.restock.check({ variantIds: s.items.map((i) => i.variantId) }).catch((e: Error) => this.logger.warn(`restock ${s.id}: ${e.message}`));
     if (s.order.status === 'paid') await this.refund(s, s.items.filter((i) => i.qty > i.returnedQty).map((i) => ({ item: i, qty: i.qty - i.returnedQty })), true, reason, `cancel:${s.id}`);
     const left = await this.prisma.shipment.count({ where: { orderId: s.orderId, status: { notIn: ['cancelled', 'rejected'] } } });
     if (left === 0) await this.prisma.order.update({ where: { id: s.orderId }, data: { status: 'cancelled', cancelledAt: new Date(), cancelReason: reason } });

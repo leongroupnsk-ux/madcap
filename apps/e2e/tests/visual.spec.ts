@@ -45,6 +45,7 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void>;
   },
   { name: 'quiz-step-1', path: '/quiz/1', ready: (p) => expect(p.getByRole('heading', { name: 'Для кого подбираем?' })).toBeVisible() },
   { name: 'premium', path: '/premium', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
+  { name: 'how', path: '/how', ready: (p) => expect(p.getByRole('heading', { level: 1 })).toBeVisible() },
 ];
 
 for (const size of SIZES) {
@@ -57,6 +58,21 @@ for (const size of SIZES) {
         await p.ready(page);
         await settle(page);
         await expect(page).toHaveScreenshot(`${p.name}-${size.name}.png`, { fullPage: true, mask: [...masks(page), ...(p.extra?.(page) ?? [])] });
+      });
+    }
+
+    if (size.name === '1549') {
+      // Открытое мегаменю «Каталог»: снимаем шапку с панелью (страница под ней затемнена и в снимок не входит)
+      test(`catalog-menu @${size.name}`, async ({ page }) => {
+        await page.goto('/');
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.waitForLoadState('networkidle');
+        await page.locator('header').getByRole('link', { name: 'Каталог', exact: true }).click();
+        const nav = page.locator('#catalog-menu').getByRole('navigation', { name: 'Каталог' });
+        await expect(nav).toBeVisible();
+        await settle(page);
+        const box = (await page.locator('#catalog-menu > div').boundingBox())!;
+        await expect(page).toHaveScreenshot(`catalog-menu-${size.name}.png`, { clip: { x: 0, y: 0, width: size.viewport.width, height: Math.ceil(box.y + box.height) } });
       });
     }
 

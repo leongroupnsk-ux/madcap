@@ -16,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const data = (await fetch(`${api}/api/catalog/sitemap`, { next: { revalidate: 3600 } })
     .then((r) => r.json())
     .catch(() => null)) as SitemapData | null;
-  const fixed = ['', '/catalog', '/journal', '/suppliers', '/premium'].map((p) => ({ url: `${SITE_URL}${p}`, changeFrequency: 'daily' as const }));
+  const fixed = ['', '/catalog', '/how', '/journal', '/suppliers', '/premium'].map((p) => ({ url: `${SITE_URL}${p}`, changeFrequency: 'daily' as const }));
   if (!data) return fixed;
   return [
     ...fixed,

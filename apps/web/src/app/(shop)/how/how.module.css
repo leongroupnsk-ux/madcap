@@ -1,0 +1,212 @@
+/* «Как это работает» — макета нет (ТЗ §12 п.17); блоки в стиле главной (components/shop/home.module.css) */
+.intro {
+  padding: 56px 0 48px;
+  max-width: 760px;
+}
+.intro :global(.eyebrow),
+.section :global(.eyebrow) {
+  font-weight: 500;
+  color: var(--c-text-label);
+}
+.intro h1 {
+  margin-top: 16px;
+  font-size: 48px;
+  line-height: 52px;
+}
+.intro h1 em {
+  font-style: normal;
+  color: var(--c-sale);
+}
+.intro p {
+  margin: 20px 0 0;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 26px;
+  color: var(--c-text-body);
+}
+.introCta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+/* Шаги — сетка .steps главной, только список вместо div */
+.steps {
+  list-style: none;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.section {
+  padding: 8px 0 56px;
+}
+.section h2 {
+  margin-top: 12px;
+  font-size: 36px;
+  line-height: 44px;
+}
+.section h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--c-primary);
+}
+
+.factors {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.factor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-border-strong);
+  background: var(--c-surface-mint);
+}
+.factor:last-child {
+  background: var(--c-surface-cream);
+}
+.factor img {
+  width: 28px;
+  height: 28px;
+}
+.factor p,
+.order p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--c-text-body);
+}
+
+.order {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border-top: 1px solid var(--c-border-strong);
+}
+.order li {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 20px 0 0;
+}
+.order li + li {
+  padding-left: 20px;
+  border-left: 1px solid var(--c-border-soft);
+}
+.order li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.orderNo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.16em;
+  color: var(--c-sale);
+}
+
+.faq {
+  margin-top: 24px;
+  max-width: 880px;
+  border-top: 1px solid var(--c-border-strong);
+}
+.faq details {
+  border-bottom: 1px solid var(--c-border-strong);
+}
+.faq summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--c-primary);
+  cursor: pointer;
+  list-style: none;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faq summary::after {
+  content: '+';
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--c-border-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1;
+}
+.faq details[open] summary::after {
+  content: '−';
+  background: var(--c-chip);
+}
+.faq details p {
+  margin: 0;
+  padding: 0 44px 20px 0;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--c-text-body);
+}
+.faq details a {
+  color: var(--c-primary);
+}
+
+@media (max-width: 1100px) {
+  .factors {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .order {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 0;
+    gap: 0 24px;
+  }
+  .order li,
+  .order li + li {
+    padding: 20px 0;
+    border-left: 0;
+    border-top: 1px solid var(--c-border-strong);
+  }
+}
+@media (max-width: 760px) {
+  .intro {
+    padding: 32px 0;
+  }
+  .intro h1 {
+    font-size: 36px;
+    line-height: 1.1;
+  }
+  .section {
+    padding-bottom: 40px;
+  }
+  .section h2 {
+    font-size: 28px;
+    line-height: 1.15;
+  }
+  .factors,
+  .order {
+    grid-template-columns: 1fr;
+  }
+  .faq details p {
+    padding-right: 0;
+  }
+}
