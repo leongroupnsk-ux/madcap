@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, promotionSchema } from '@aesculap/shared';
+import { formatRub, plural, promotionSchema } from '@aesculap/shared';
 import { useCallback, useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Field, Modal } from '@/components/ui';
@@ -8,13 +8,23 @@ import { api, isApiError } from '@/lib/api';
 
 type Promo = {
   id: string; name: string; description: string; badge: string; minDiscountPct: number; commissionBp: number; applyFrom: string; applyTo: string;
-  startsAt: string; endsAt: string; onHomepage: boolean; newsletter: boolean; requirements: string; phase: string; applications: number; pending: number;
+  startsAt: string; endsAt: string; onHomepage: boolean; newsletter: boolean; requirements: string; phase: string; applications: number; pending: number; mailing: Mailing | null;
 };
+type Mailing = { status: 'queued' | 'running' | 'done' | 'failed'; total: number; sent: number; failed: number; error?: string | null };
+type Preview = { recipients: number; pending: number; campaign: Mailing | null };
 type Application = { id: string; promotion: string; minDiscountPct: number; supplier: string; product: string; discountPct: number; price: number; salePrice: number; createdAt: string };
 type Form = Record<'name' | 'description' | 'badge' | 'minDiscountPct' | 'commissionPct' | 'applyFrom' | 'applyTo' | 'startsAt' | 'endsAt' | 'requirements', string> & { onHomepage: boolean; newsletter: boolean };
 
 const PHASE: Record<string, string> = { scheduled: 'Скоро', applying: 'Приём заявок', waiting: 'Ждёт старта', running: 'Идёт', finished: 'Завершена' };
 const local = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+/** Статус рассылки: в очереди / идёт / отправлено N из M / ошибки */
+const mailingLabel = (m: Mailing) => {
+  const errors = m.failed ? ` · ошибок ${m.failed}` : '';
+  if (m.status === 'queued') return 'рассылка в очереди';
+  if (m.status === 'running') return `рассылка идёт · ${m.sent} из ${m.total}${errors}`;
+  if (m.status === 'failed') return `рассылка прервана · ${m.sent} из ${m.total}${errors}`;
+  return `отправлено ${m.sent} из ${m.total}${errors}`;
+};
 const day = (d: string) => new Date(d).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 const empty = (): Form => {
   const now = Date.now();
@@ -32,6 +42,7 @@ export default function AdminPromotionsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [reject, setReject] = useState<{ id: string; reason: string } | null>(null);
+  const [mailing, setMailing] = useState<{ promo: Promo; preview: Preview | null; busy: boolean; error: string | null } | null>(null);
 
   const load = useCallback(async () => {
     const [p, a] = await Promise.all([api<Promo[]>('/admin/promotions'), api<Application[]>('/admin/promotions/applications')]);
@@ -61,6 +72,44 @@ export default function AdminPromotionsPage() {
     const body = { ...edit!.form, applyFrom: new Date(edit!.form.applyFrom), applyTo: new Date(edit!.form.applyTo), startsAt: new Date(edit!.form.startsAt), endsAt: new Date(edit!.form.endsAt) };
     if (await run(() => (edit!.id ? api(`/admin/promotions/${edit!.id}`, body, 'PUT') : api('/admin/promotions', body)))) setEdit(null);
   };
+  // Окно рассылки: число получателей, затем статус — опрос, пока задача в очереди или идёт.
+  const mailingId = mailing?.promo.id;
+  const mailingStatus = mailing?.preview?.campaign?.status;
+  useEffect(() => {
+    if (!mailingId) return;
+    let stop = false;
+    const active = mailingStatus === 'queued' || mailingStatus === 'running';
+    const tick = async () => {
+      try {
+        const preview = await api<Preview>(`/admin/promotions/${mailingId}/newsletter`);
+        if (stop) return;
+        setMailing((m) => m && { ...m, preview });
+        // Рассылка закончилась — обновить статус в таблице
+        if (active && preview.campaign && preview.campaign.status !== 'queued' && preview.campaign.status !== 'running') void load().catch(() => undefined);
+      } catch (e) {
+        if (!stop) setMailing((m) => m && { ...m, error: isApiError(e) ? e.message : 'Ошибка' });
+      }
+    };
+    if (!mailingStatus) void tick();
+    const t = active ? setInterval(tick, 2000) : undefined;
+    return () => {
+      stop = true;
+      if (t) clearInterval(t);
+    };
+  }, [mailingId, mailingStatus, load]);
+
+  const sendMailing = async () => {
+    if (!mailing) return;
+    setMailing({ ...mailing, busy: true, error: null });
+    try {
+      const preview = await api<Preview>(`/admin/promotions/${mailing.promo.id}/newsletter`, {});
+      setMailing((m) => m && { ...m, preview, busy: false });
+      await load();
+    } catch (e) {
+      setMailing((m) => m && { ...m, busy: false, error: isApiError(e) ? e.message : 'Ошибка' });
+    }
+  };
+
   const f = edit?.form;
   const set = (patch: Partial<Form>) => setEdit((e) => e && { ...e, form: { ...e.form, ...patch } });
 
@@ -151,8 +200,18 @@ export default function AdminPromotionsPage() {
                 <td className={s.muted}>
                   от {p.minDiscountPct}% · комиссия {p.commissionBp / 100}%{p.onHomepage && ' · на главной'}
                   {p.newsletter && ' · рассылка'}
+                  {p.mailing && <div>{mailingLabel(p.mailing)}</div>}
                 </td>
-                <td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {p.newsletter && p.phase !== 'finished' && (
+                    <button
+                      className={s.link}
+                      style={{ border: 0, background: 'none', cursor: 'pointer', font: 'inherit', display: 'block', marginBottom: 6 }}
+                      onClick={() => setMailing({ promo: p, preview: null, busy: false, error: null })}
+                    >
+                      Разослать покупателям
+                    </button>
+                  )}
                   <button
                     className={s.link}
                     style={{ border: 0, background: 'none', cursor: 'pointer', font: 'inherit' }}
@@ -199,6 +258,45 @@ export default function AdminPromotionsPage() {
               <input type="checkbox" checked={f.newsletter} onChange={(e) => set({ newsletter: e.target.checked })} /> Рассылка покупателям (отметка для маркетинга)
             </label>
             <Button onClick={save}>{edit.id ? 'Сохранить' : 'Создать и оповестить поставщиков'}</Button>
+          </div>
+        </Modal>
+      )}
+
+      {mailing && (
+        <Modal eyebrow="Рассылка по акции" title={mailing.promo.name} onClose={() => setMailing(null)}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {mailing.error && <Alert tone="error">{mailing.error}</Alert>}
+            {!mailing.preview ? (
+              <p className={s.muted}>Считаем получателей…</p>
+            ) : (
+              <>
+                <p style={{ margin: 0 }}>
+                  Согласие на рассылку дали {mailing.preview.recipients} {plural(mailing.preview.recipients, 'покупатель', 'покупателя', 'покупателей')}.{' '}
+                  {mailing.preview.pending === 0
+                    ? 'Все они уже получили письмо по этой акции.'
+                    : mailing.preview.pending === mailing.preview.recipients
+                      ? 'Письмо получат все.'
+                      : `Ещё не получали письмо по этой акции: ${mailing.preview.pending}.`}
+                </p>
+                <p className={s.muted} style={{ margin: 0 }}>
+                  В письме — название, описание и сроки акции, до 6 товаров с ценами, ссылка на каталог со скидками и ссылка «Отписаться». Уже получившим
+                  письмо повторно не отправляется.
+                </p>
+                {mailing.preview.campaign && (
+                  <Alert tone={mailing.preview.campaign.status === 'failed' || mailing.preview.campaign.failed ? 'error' : 'success'}>
+                    {mailingLabel(mailing.preview.campaign)}
+                    {mailing.preview.campaign.error && ` — ${mailing.preview.campaign.error}`}
+                  </Alert>
+                )}
+                {mailing.preview.campaign?.status === 'queued' || mailing.preview.campaign?.status === 'running' ? (
+                  <Button disabled>Рассылка идёт…</Button>
+                ) : (
+                  <Button disabled={mailing.busy || mailing.preview.pending === 0} onClick={sendMailing}>
+                    {mailing.preview.pending === 0 ? 'Новых получателей нет' : `Разослать ${mailing.preview.pending} ${plural(mailing.preview.pending, 'покупателю', 'покупателям', 'покупателям')}`}
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </Modal>
       )}

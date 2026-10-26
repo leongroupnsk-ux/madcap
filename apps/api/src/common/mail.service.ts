@@ -6,6 +6,8 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  /** Дополнительные заголовки: List-Unsubscribe у рассылок */
+  headers?: Record<string, string>;
 }
 
 /** Почта: в dev и тестах письма пишутся в лог (MAIL_DRIVER=console), в бою — SMTP транзакционного сервиса (SMTP_URL). */
@@ -23,6 +25,6 @@ export class MailService {
     }
     if (config.mailDriver !== 'smtp' || !config.smtpUrl) throw new Error(`Почта не настроена: MAIL_DRIVER=${config.mailDriver}`);
     this.transport ??= createTransport(config.smtpUrl);
-    await this.transport.sendMail({ from: config.mailFrom, to: mail.to, subject: mail.subject, text: mail.text });
+    await this.transport.sendMail({ from: config.mailFrom, to: mail.to, subject: mail.subject, text: mail.text, headers: mail.headers });
   }
 }

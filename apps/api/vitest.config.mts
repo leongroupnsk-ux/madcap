@@ -18,6 +18,9 @@ export default defineConfig({
       PAYMENTS_DRIVER: 'fake',
       // Кэш каталога проверяется отдельным тестом; в остальных — свежие данные
       CATALOG_CACHE: 'off',
+      // Рассылка без пауз между пачками; маленькая пачка, чтобы проверить переход между пачками
+      NEWSLETTER_PAUSE_MS: '0',
+      NEWSLETTER_BATCH: '2',
     },
     include: ['test/**/*.test.ts'], fileParallelism: false, testTimeout: 20000 },
 });

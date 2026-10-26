@@ -207,7 +207,7 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 ['pdn', 'Я согласен с политикой персональных данных'],
                 ['offer', 'Я согласен с офертой'],
                 ['photos', 'Я согласен с хранением моих фото'],
-                ['marketing', 'Хочу получать новости и подборки'],
+                ['marketing', 'Хочу получать новости, подборки и письма об акциях'],
               ] as const
             ).map(([type, label]) => (
               <label key={type} className={p.consent}>

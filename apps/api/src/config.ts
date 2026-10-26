@@ -44,6 +44,15 @@ export const config = {
     confirmHours: Number(process.env.SHIPMENT_CONFIRM_HOURS ?? 48),
   },
   session: { cookieName: 'sid', ttlDays: 30 },
+  /**
+   * Рассылки по акциям (ТЗ §7.7, §11): секрет подписи ссылок «Отписаться» и темп отправки —
+   * пачка писем, затем пауза, чтобы не упереться в лимиты SMTP.
+   */
+  newsletter: {
+    secret: process.env.UNSUBSCRIBE_SECRET || process.env.SESSION_SECRET || 'dev-only-unsubscribe-secret',
+    batch: Number(process.env.NEWSLETTER_BATCH ?? 50),
+    pauseMs: Number(process.env.NEWSLETTER_PAUSE_MS ?? 2000),
+  },
   tokens: { emailVerifyHours: 48, passwordResetMinutes: 60 },
 };
 
@@ -61,6 +70,7 @@ export function assertProductionConfig() {
     config.mailDriver !== 'smtp' && 'MAIL_DRIVER должен быть smtp',
     config.mailDriver === 'smtp' && !config.smtpUrl && 'нужен SMTP_URL',
     !config.storefrontRequirePayouts && 'STOREFRONT_REQUIRE_PAYOUTS нельзя выключать',
+    !process.env.UNSUBSCRIBE_SECRET && 'нужен UNSUBSCRIBE_SECRET (подпись ссылок отписки от рассылки)',
     !config.webOrigin.startsWith('https://') && 'WEB_ORIGIN должен быть https://',
   ].filter(Boolean);
   if (problems.length) throw new Error(`Небезопасная конфигурация продакшена:\n- ${problems.join('\n- ')}\n(для демо-стенда — ALLOW_TEST_PROVIDERS=1)`);

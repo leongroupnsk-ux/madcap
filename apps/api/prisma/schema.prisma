@@ -54,6 +54,7 @@ model User {
   auditLogs            AuditLog[]
   premiumAnswers       PremiumAnswers?
   premiumLeads         PremiumLead[]
+  newsletterDeliveries NewsletterDelivery[]
 
   @@map("users")
 }
@@ -1036,10 +1037,63 @@ model Promotion {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  products PromotionProduct[]
-  variants ProductVariant[]
+  products             PromotionProduct[]
+  variants             ProductVariant[]
+  newsletterCampaign   NewsletterCampaign?
+  newsletterDeliveries NewsletterDelivery[]
 
   @@map("promotions")
+}
+
+enum NewsletterStatus {
+  queued
+  running
+  done
+  failed
+}
+
+/// Рассылка покупателям по акции (ТЗ §7.7, §11): одна на акцию, повторный запуск дошлёт тем, кто ещё не получил
+model NewsletterCampaign {
+  id          String           @id @default(uuid()) @db.Uuid
+  promotionId String           @unique @db.Uuid
+  status      NewsletterStatus @default(queued)
+  /// Получателей на момент последнего запуска (с согласием marketing)
+  total       Int              @default(0)
+  sent        Int              @default(0)
+  failed      Int              @default(0)
+  error       String?
+  startedById String?          @db.Uuid
+  queuedAt    DateTime         @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@map("newsletter_campaigns")
+}
+
+enum NewsletterDeliveryStatus {
+  sending
+  sent
+  failed
+}
+
+/// Отправка письма по акции одному человеку — уникальна, поэтому повторный запуск не дублирует письма
+model NewsletterDelivery {
+  id          String                   @id @default(uuid()) @db.Uuid
+  promotionId String                   @db.Uuid
+  userId      String                   @db.Uuid
+  status      NewsletterDeliveryStatus @default(sending)
+  error       String?
+  createdAt   DateTime                 @default(now())
+  sentAt      DateTime?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, userId])
+  @@index([userId])
+  @@map("newsletter_deliveries")
 }
 
 enum PromotionProductStatus {

@@ -76,8 +76,15 @@ export class PromotionsService {
   }
 
   async adminList() {
-    const rows = await this.prisma.promotion.findMany({ orderBy: { startsAt: 'desc' }, include: { _count: { select: { products: true } }, products: { where: { status: 'pending' }, select: { id: true } } } });
-    return rows.map((p) => ({ ...this.view(p), applications: p._count.products, pending: p.products.length }));
+    const rows = await this.prisma.promotion.findMany({
+      orderBy: { startsAt: 'desc' },
+      include: {
+        _count: { select: { products: true } },
+        products: { where: { status: 'pending' }, select: { id: true } },
+        newsletterCampaign: { select: { status: true, total: true, sent: true, failed: true } },
+      },
+    });
+    return rows.map((p) => ({ ...this.view(p), applications: p._count.products, pending: p.products.length, mailing: p.newsletterCampaign }));
   }
 
   async applications(status = 'pending') {
