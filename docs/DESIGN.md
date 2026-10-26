@@ -25,7 +25,7 @@
 | Карточка товара | `--c-surface-soft` #ecf1ed, рамка `--c-border-soft` |
 | Мятные плашки | `--c-surface-mint` #e3eee8, чип `--c-chip` #e0eee7 |
 | Текст | основной #123d32, абзацы `--c-text-body` #40594d, меню `--c-text-nav` #45544d, вторичный `--c-text-muted` #607168, бренд/подписи `--c-text-faint` #73867d |
-| Шрифты | заголовки `--font-serif` Prata (h1/h2 трекинг −0.055em), текст `--font-sans` Manrope, надзаголовки `--font-mono` DM Mono 10 px / трекинг 0.15em (класс `.eyebrow`), блок «Премиум» `--font-display` Playfair Display |
+| Шрифты | заголовки `--font-serif` Prata (h1/h2 трекинг −0.055em), текст `--font-sans` Manrope, надзаголовки `--font-mono` JetBrains Mono (вместо DM Mono макета — в нём нет кириллицы) 10 px / трекинг 0.15em (класс `.eyebrow`), блок «Премиум» `--font-display` Playfair Display |
 | Радиусы | карточки 16 px (`--r-md`), крупные блоки 24 px (`--r-lg`), кнопки — пилюля |
 
 Готовые общие части: `components/SiteHeader.tsx`, `components/SiteFooter.tsx`, `components/Logo.tsx`, `components/shop/ProductCard.tsx` (компонент product-card), главная `app/(shop)/page.tsx` — образец переноса.

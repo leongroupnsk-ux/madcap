@@ -34,7 +34,7 @@
   --font-serif: var(--font-prata), 'Times New Roman', serif;
   --font-display: var(--font-playfair), 'Times New Roman', serif;
   --font-sans: var(--font-manrope), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-dm-mono), var(--font-manrope), ui-monospace, monospace;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
 
   --r-sm: 8px;
   --r-md: 16px;
