@@ -72,6 +72,8 @@ DATABASE_URL=…/aesculap ADMIN_URL=…/postgres BACKUP_DIR=/var/backups/aescula
 - Адрес https://201-24-63-39.sslip.io (временный, сертификат Let's Encrypt); свой домен — сменить `DOMAIN` в `.env.production` и перезапустить.
 - `ALLOW_TEST_PROVIDERS=1`, `SITE_NOINDEX=1`: тестовые оплата и доставка, письма в лог `api`, закрыт от поисковиков. Демо-данные — `prisma/demo.ts`, пароль демо-входов — `DEMO_PASSWORD` в `.env.production` на сервере.
 - Файрвол ufw: 22, 80, 443, 10050 (агент мониторинга Timeweb).
+- SSH только по ключу (`/etc/ssh/sshd_config.d/00-aesculap-hardening.conf`, с 2026-10-26: до этого шёл подбор паролей ~6000 попыток в сутки), fail2ban банит подбор (`fail2ban-client status sshd`). Запасной вход — консоль в панели Timeweb.
+- Выкладка `ops/deploy.sh` собирает образы на сервере в фоне (лог `/srv/aesculap/deploy.log`), обрыв SSH её не прерывает; `REVISION` пишется после успешного запуска.
 - Бэкап: `/usr/local/bin/aesculap-backup` по cron в 03:30, `/var/backups/aesculap`; копии вне сервера (S3) пока нет. Восстановление проверено 2026-10-23.
 
 ## Перед запуском (ТЗ §11, §13)
