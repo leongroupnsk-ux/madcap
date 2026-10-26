@@ -10,6 +10,7 @@ import {
 } from '@aesculap/shared';
 import { CurrentUser } from '../auth/auth.guard';
 import { publicUser } from '../auth/auth.service';
+import { captchaToken } from '../common/captcha.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from './supplier.guard';
 import { SuppliersService } from './suppliers.service';
@@ -20,7 +21,7 @@ export class SuppliersController {
 
   @Post('supplier-applications')
   apply(@Body(new ZodPipe(supplierApplicationSchema)) body: SupplierApplicationInput, @Req() req: Request) {
-    return this.suppliers.apply(body, req.ip ?? 'unknown');
+    return this.suppliers.apply(body, req.ip ?? 'unknown', captchaToken(req));
   }
 
   @Get('supplier/me')

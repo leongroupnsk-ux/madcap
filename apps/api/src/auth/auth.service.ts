@@ -5,6 +5,7 @@ import { type LoginInput, type RegisterInput } from '@aesculap/shared';
 import { LegalService } from '../common/legal.service';
 import { PrismaService } from '../common/prisma.service';
 import { MailService } from '../common/mail.service';
+import { CaptchaService } from '../common/captcha.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { newToken, sha256 } from '../common/crypto';
 import { newTotpSecret, otpauthUrl, verifyTotp } from './totp';
@@ -31,10 +32,11 @@ export class AuthService {
     private readonly mail: MailService,
     private readonly limits: RateLimitService,
     private readonly legal: LegalService,
+    private readonly captcha: CaptchaService,
   ) {}
 
-  async register(input: RegisterInput, ip: string): Promise<User> {
-    await this.limits.hit('register', ip, 10, 3600);
+  async register(input: RegisterInput, ip: string, captchaToken?: string): Promise<User> {
+    await this.limits.hit('register', ip, 10, 3600, this.captcha.gate(captchaToken, ip));
     const exists = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (exists) throw new ConflictException({ message: 'Аккаунт с таким email уже есть', errors: { email: 'Аккаунт с таким email уже есть' } });
 
@@ -54,9 +56,11 @@ export class AuthService {
     return user;
   }
 
-  async login(input: LoginInput, ip: string): Promise<User> {
-    await this.limits.hit('login-ip', ip, 20, 900);
-    await this.limits.hit('login', input.email, 5, 900);
+  async login(input: LoginInput, ip: string, captchaToken?: string): Promise<User> {
+    // Один «шлюз» на оба счётчика: токен капчи одноразовый и проверяется один раз
+    const captcha = this.captcha.gate(captchaToken, ip);
+    await this.limits.hit('login-ip', ip, 20, 900, captcha);
+    await this.limits.hit('login', input.email, 5, 900, captcha);
     const user = await this.prisma.user.findUnique({ where: { email: input.email } });
     const ok = await argon2.verify(user?.passwordHash ?? (await getDummyHash()), input.password).catch(() => false);
     if (!user || !ok || user.deletedAt) throw new UnauthorizedException({ message: 'Неверный email или пароль' });
@@ -93,9 +97,10 @@ export class AuthService {
   }
 
   /** Ответ одинаковый для существующего и несуществующего email (ТЗ §4.7). */
-  async forgotPassword(email: string, ip: string): Promise<void> {
-    await this.limits.hit('forgot-ip', ip, 10, 3600);
-    await this.limits.hit('forgot', email, 3, 3600);
+  async forgotPassword(email: string, ip: string, captchaToken?: string): Promise<void> {
+    const captcha = this.captcha.gate(captchaToken, ip);
+    await this.limits.hit('forgot-ip', ip, 10, 3600, captcha);
+    await this.limits.hit('forgot', email, 3, 3600, captcha);
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || user.deletedAt) return;
     const token = await this.issueToken(user.id, 'password_reset', config.tokens.passwordResetMinutes);

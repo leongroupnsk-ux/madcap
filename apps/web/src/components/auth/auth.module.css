@@ -338,3 +338,13 @@ a.role:hover {
     flex: 1;
   }
 }
+
+/* Яндекс SmartCaptcha — появляется только после ответа captcha_required (E6-06) */
+.captcha {
+  min-height: 102px;
+}
+.captchaNote {
+  margin: 8px 0 0;
+  font: 400 13px/18px var(--font-sans);
+  color: var(--c-error);
+}

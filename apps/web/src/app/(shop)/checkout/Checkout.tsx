@@ -8,7 +8,7 @@ import { api, isApiError } from '@/lib/api';
 import { readCart, writeCart, type CartLine } from '@/lib/cart';
 import c from '@/components/shop/checkout.module.css';
 import type { CheckedItem } from '../cart/CartView';
-import { AddressDrawer, addressText, type Quote, type SavedAddress } from './AddressDrawer';
+import { AddressDrawer, addressText, type DeliveryFeatures, type Quote, type SavedAddress } from './AddressDrawer';
 
 type Group = { supplierId: string; name: string; city: string | null; items: { line: CartLine; item: CheckedItem }[]; goods: number };
 
@@ -23,7 +23,15 @@ const DEFAULT_CITY = 44; // Москва — для предварительно
  * Шаг «Доставка»: карточка на каждое отправление (нумерация 1, 2, 3…), способ и адрес доставки по отправлению, получатель, итог.
  * Шаг «Оплата»: итог заказа и переход на страницу ЮKassa — данные карты на нашем сайте не вводятся (ТЗ §12 п.7).
  */
-export function Checkout({ saved: initialSaved, recipient: initialRecipient }: { saved: SavedAddress[]; recipient: { name: string; phone: string; email: string } }) {
+export function Checkout({
+  saved: initialSaved,
+  recipient: initialRecipient,
+  features,
+}: {
+  saved: SavedAddress[];
+  recipient: { name: string; phone: string; email: string };
+  features: DeliveryFeatures;
+}) {
   const [lines, setLines] = useState<CartLine[] | null>(null);
   const [items, setItems] = useState<CheckedItem[] | null>(null);
   const [saved, setSaved] = useState(initialSaved);
@@ -392,6 +400,7 @@ export function Checkout({ saved: initialSaved, recipient: initialRecipient }: {
       {drawer && (
         <AddressDrawer
           initialType={drawer.type}
+          features={features}
           saved={saved}
           current={delivery[drawer.supplierId]}
           quoteFor={quoteFor}

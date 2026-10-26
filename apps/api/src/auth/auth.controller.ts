@@ -12,6 +12,7 @@ import {
   type LoginInput,
   type RegisterInput,
 } from '@aesculap/shared';
+import { CaptchaService, captchaToken } from '../common/captcha.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { AuthGuard, CurrentUser } from './auth.guard';
 import { AuthService, publicUser } from './auth.service';
@@ -19,12 +20,20 @@ import { SessionService } from './session.service';
 
 const ip = (req: Request) => req.ip ?? 'unknown';
 
+
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionService,
+    private readonly captcha: CaptchaService,
   ) {}
+
+  /** Ключ клиента SmartCaptcha; null — капча выключена. Форма запрашивает его только после captcha_required. */
+  @Get('captcha-config')
+  captchaConfig() {
+    return { siteKey: this.captcha.siteKey };
+  }
 
   @Post('register')
   async register(
@@ -32,7 +41,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.auth.register(body, ip(req));
+    const user = await this.auth.register(body, ip(req), captchaToken(req));
     await this.sessions.create(user.id, req, res);
     return { user: publicUser(user) };
   }
@@ -40,7 +49,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   async login(@Body(new ZodPipe(loginSchema)) body: LoginInput, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const user = await this.auth.login(body, ip(req));
+    const user = await this.auth.login(body, ip(req), captchaToken(req));
     await this.sessions.create(user.id, req, res);
     return { user: publicUser(user) };
   }
@@ -73,7 +82,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(204)
   async forgot(@Body(new ZodPipe(forgotPasswordSchema)) body: { email: string }, @Req() req: Request) {
-    await this.auth.forgotPassword(body.email, ip(req));
+    await this.auth.forgotPassword(body.email, ip(req), captchaToken(req));
   }
 
   @Post('reset-password')

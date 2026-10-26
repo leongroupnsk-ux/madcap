@@ -14,9 +14,9 @@ import { api, isApiError } from '@/lib/api';
 export function SupplierLoginForm() {
   const router = useRouter();
   const [needTotp, setNeedTotp] = useState(false);
-  const { errors, formError, pending, submit } = useForm(loginSchema, async (data) => {
+  const { errors, formError, pending, submit, captcha } = useForm(loginSchema, async (data, { headers }) => {
     try {
-      await api('/auth/login', data);
+      await api('/auth/login', data, undefined, headers);
     } catch (e) {
       if (isApiError(e) && e.code === 'totp_required') setNeedTotp(true);
       throw e;
@@ -43,6 +43,7 @@ export function SupplierLoginForm() {
       <AuthField label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
       <AuthField label="Пароль" name="password" type="password" autoComplete="current-password" placeholder="••••••••" error={errors.password} />
       {needTotp && <AuthField label="Код из приложения" name="totp" inputMode="numeric" autoComplete="one-time-code" placeholder="6 цифр" error={errors.totp} autoFocus />}
+      {captcha}
       <Link href="/reset-password" className={a.forgot}>
         Забыли пароль?
       </Link>

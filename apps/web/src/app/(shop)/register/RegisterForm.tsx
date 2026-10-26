@@ -11,8 +11,8 @@ import { api } from '@/lib/api';
 
 export function RegisterForm({ next }: { next: string | null }) {
   const router = useRouter();
-  const { errors, formError, pending, submit } = useForm(registerSchema, async (data) => {
-    await api('/auth/register', data);
+  const { errors, formError, pending, submit, captcha } = useForm(registerSchema, async (data, { headers }) => {
+    await api('/auth/register', data, undefined, headers);
     router.replace(next ?? '/account?welcome=1');
     router.refresh();
   });
@@ -47,6 +47,7 @@ export function RegisterForm({ next }: { next: string | null }) {
       <AuthCheckbox name="acceptTerms" error={errors.acceptTerms}>
         Я согласен с <Link href="/legal/privacy">политикой персональных данных</Link> и <Link href="/legal/offer">офертой</Link>
       </AuthCheckbox>
+      {captcha}
       <div className={`${s.actions} ${s.actionsAfterCheck}`}>
         <Button type="submit" className={s.submit} disabled={pending}>
           {pending ? 'Создаём…' : 'Создать аккаунт'}

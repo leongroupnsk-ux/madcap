@@ -1309,3 +1309,20 @@
     line-height: 44px;
   }
 }
+
+/* Яндекс Карта ПВЗ (E4-09) — поверх фоновой картинки-заглушки, под выбором города */
+.mapCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.mapMarker {
+  composes: marker;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.25);
+}
+.mapMarkerOn {
+  composes: mapMarker;
+  background: var(--c-sale);
+  z-index: 1;
+}

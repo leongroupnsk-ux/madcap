@@ -63,8 +63,9 @@ export class FakeDeliveryProvider implements DeliveryProvider {
       name: `СДЭК ${c.city}, ${street}`,
       address: street,
       workTime: 'Пн-Вс 09:00-21:00',
-      lat: c.lat + i * 0.01,
-      lon: c.lon + i * 0.01,
+      // Детерминированные точки вокруг центра города (≈2–4 км), чтобы на карте метки не сливались
+      lat: Math.round((c.lat + Math.sin((i * 2 * Math.PI) / STREETS.length + 0.5) * 0.02 * (1 + i * 0.3)) * 1e6) / 1e6,
+      lon: Math.round((c.lon + Math.cos((i * 2 * Math.PI) / STREETS.length + 0.5) * 0.035 * (1 + i * 0.3)) * 1e6) / 1e6,
       reception: true,
     }));
   }

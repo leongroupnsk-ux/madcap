@@ -5,11 +5,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEscape } from '@/components/ui';
 import { api } from '@/lib/api';
 import c from '@/components/shop/checkout.module.css';
+import { PvzMap } from './PvzMap';
 
 export type SavedAddress = AddressInput & { id: string };
 export type Quote = { type: 'pvz' | 'courier'; tariffCode: number; price: number; periodMin: number; periodMax: number };
 type City = { code: number; city: string; region?: string };
-type Point = { code: string; name: string; address: string; workTime: string };
+type Point = { code: string; name: string; address: string; workTime: string; lat: number; lon: number };
+/** Что включено ключами в API: карта ПВЗ (ключ Яндекс Карт) и подсказки адреса курьера (DaData) */
+export type DeliveryFeatures = { mapKey: string | null; addressSuggest: boolean };
+type AddressSuggestion = { value: string; street: string; city: string; cityCode: number | null; postalCode: string | null };
 
 const MOSCOW: City = { code: 44, city: 'Москва' };
 
@@ -68,15 +72,88 @@ function CityInput({ value, onPick, autoFocus }: { value: City | null; onPick: (
   );
 }
 
+/**
+ * Поле «Улица и дом» с подсказками DaData (E4-10) в стиле подсказок города. Без ключа в API (enabled = false) —
+ * обычное поле, запросов нет. Выбор подсказки подставляет улицу с домом и, если адрес в другом городе, — город СДЭК.
+ */
+function StreetInput({
+  value,
+  city,
+  enabled,
+  onChange,
+  onPick,
+}: {
+  value: string;
+  city: City | null;
+  enabled: boolean;
+  onChange: (v: string) => void;
+  onPick: (s: AddressSuggestion) => void;
+}) {
+  const [list, setList] = useState<AddressSuggestion[]>([]);
+  const [typed, setTyped] = useState(false);
+  useEffect(() => {
+    if (!enabled || !typed || value.trim().length < 3) return setList([]);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      const qs = new URLSearchParams({ q: value.trim(), ...(city ? { city: city.city } : {}) });
+      fetch(`/api/delivery/address-suggest?${qs}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? (r.json() as Promise<AddressSuggestion[]>) : []))
+        .then(setList)
+        .catch(() => undefined);
+    }, 300);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [enabled, typed, value, city]);
+  return (
+    <>
+      <input
+        className={c.formInput}
+        value={value}
+        onChange={(e) => {
+          setTyped(true);
+          onChange(e.target.value);
+        }}
+        onBlur={() => setTimeout(() => setList([]), 150)}
+        autoComplete="street-address"
+        maxLength={200}
+      />
+      {list.length > 0 && (
+        <div className={c.suggest} role="listbox" aria-label="Подсказки адреса">
+          {list.map((x) => (
+            <button
+              key={x.value}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onPick(x);
+                setTyped(false);
+                setList([]);
+              }}
+            >
+              {x.street}
+              <small>{[x.city !== city?.city && x.city, x.postalCode].filter(Boolean).join(', ')}</small>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 type Form = { street: string; flat: string; intercom: string; entrance: string; floor: string; comment: string };
 const EMPTY_FORM: Form = { street: '', flat: '', intercom: '', entrance: '', floor: '', comment: '' };
 
 /**
  * Окно «Адрес доставки» для одного отправления (ТЗ §6.2) — кадры cdek-courier-1/2, cdek-shop-1/2, cdek-shops.
- * Сохранённые адреса и ПВЗ, новый адрес курьеру, выбор ПВЗ из списка (карты нет — ключа нет, вместо неё заглушка).
+ * Сохранённые адреса и ПВЗ, новый адрес курьеру (с подсказками DaData, если есть ключ), выбор ПВЗ списком и на карте (без ключа карт — заглушка).
  */
 export function AddressDrawer({
   initialType,
+  features,
   saved,
   current,
   quoteFor,
@@ -86,6 +163,7 @@ export function AddressDrawer({
   onSaved,
 }: {
   initialType: 'pvz' | 'courier';
+  features: DeliveryFeatures;
   saved: SavedAddress[];
   current?: AddressInput;
   /** Тарифы этого отправления до города (из общего кэша оформления) */
@@ -138,6 +216,7 @@ export function AddressDrawer({
     return (
       <PointPicker
         start={shopsStart ?? { city: defaultCity(), point: current?.type === 'pvz' ? current.pvzCode : undefined }}
+        mapKey={features.mapKey}
         quoteFor={quoteFor}
         onBack={() => (saved.some((a) => a.type === 'pvz') ? setView('list') : onClose())}
         onPick={async (a) => {
@@ -262,6 +341,7 @@ export function AddressDrawer({
           <CourierForm
             initial={editing}
             fallbackCity={defaultCity()}
+            addressSuggest={features.addressSuggest}
             canGoBack={saved.some((a) => a.type === 'courier')}
             onBack={() => setView('list')}
             onSave={async (a) => {
@@ -284,12 +364,14 @@ export function AddressDrawer({
 function CourierForm({
   initial,
   fallbackCity,
+  addressSuggest,
   canGoBack,
   onBack,
   onSave,
 }: {
   initial: SavedAddress | null;
   fallbackCity: City;
+  addressSuggest: boolean;
   canGoBack: boolean;
   onBack: () => void;
   onSave: (a: AddressInput) => Promise<void>;
@@ -330,7 +412,21 @@ function CourierForm({
           <CityInput value={city} onPick={setCity} />
           {errors.city && <span className={c.fieldError}>{errors.city}</span>}
         </div>
-        {field('street', 'Улица и дом *', 'street-address')}
+        <div className={c.formField}>
+          <span>Улица и дом *</span>
+          <StreetInput
+            value={form.street}
+            city={city}
+            enabled={addressSuggest}
+            onChange={(street) => setForm((f) => ({ ...f, street }))}
+            onPick={(x) => {
+              setForm((f) => ({ ...f, street: x.street }));
+              // Адрес в другом городе — переключаем город, если удалось сопоставить код СДЭК
+              if (x.cityCode && x.cityCode !== city?.code) setCity({ code: x.cityCode, city: x.city });
+            }}
+          />
+          {errors.street && <span className={c.fieldError}>{errors.street}</span>}
+        </div>
         <div className={c.formRow}>
           {field('flat', 'Кв./офис')}
           {field('intercom', 'Домофон')}
@@ -359,18 +455,26 @@ function CourierForm({
   );
 }
 
-/** Выбор ПВЗ (cdek-shops + cdek-shop-2): вместо карты — заглушка в стиле макета, пункты — списком с поиском. */
+/**
+ * Выбор ПВЗ (cdek-shops + cdek-shop-2): пункты списком с поиском и на карте Яндекса (если задан ключ),
+ * без ключа — заглушка в стиле макета с пронумерованными метками.
+ */
 function PointPicker({
   start,
+  mapKey,
   quoteFor,
   onBack,
   onPick,
 }: {
   start: { city: City; point?: string };
+  mapKey: string | null;
   quoteFor: (cityCode: number) => Promise<Quote[] | undefined>;
   onBack: () => void;
   onPick: (a: AddressInput) => Promise<void>;
 }) {
+  // Карта — только с ключом; если не загрузилась, остаётся заглушка со списком
+  const [mapFailed, setMapFailed] = useState(false);
+  const withMap = Boolean(mapKey) && !mapFailed;
   const [city, setCity] = useState<City>(start.city);
   const [cityOpen, setCityOpen] = useState(false);
   const [points, setPoints] = useState<Point[] | null>(null);
@@ -411,13 +515,17 @@ function PointPicker({
   return (
     <div className={c.shops} role="dialog" aria-modal="true" aria-label="Пункты выдачи">
       <div className={c.map}>
-        <div className={c.markers} aria-hidden={!points?.length}>
-          {shown.slice(0, 40).map((p, i) => (
-            <button key={p.code} type="button" className={p.code === open ? c.markerOn : c.marker} onClick={() => setOpen(p.code)} aria-label={p.address}>
-              {i + 1}
-            </button>
-          ))}
-        </div>
+        {withMap && mapKey ? (
+          <PvzMap apiKey={mapKey} points={shown} selected={open} onSelect={setOpen} onFail={() => setMapFailed(true)} />
+        ) : (
+          <div className={c.markers} aria-hidden={!points?.length}>
+            {shown.slice(0, 40).map((p, i) => (
+              <button key={p.code} type="button" className={p.code === open ? c.markerOn : c.marker} onClick={() => setOpen(p.code)} aria-label={p.address}>
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
         <div className={c.mapTop}>
           <div className={c.cityBox}>
             {cityOpen ? (
@@ -441,7 +549,7 @@ function PointPicker({
             )}
           </div>
         </div>
-        <div className={c.mapNote}>Карта появится позже — выберите пункт в списке</div>
+        {!withMap && <div className={c.mapNote}>Карта появится позже — выберите пункт в списке</div>}
       </div>
 
       <aside className={c.shopsSide}>

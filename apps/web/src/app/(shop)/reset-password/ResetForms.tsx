@@ -7,6 +7,7 @@ import { forgotPasswordSchema, PASSWORD_MIN, resetPasswordSchema } from '@aescul
 import s from '@/components/auth/auth.module.css';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AuthField } from '@/components/auth/AuthField';
+import { useCaptcha } from '@/components/auth/Captcha';
 import { useForm } from '@/components/auth/useForm';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
@@ -14,8 +15,8 @@ import { api, isApiError } from '@/lib/api';
 /** Шаг 1 (кадр .Auth-Forget-password-1) и шаг 2 «Проверьте почту» (.Auth-Forget-password-2). */
 export function ForgotFlow() {
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const { errors, formError, pending, submit } = useForm(forgotPasswordSchema, async (data) => {
-    await api('/auth/forgot-password', data);
+  const { errors, formError, pending, submit, captcha } = useForm(forgotPasswordSchema, async (data, { headers }) => {
+    await api('/auth/forgot-password', data, undefined, headers);
     setSentTo(data.email);
   });
 
@@ -33,6 +34,7 @@ export function ForgotFlow() {
       >
         {formError && <Alert tone="error">{formError}</Alert>}
         <AuthField label="Email" name="email" type="email" autoComplete="email" placeholder="name@example.ru" error={errors.email} />
+        {captcha}
         <div className={`${s.actions} ${s.actionsWide}`}>
           <Button type="submit" className={s.submit} disabled={pending}>
             {pending ? 'Отправляем…' : 'Отправить ссылку'}
@@ -49,14 +51,17 @@ export function ForgotFlow() {
 function SentCard({ email }: { email: string }) {
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [error, setError] = useState('');
+  // После частых повторов сервер просит капчу — виджет появляется здесь, после решения письмо уходит само
+  const captcha = useCaptcha(() => void resend());
 
   // Повторная отправка — тот же запрос; лимиты частоты действуют на сервере
   async function resend() {
     setState('pending');
     try {
-      await api('/auth/forgot-password', { email });
+      await api('/auth/forgot-password', { email }, undefined, captcha.take());
       setState('sent');
     } catch (e) {
+      if (isApiError(e) && e.code === 'captcha_required') captcha.require();
       setError(isApiError(e) ? e.message : 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.');
       setState('error');
     }
@@ -73,6 +78,7 @@ function SentCard({ email }: { email: string }) {
     >
       <div className={s.sent}>
         {state === 'error' && <Alert tone="error">{error}</Alert>}
+        {captcha.element}
         {state === 'sent' ? (
           <p className={s.status} role="status">
             Письмо отправлено повторно на {email}.

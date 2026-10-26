@@ -54,6 +54,25 @@ export const config = {
     pauseMs: Number(process.env.NEWSLETTER_PAUSE_MS ?? 2000),
   },
   tokens: { emailVerifyHours: 48, passwordResetMinutes: 60 },
+  /**
+   * Яндекс SmartCaptcha после превышения порога попыток (вход, регистрация, сброс пароля, заявка поставщика).
+   * Включается, только когда заданы оба ключа; без них лимиты отвечают 429, как раньше.
+   * Ключ клиента отдаётся браузеру через GET /api/auth/captcha-config — смена ключа не требует пересборки web.
+   */
+  captcha: {
+    serverKey: process.env.SMARTCAPTCHA_SERVER_KEY ?? '',
+    clientKey: process.env.SMARTCAPTCHA_CLIENT_KEY ?? '',
+    validateUrl: 'https://smartcaptcha.yandexcloud.net/validate',
+    timeoutMs: Number(process.env.SMARTCAPTCHA_TIMEOUT_MS ?? 5000),
+  },
+  /** Ключ JS API Яндекс Карт 3.x для карты ПВЗ; отдаётся сайту через GET /api/delivery/config. Пусто — заглушка вместо карты. */
+  ymapsKey: process.env.YMAPS_API_KEY ?? '',
+  /** DaData: подсказки адреса курьера. Ключ только на сервере, браузер ходит через /api/delivery/address-suggest. */
+  dadata: {
+    apiKey: process.env.DADATA_API_KEY ?? '',
+    url: process.env.DADATA_URL ?? 'https://suggestions.dadata.ru/suggestions/api/4_1/rs',
+    timeoutMs: Number(process.env.DADATA_TIMEOUT_MS ?? 3000),
+  },
 };
 
 /**
@@ -70,6 +89,7 @@ export function assertProductionConfig() {
     config.mailDriver !== 'smtp' && 'MAIL_DRIVER должен быть smtp',
     config.mailDriver === 'smtp' && !config.smtpUrl && 'нужен SMTP_URL',
     !config.storefrontRequirePayouts && 'STOREFRONT_REQUIRE_PAYOUTS нельзя выключать',
+    Boolean(config.captcha.serverKey) !== Boolean(config.captcha.clientKey) && 'SMARTCAPTCHA_SERVER_KEY и SMARTCAPTCHA_CLIENT_KEY задаются парой',
     !process.env.UNSUBSCRIBE_SECRET && 'нужен UNSUBSCRIBE_SECRET (подпись ссылок отписки от рассылки)',
     !config.webOrigin.startsWith('https://') && 'WEB_ORIGIN должен быть https://',
   ].filter(Boolean);

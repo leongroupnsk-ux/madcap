@@ -1,11 +1,13 @@
 /** Клиентские запросы к API через /api (тот же origin). */
 export type ApiError = { status: number; message: string; errors?: Record<string, string>; code?: string };
 
-export async function api<T = unknown>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST'): Promise<T> {
+export async function api<T = unknown>(path: string, body?: unknown, method = body === undefined ? 'GET' : 'POST', extraHeaders?: Record<string, string>): Promise<T> {
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  const json = body === undefined || isForm ? undefined : { 'Content-Type': 'application/json' };
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body === undefined || isForm ? undefined : { 'Content-Type': 'application/json' },
+    // extraHeaders — например, X-Captcha-Token после ответа captcha_required
+    headers: extraHeaders ? { ...json, ...extraHeaders } : json,
     body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     credentials: 'same-origin',
   });

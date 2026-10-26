@@ -9,6 +9,7 @@ import { AuditService } from '../common/audit.service';
 import { newToken } from '../common/crypto';
 import { MailService } from '../common/mail.service';
 import { PrismaService } from '../common/prisma.service';
+import { CaptchaService } from '../common/captcha.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { config } from '../config';
 
@@ -22,10 +23,11 @@ export class SuppliersService {
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
     private readonly legal: LegalService,
+    private readonly captcha: CaptchaService,
   ) {}
 
-  async apply(input: SupplierApplicationInput, ip: string) {
-    await this.limits.hit('supplier-apply', ip, 5, 3600);
+  async apply(input: SupplierApplicationInput, ip: string, captchaToken?: string) {
+    await this.limits.hit('supplier-apply', ip, 5, 3600, this.captcha.gate(captchaToken, ip));
     const app = await this.prisma.supplierApplication.create({
       data: {
         company: input.company,

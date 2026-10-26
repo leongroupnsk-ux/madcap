@@ -14,9 +14,9 @@ export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
   // Сотрудникам с включённой 2FA сервер отвечает totp_required — тогда показываем поле кода
   const [needTotp, setNeedTotp] = useState(false);
-  const { errors, formError, pending, submit } = useForm(loginSchema, async (data) => {
+  const { errors, formError, pending, submit, captcha } = useForm(loginSchema, async (data, { headers }) => {
     try {
-      await api('/auth/login', data);
+      await api('/auth/login', data, undefined, headers);
     } catch (e) {
       if (isApiError(e) && e.code === 'totp_required') setNeedTotp(true);
       throw e;
@@ -50,6 +50,7 @@ export function LoginForm({ next }: { next: string }) {
           autoFocus
         />
       )}
+      {captcha}
       <Link href="/reset-password" className={s.forgot}>
         Забыли пароль?
       </Link>

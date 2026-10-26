@@ -12,8 +12,8 @@ import { api } from '@/lib/api';
 
 export function ApplyForm() {
   const [done, setDone] = useState(false);
-  const { errors, formError, pending, submit } = useForm(supplierApplicationSchema, async (data) => {
-    await api('/supplier-applications', data);
+  const { errors, formError, pending, submit, captcha } = useForm(supplierApplicationSchema, async (data, { headers }) => {
+    await api('/supplier-applications', data, undefined, headers);
     setDone(true);
   });
 
@@ -51,6 +51,7 @@ export function ApplyForm() {
       <AuthCheckbox name="acceptPdn" error={errors.acceptPdn}>
         Согласен на обработку персональных данных по <Link href="/legal/privacy">политике</Link> и с <Link href="/legal/suppliers">условиями для поставщиков</Link>
       </AuthCheckbox>
+      {captcha}
       <div className={`${a.actions} ${a.actionsAfterCheck}`}>
         <Button type="submit" block className={a.submit} disabled={pending}>
           {pending ? 'Отправляем…' : 'Отправить заявку'}
