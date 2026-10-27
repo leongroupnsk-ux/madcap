@@ -26,6 +26,8 @@ export type CatalogList = {
   total: number; page: number; pages: number; perPage: number; items: Card[]; facets: Facets;
   /** У покупателя есть профиль для «Подходит вам» */
   personal?: boolean;
+  /** «Возможно, вы искали…» — исправленный запрос, только при пустой выдаче поиска */
+  didYouMean?: string | null;
 };
 
 /** Заголовок каталога из макета; перенос строки — как в кадре .Catalog */

@@ -4,6 +4,7 @@ import { DEFAULT_STOREFRONT, type MenuItem } from '@aesculap/shared';
 import { serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
 import { CartCount } from './CartCount';
+import { FavoritesCount } from './FavoritesCount';
 import { CatalogMenu, type MegaMenuData } from './CatalogMenu';
 import { CartSync } from './CartSync';
 import { Logo } from './Logo';
@@ -68,6 +69,19 @@ export async function SiteHeader() {
               Войти
             </Link>
           )}
+          <Link href="/account/favorites" className={`${s.navLink} ${s.favLink}`}>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden focusable="false" className={s.navIcon}>
+              <path
+                d="M12 20.5s-7.5-4.6-9.3-9.2C1.6 8.4 3.4 5 6.8 5c2 0 3.6 1.1 4.4 2.6h1.6C13.6 6.1 15.2 5 17.2 5c3.4 0 5.2 3.4 4.1 6.3-1.8 4.6-9.3 9.2-9.3 9.2z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className={s.navText}>Избранное</span>
+            <FavoritesCount />
+          </Link>
           <Link href="/cart" className={s.navLink}>
             Корзина
             <CartCount />

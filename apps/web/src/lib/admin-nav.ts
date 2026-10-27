@@ -2,14 +2,17 @@ import type { StaffArea } from '@aesculap/shared';
 
 /** Меню админки по роли сотрудника (ТЗ §8); сервер всё равно проверяет доступ к каждому разделу */
 export const NAV: { href: string; label: string; area: StaffArea }[] = [
+  // Первый доступный пункт — стартовая страница админки (/admin): владельцу и поддержке — дашборд
+  { href: '/admin/dashboard', label: 'Дашборд', area: 'dashboard' },
   { href: '/admin/orders', label: 'Заказы и платежи', area: 'orders' },
-  { href: '/admin', label: 'Заявки поставщиков', area: 'suppliers' },
+  { href: '/admin/applications', label: 'Заявки поставщиков', area: 'suppliers' },
   { href: '/admin/moderation', label: 'Модерация товаров', area: 'moderation' },
   { href: '/admin/content', label: 'Модерация контента', area: 'moderation' },
   { href: '/admin/reviews', label: 'Модерация отзывов', area: 'moderation' },
   { href: '/admin/storefront', label: 'Витрина', area: 'catalog' },
   { href: '/admin/editorial', label: 'Журнал редакции', area: 'editorial' },
   { href: '/admin/dictionaries', label: 'Справочники', area: 'catalog' },
+  { href: '/admin/search', label: 'Поиск без результатов', area: 'catalog' },
   { href: '/admin/capsule', label: 'Подбор', area: 'catalog' },
   { href: '/admin/stylist', label: 'Консультации стилиста', area: 'stylist' },
   { href: '/admin/premium', label: 'Заявки премиум', area: 'premium' },
@@ -18,4 +21,5 @@ export const NAV: { href: string; label: string; area: StaffArea }[] = [
   { href: '/admin/users', label: 'Пользователи', area: 'users' },
   { href: '/admin/legal', label: 'Юридические страницы', area: 'system' },
   { href: '/admin/system', label: 'Сотрудники и настройки', area: 'system' },
+  { href: '/admin/system/mail-templates', label: 'Шаблоны писем', area: 'system' },
 ];

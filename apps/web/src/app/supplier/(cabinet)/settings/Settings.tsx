@@ -4,6 +4,7 @@ import { MEMBER_ROLE_LABEL, supplierSettingsSchema } from '@aesculap/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from '@/components/auth/useForm';
+import { ApiKeys } from './ApiKeys';
 import { NotificationSettings } from './NotificationSettings';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Field } from '@/components/ui';
@@ -35,7 +36,7 @@ export function Settings({ me, initialMembers }: { me: SupplierMe; initialMember
               <h3 className={s.setCardTitle}>Импорт</h3>
               <div className={s.staticField}>{sup.ymlFeedUrl ? `YML-фид: ${sup.ymlFeedUrl}` : 'YML-фид не подключён'}</div>
               <p className={s.setNote}>
-                {sup.ymlFeedUrl ? 'Автосинк каждые 6 часов · настраивается' : 'Подключается'} в разделе{' '}
+                {sup.ymlFeedUrl ? 'Автосинк по расписанию (1, 6 или 24 ч) · частота и пауза' : 'Подключается'} в разделе{' '}
                 <Link href="/supplier/import" className={s.link}>
                   «Импорт»
                 </Link>
@@ -43,6 +44,7 @@ export function Settings({ me, initialMembers }: { me: SupplierMe; initialMember
               </p>
             </section>
           )}
+          {owner && <ApiKeys />}
           {owner && <Members initial={initialMembers} />}
           <Security enabled={me.user.totpEnabled} email={me.user.email} />
         </div>

@@ -7,6 +7,7 @@ import { useEscape } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { imgSet } from '@/lib/image';
 import type { PremiumCapsule } from './CapsuleView';
+import { GOALS, reachGoal } from '@/lib/metrika';
 
 /** Маска телефона: +7 (999) 123-45-67 */
 function maskPhone(v: string) {
@@ -52,6 +53,7 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
     setBusy(true);
     try {
       await api('/premium/leads', body);
+      void reachGoal(GOALS.premiumRequest);
       setSent(true);
     } catch (err) {
       setErrors(isApiError(err) ? (err.errors ?? { _: err.message }) : { _: 'Нет связи с сервером' });

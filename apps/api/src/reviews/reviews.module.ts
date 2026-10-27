@@ -1,7 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Module, Param, ParseUUIDPipe, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Module, Param, ParseUUIDPipe, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { rejectSchema, reviewCreateSchema, reviewReplySchema, reviewSaveSchema, type ReviewCreateInput, type ReviewSaveInput } from '@aesculap/shared';
 import type { User } from '@prisma/client';
+import type { Request } from 'express';
+import { z } from 'zod';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { AuthModule } from '../auth/auth.module';
 import { Area, Roles } from '../auth/roles.guard';
@@ -9,6 +11,7 @@ import { RateLimitService } from '../common/rate-limit.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { SuppliersModule } from '../suppliers/suppliers.module';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
+import { ReviewInvitesService } from './review-invites.service';
 import { ReviewsService } from './reviews.service';
 
 /** Отзывы покупателя: свои отзывы, фото, создание и правка (снова на модерацию) */
@@ -105,10 +108,47 @@ class SupplierReviewsController {
   }
 }
 
+/** Письма «Оставьте отзыв»: включены ли (профиль) */
+@Controller('me/review-invites')
+@UseGuards(AuthGuard)
+class MeReviewInvitesController {
+  constructor(private readonly svc: ReviewInvitesService) {}
+
+  @Get()
+  get(@CurrentUser() user: User) {
+    return this.svc.settings(user);
+  }
+
+  @Put()
+  set(@CurrentUser() user: User, @Body(new ZodPipe(z.object({ enabled: z.boolean() }))) body: { enabled: boolean }) {
+    return this.svc.setEnabled(user, body.enabled);
+  }
+}
+
+/**
+ * Отписка от приглашений к отзыву по ссылке из письма. Токен — в JSON-теле (страница /review-invites/unsubscribe)
+ * или в query: так приходит one-click POST почтового клиента по List-Unsubscribe (RFC 8058, без Origin и cookie).
+ */
+@Controller('review-invites')
+class ReviewInvitesUnsubscribeController {
+  constructor(
+    private readonly svc: ReviewInvitesService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
+
+  @Post('unsubscribe')
+  @HttpCode(200)
+  async unsubscribe(@Query('token') queryToken: string | undefined, @Body() body: unknown, @Req() req: Request) {
+    await this.rateLimit.hit('unsubscribe', req.ip ?? 'unknown', 30, 60);
+    const bodyToken = body && typeof body === 'object' && typeof (body as { token?: unknown }).token === 'string' ? (body as { token: string }).token : '';
+    return this.svc.unsubscribe(String(bodyToken || queryToken || '').slice(0, 200), req.ip ?? 'unknown');
+  }
+}
+
 @Module({
   imports: [AuthModule, SuppliersModule],
-  controllers: [MeReviewsController, AdminReviewsController, SupplierReviewsController],
-  providers: [ReviewsService],
+  controllers: [MeReviewsController, AdminReviewsController, SupplierReviewsController, MeReviewInvitesController, ReviewInvitesUnsubscribeController],
+  providers: [ReviewsService, ReviewInvitesService],
   exports: [ReviewsService],
 })
 export class ReviewsModule {}

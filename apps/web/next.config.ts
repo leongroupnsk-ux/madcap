@@ -12,22 +12,27 @@ const prod = process.env.NODE_ENV === 'production';
  * без ключа запросов к ним нет):
  * - Яндекс SmartCaptcha (E6-06): скрипт и iframe виджета — smartcaptcha.yandexcloud.net;
  * - Яндекс Карты JS API 3.x (E4-09): загрузчик и модули — api-maps.yandex.ru и yastatic.net,
- *   тайлы, данные и иконки — *.maps.yandex.net, рендер в web worker из blob:.
+ *   тайлы, данные и иконки — *.maps.yandex.net, рендер в web worker из blob:;
+ * - Яндекс Метрика (METRIKA_ID, только после согласия на аналитические cookie): tag.js — mc.yandex.ru, его модули —
+ *   yastatic.net; хиты и цели — запросы и пиксели на mc.yandex.ru / mc.yandex.com (домен .com — для посетителей
+ *   из-за рубежа); frame-src — служебный iframe синхронизации и наложение карты кликов при просмотре из интерфейса Метрики.
+ *   Вебвизор выключен, его домены (mc.webvisor.org/.com) не нужны.
  */
 const SMARTCAPTCHA = 'https://smartcaptcha.yandexcloud.net';
 const YMAPS = 'https://api-maps.yandex.ru';
 const YMAPS_DATA = 'https://*.maps.yandex.net';
 const YASTATIC = 'https://yastatic.net';
+const METRIKA = 'https://mc.yandex.ru https://mc.yandex.com';
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${prod ? '' : " 'unsafe-eval'"} ${SMARTCAPTCHA} ${YMAPS} ${YASTATIC}`,
+  `script-src 'self' 'unsafe-inline'${prod ? '' : " 'unsafe-eval'"} ${SMARTCAPTCHA} ${YMAPS} ${YASTATIC} ${METRIKA}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${YMAPS} ${YMAPS_DATA} ${YASTATIC}`,
+  `img-src 'self' data: blob: ${YMAPS} ${YMAPS_DATA} ${YASTATIC} ${METRIKA}`,
   "media-src 'self' blob:",
   "font-src 'self' data:",
-  `connect-src 'self'${prod ? '' : ' ws:'} ${YMAPS} ${YMAPS_DATA} ${YASTATIC}`,
-  `frame-src ${SMARTCAPTCHA}`,
+  `connect-src 'self'${prod ? '' : ' ws:'} ${YMAPS} ${YMAPS_DATA} ${YASTATIC} ${METRIKA}`,
+  `frame-src ${SMARTCAPTCHA} ${METRIKA}`,
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "form-action 'self'",

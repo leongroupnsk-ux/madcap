@@ -144,6 +144,12 @@
   justify-items: center;
   gap: 16px;
 }
+.didYouMean {
+  color: var(--c-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .more {
   display: flex;
   justify-content: center;

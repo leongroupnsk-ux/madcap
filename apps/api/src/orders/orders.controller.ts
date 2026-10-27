@@ -86,7 +86,8 @@ export class OrdersController {
   @UseGuards(AuthGuard)
   async create(@CurrentUser() user: User, @Body(new ZodPipe(orderSchema)) body: CheckoutInput & { lines: CartLineInput[] }) {
     await this.rateLimit.hit('order', user.id, 10, 600);
-    return this.orders.create(user, body.lines, body);
+    const { number, confirmationUrl } = await this.orders.create(user, body.lines, body);
+    return { number, confirmationUrl };
   }
 
   @Get('orders')

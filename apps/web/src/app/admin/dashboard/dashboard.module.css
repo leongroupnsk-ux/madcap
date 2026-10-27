@@ -1,0 +1,173 @@
+/* Дашборд платформы: плитки, график по дням, воронка, сроки модерации, очереди (стиль — docs/DESIGN.md) */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+.periods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.tile {
+  background: var(--c-surface);
+  border-radius: var(--r-md);
+  padding: 18px 20px;
+  box-shadow: 0 1px 0 var(--c-border);
+  display: grid;
+  gap: 4px;
+}
+.tile b {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 32px;
+  color: var(--c-primary);
+}
+.tileLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+.tileHint {
+  font-size: 13px;
+  color: var(--c-text-muted);
+}
+.chart {
+  margin: 0;
+}
+.chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.bar {
+  fill: var(--c-primary);
+}
+.hit:hover + .bar,
+.hit:focus-visible + .bar {
+  fill: var(--c-primary-hover);
+}
+.hit {
+  fill: transparent;
+  cursor: default;
+}
+.hit:focus-visible {
+  outline: 2px solid var(--c-accent);
+}
+.gridLine {
+  stroke: var(--c-border);
+  stroke-width: 1;
+}
+.axis {
+  font: 400 11px var(--font-sans);
+  fill: var(--c-text-muted);
+}
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--c-text-body);
+  margin-top: 8px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+.funnel {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+.funnel li {
+  display: grid;
+  gap: 4px;
+}
+.funnelRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--c-chip);
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--c-primary);
+}
+.skipped {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  font-style: italic;
+}
+.warn {
+  color: var(--c-error);
+  font-weight: 600;
+}
+.ok {
+  color: var(--c-success);
+}
+.queues {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.queue {
+  display: grid;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--c-surface-soft);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.queue:hover,
+.queue:focus-visible {
+  border-color: var(--c-border-strong);
+}
+.queue b {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 28px;
+  color: var(--c-primary);
+}
+.queueHot {
+  background: #fbefe9;
+}
+.queueHot b {
+  color: var(--c-sale);
+}
+@media (max-width: 960px) {
+  .periods,
+  .two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Заголовок строки таблицы — обычным текстом, а не капсом шапки */
+th.rowHead.rowHead {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  color: var(--c-text);
+  white-space: normal;
+}

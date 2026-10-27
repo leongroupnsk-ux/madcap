@@ -11,6 +11,7 @@ import { clearFavorites } from '@/lib/favorites';
 import { MyReviews } from './MyReviews';
 import { orderLabel } from './orders/[number]/OrderView';
 import p from './profile.module.css';
+import { ReviewInvitesToggle } from '@/components/account/ReviewInvitesToggle';
 import { Stylist } from './Stylist';
 
 export type ProfileData = {
@@ -233,6 +234,7 @@ export function Profile(props: { email: string; emailVerified: boolean; welcome:
                 <span>{label}</span>
               </label>
             ))}
+            <ReviewInvitesToggle className={p.consent} />
             <div className={p.accountActions}>
               <button
                 className={p.textBtnPrimary}

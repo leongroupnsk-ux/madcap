@@ -49,6 +49,7 @@ export const NOTIFY_EVENTS = {
   moderation: 'Итоги модерации',
   import_report: 'Отчёты импорта',
   promotion: 'Акции платформы',
+  review: 'Новые отзывы на товары',
 } as const;
 export type NotifyEvent = keyof typeof NOTIFY_EVENTS;
 

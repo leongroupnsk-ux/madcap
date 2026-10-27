@@ -306,3 +306,42 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Расписание фида: частота, пауза, следующий запуск */
+.schedule {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(23, 61, 50, 0.08);
+}
+.scheduleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 13px/18px var(--font-sans);
+  color: #173d32;
+}
+.select {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid rgba(23, 61, 50, 0.13);
+  border-radius: 8px;
+  background: var(--c-surface);
+  font: 400 13px var(--font-sans);
+  color: #173d32;
+}
+.select:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+}
+.scheduleNote {
+  font: 400 12px/16px var(--font-sans);
+  color: #5b6a62;
+}
+.scheduleWarn {
+  color: #b2442b;
+  font-weight: 600;
+}
+.schedule .textBtn {
+  justify-self: start;
+}

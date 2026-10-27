@@ -10,6 +10,7 @@ import { AppModule } from '../src/app.module';
 import { newTotpSecret, totpCode } from '../src/auth/totp';
 import { setupApp } from '../src/bootstrap';
 import { MailService } from '../src/common/mail.service';
+import { MailTemplatesService } from '../src/common/mail-templates.service';
 import { PrismaService } from '../src/common/prisma.service';
 import { RedisService } from '../src/common/redis.service';
 import { SettingsService } from '../src/common/settings.service';
@@ -41,11 +42,15 @@ export async function resetDb(app: INestApplication) {
   await prisma.collection.deleteMany();
   await prisma.platformSetting.deleteMany();
   await prisma.legalVersion.deleteMany();
+  await prisma.mailTemplate.deleteMany();
   app.get(SettingsService).invalidate();
+  app.get(MailTemplatesService).invalidate();
   // Отзывы, избранное и подписки «Сообщить о поступлении» (каскадом удалились бы с товарами и пользователями — чистим явно)
   await prisma.review.deleteMany();
   await prisma.favorite.deleteMany();
   await prisma.restockSubscription.deleteMany();
+  // Журнал пустых поисковых запросов (ни к чему не привязан)
+  await prisma.searchEmptyQuery.deleteMany();
   await prisma.importJob.deleteMany();
   await prisma.productRevision.deleteMany();
   await prisma.product.deleteMany();

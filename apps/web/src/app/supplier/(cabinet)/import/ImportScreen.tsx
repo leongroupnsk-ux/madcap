@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/supplier/Badge';
 import s from '@/components/supplier/cabinet.module.css';
 import { FileIcon } from '@/components/supplier/FileIcon';
+import Link from 'next/link';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import type { ImportJob } from '@/lib/types';
@@ -12,7 +13,14 @@ import i from './import.module.css';
 const RUNNING = new Set(['queued', 'checking', 'applying']);
 const fmt = (d: string) => new Date(d).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-export function ImportScreen({ feedUrl, initialJobs }: { feedUrl: string | null; initialJobs: ImportJob[] }) {
+export type FeedState = {
+  url: string | null; everyHours: number; paused: boolean; pauseReason: 'manual' | 'errors' | null; pausedAt: string | null;
+  failures: number; lastRunAt: string | null; nextRunAt: string | null;
+};
+const EVERY: [number, string][] = [[1, 'каждый час'], [6, 'каждые 6 часов'], [24, 'раз в сутки']];
+
+export function ImportScreen({ feedUrl, initialJobs, initialFeed, owner }: { feedUrl: string | null; initialJobs: ImportJob[]; initialFeed: FeedState | null; owner: boolean }) {
+  const [schedule, setSchedule] = useState<FeedState | null>(initialFeed);
   const [jobs, setJobs] = useState(initialJobs);
   const [current, setCurrent] = useState<ImportJob | null>(initialJobs.find((j) => j.source === 'file') ?? null);
   const [feed, setFeed] = useState(feedUrl ?? '');
@@ -24,6 +32,7 @@ export function ImportScreen({ feedUrl, initialJobs }: { feedUrl: string | null;
   const refresh = useCallback(async () => {
     const list = await api<ImportJob[]>('/supplier/import');
     setJobs(list);
+    void api<FeedState>('/supplier/import/feed').then(setSchedule, () => undefined);
     if (current) setCurrent(await api<ImportJob>(`/supplier/import/${current.id}`));
   }, [current]);
 
@@ -109,7 +118,7 @@ export function ImportScreen({ feedUrl, initialJobs }: { feedUrl: string | null;
             {savedFeed && <span className={`${i.tag} ${i.tagOk}`}>Подключён</span>}
           </div>
           <b className={i.cardTitle}>Выгрузка из вашей системы</b>
-          <p className={i.cardText}>YML-файл из 1С, МойСклад или inSales — по ссылке. Синк каждые 6 часов.</p>
+          <p className={i.cardText}>YML-файл из 1С, МойСклад или inSales — по ссылке. Цены и остатки обновляются сами, новые товары уходят на модерацию.</p>
           <input className={i.url} value={feed} onChange={(e) => setFeed(e.target.value)} placeholder="https://shop.ru/export/yml_feed.xml" aria-label="Ссылка на YML-фид" />
           <div className={i.feedFoot}>
             <span className={`${i.sync} ${lastFeed?.status === 'failed' ? i.syncFail : lastFeed ? '' : i.syncNone}`}>
@@ -149,18 +158,65 @@ export function ImportScreen({ feedUrl, initialJobs }: { feedUrl: string | null;
               )
             )}
           </div>
+          {savedFeed && schedule && (
+            <div className={i.schedule}>
+              <label className={i.scheduleRow}>
+                <span>Синк</span>
+                <select
+                  className={i.select}
+                  value={schedule.everyHours}
+                  disabled={!!busy}
+                  onChange={(e) => {
+                    const everyHours = Number(e.target.value);
+                    void act('schedule', async () => setSchedule(await api<FeedState>('/supplier/import/feed/schedule', { everyHours, paused: schedule.paused }, 'PUT')));
+                  }}
+                >
+                  {EVERY.map(([h, label]) => (
+                    <option key={h} value={h}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className={`${i.scheduleNote} ${schedule.paused ? i.scheduleWarn : ''}`} role="status">
+                {schedule.paused
+                  ? schedule.pauseReason === 'errors'
+                    ? `На паузе: ${schedule.failures} ошибки подряд. Исправьте фид и включите синк.`
+                    : 'На паузе — по расписанию не синхронизируется.'
+                  : schedule.nextRunAt
+                    ? `Следующий синк ≈ ${fmt(schedule.nextRunAt)}${schedule.failures ? ` · ошибок подряд: ${schedule.failures} из 3` : ''}`
+                    : ''}
+              </span>
+              <button
+                type="button"
+                className={i.textBtn}
+                disabled={!!busy}
+                onClick={() =>
+                  act('pause', async () => setSchedule(await api<FeedState>('/supplier/import/feed/schedule', { everyHours: schedule.everyHours, paused: !schedule.paused }, 'PUT')))
+                }
+              >
+                {schedule.paused ? 'Включить синк' : 'Поставить на паузу'}
+              </button>
+            </div>
+          )}
         </section>
 
-        <section className={`${i.card} ${i.cardSoon}`}>
+        <section className={i.card}>
           <div className={i.cardTop}>
-            <FileIcon muted />
-            <span className={i.tag}>Скоро</span>
+            <FileIcon />
           </div>
           <b className={i.cardTitle}>API-интеграция</b>
-          <p className={i.cardText}>Остатки и цены в реальном времени из вашей системы. Этап 2.</p>
-          <a className={i.soonBtn} href="mailto:partners@example.ru?subject=API-интеграция">
-            Оставить заявку
-          </a>
+          <p className={i.cardText}>Остатки и цены в реальном времени из вашей системы — пачками до 1000 SKU; заказы и их подтверждение.</p>
+          <div className={i.cardActions}>
+            <Link href="/supplier/api" className={i.textBtn}>
+              Документация
+            </Link>
+            {owner && (
+              <Link href="/supplier/settings#api-keys-title" className={i.textBtn}>
+                Ключи API
+              </Link>
+            )}
+          </div>
         </section>
       </div>
 

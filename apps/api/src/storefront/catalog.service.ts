@@ -8,7 +8,9 @@ import { CATALOG_VERSION_KEY } from './catalog-cache';
 import { StorageService } from '../common/storage.service';
 import { effective, shown } from '../promotions/price';
 import { config } from '../config';
+import { DeliveryService, parcelOf } from '../delivery/delivery.service';
 import { PHOTOS, photosFor, thumbKey } from './media-pick';
+import { corrections, expandSynonyms, looksPersonal, normalizeQuery, significant, swapLayout, typoBudget, vocabWords, words } from './search-text';
 
 export type CatalogQuery = {
   category?: string;
@@ -55,21 +57,7 @@ const sizeRank = (s: string) => {
   return i >= 0 ? i : 100 + (Number(s) || 0);
 };
 
-/** Неверная раскладка: «rjcnfv» → «костюм» (ТЗ §4.1). */
-const EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,.`";
-const RU = 'йцукенгшщзхъфывапролджэячсмитьбюё';
-export function swapLayout(text: string): string {
-  return text
-    .toLowerCase()
-    .split('')
-    .map((c) => {
-      const i = EN.indexOf(c);
-      if (i >= 0) return RU[i];
-      const j = RU.indexOf(c);
-      return j >= 0 ? EN[j] : c;
-    })
-    .join('');
-}
+export { swapLayout } from './search-text';
 
 /**
  * Что видит покупатель (ТЗ §4.3, §7): опубликован, поставщик активен (и с выплатами — в проде),
@@ -90,6 +78,7 @@ export class CatalogService {
     private readonly storage: StorageService,
     private readonly redis: RedisService,
     private readonly settings: SettingsService,
+    private readonly delivery: DeliveryService,
   ) {}
 
   /** Короткий кэш в Redis для тяжёлых расчётов выдачи (ТЗ §11: p95 каталога ≤ 300 мс). */
@@ -127,38 +116,141 @@ export class CatalogService {
     return { ids: [category.id, ...category.children.map((c) => c.id)], category };
   }
 
-  /** id товаров по поисковой строке: подстрока, бренд, триграммы (опечатки) и та же строка в другой раскладке. */
-  private async searchIds(q: string): Promise<string[]> {
-    const variants = [...new Set([q.toLowerCase(), swapLayout(q)])].filter((v) => v.length >= 2);
-    return this.cached(`search:${variants.join('|')}`, 60, async () => {
-      const ids = new Set<string>();
-      for (const v of variants) {
-        const like = `%${v.replace(/[%_\\]/g, '\\$&')}%`;
-        // Оператор <% (word similarity) и ILIKE идут по GIN-индексу триграмм; порог — только для этой транзакции.
-        const rows = await this.prisma.$transaction(async (tx) => {
-          await tx.$executeRawUnsafe('SET LOCAL pg_trgm.word_similarity_threshold = 0.35');
-          return tx.$queryRaw<{ id: string }[]>`
-            SELECT p.id FROM products p
-            WHERE p."moderationStatus" = 'published'
-              AND (p.title ILIKE ${like} OR ${v} <% p.title OR p."brandId" IN (SELECT b.id FROM brands b WHERE b.name ILIKE ${like}))
-            LIMIT 2000`;
-        });
-        rows.forEach((r) => ids.add(r.id));
-      }
-      return [...ids];
+  /**
+   * Словарь витрины для исправления опечаток: слова из названий опубликованных товаров, брендов и категорий.
+   * Кэш — 10 минут в версии каталога (публикация и снятие товара его сбрасывают).
+   */
+  private vocabulary(): Promise<string[]> {
+    return this.cached('search:vocab', 600, async () => {
+      const rows = await this.prisma.$queryRaw<{ w: string }[]>`
+        SELECT DISTINCT w FROM (
+          SELECT unnest(regexp_split_to_array(lower(title), '[^a-zа-яё0-9]+')) AS w FROM products WHERE "moderationStatus" = 'published'
+          UNION ALL SELECT unnest(regexp_split_to_array(lower(name), '[^a-zа-яё0-9]+')) FROM brands
+          UNION ALL SELECT unnest(regexp_split_to_array(lower(name), '[^a-zа-яё0-9]+')) FROM categories
+        ) t WHERE length(w) >= 3
+        LIMIT 50000`;
+      return [...new Set(rows.flatMap((r) => vocabWords(r.w)))];
     });
+  }
+
+  /**
+   * План поиска: варианты строки (как есть, в другой раскладке, с заменой по синонимам), в каждом —
+   * значимые слова, у каждого слова — само слово и исправления опечаток по словарю.
+   * Товар подходит, если по какому-то варианту совпали все его слова. Слова, набранные покупателем (от 4 букв), ищутся
+   * нестрого (подстрока, похожее слово); слова из словаря синонимов и исправления — только с начала слова,
+   * иначе «топ» находил бы «орТОПедические», а «хирургичка» — «шапочку хирургическую».
+   */
+  private async searchPlan(q: string): Promise<SearchTerm[][][]> {
+    const base = normalizeQuery(q);
+    const vocab = await this.vocabulary();
+    const plans: SearchTerm[][][] = [];
+    for (const typed of new Set([base, normalizeQuery(swapLayout(base))])) {
+      const own = new Set(words(typed));
+      for (const str of expandSynonyms(typed)) {
+        const ws = significant(words(str)).slice(0, 6);
+        if (!ws.length) continue;
+        // Короткие (до 3 букв) набранные слова — тоже с начала слова: подстрока «топ» есть в каждом «ортопедическом»
+        plans.push(ws.map((w) => (own.has(w) ? [{ w, exact: w.length <= 3 }, ...corrections(w, vocab).map((c) => ({ w: c, exact: true }))] : [{ w, exact: true }])));
+      }
+    }
+    return plans.slice(0, 16);
+  }
+
+  /**
+   * id товаров по поисковой строке: подстрока или похожее слово (pg_trgm word similarity) в названии,
+   * бренде или категории; опечатки — по словарю, синонимы, другая раскладка (searchPlan). Один SQL-запрос.
+   */
+  private async searchIds(q: string): Promise<string[]> {
+    const norm = normalizeQuery(q);
+    return this.cached(`search:${norm}`, 60, async () => {
+      const plans = await this.searchPlan(norm);
+      if (!plans.length) return [];
+      const term = ({ w, exact }: SearchTerm) => {
+        if (exact) {
+          // С начала слова: (^|не буква)слово; ё в названиях приравнивается к е, как в словаре
+          const re = `(^|[^a-zа-я0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+          return Prisma.sql`(translate(lower(p.title), 'ё', 'е') ~ ${re} OR translate(lower(b.name), 'ё', 'е') ~ ${re} OR translate(lower(c.name), 'ё', 'е') ~ ${re})`;
+        }
+        const like = `%${w.replace(/[%_\\]/g, '\\$&')}%`;
+        return Prisma.sql`(p.title ILIKE ${like} OR ${w} <% p.title OR b.name ILIKE ${like} OR c.name ILIKE ${like})`;
+      };
+      const cond = Prisma.join(
+        plans.map((plan) => Prisma.sql`(${Prisma.join(plan.map((alts) => Prisma.sql`(${Prisma.join(alts.map(term), ' OR ')})`), ' AND ')})`),
+        ' OR ',
+      );
+      // Оператор <% (word similarity) и ILIKE идут по GIN-индексу триграмм; порог — только для этой транзакции.
+      const rows = await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe('SET LOCAL pg_trgm.word_similarity_threshold = 0.35');
+        return tx.$queryRaw<{ id: string }[]>`
+          SELECT p.id FROM products p
+          JOIN brands b ON b.id = p."brandId"
+          JOIN categories c ON c.id = p."categoryId"
+          WHERE p."moderationStatus" = 'published' AND (${cond})
+          LIMIT 2000`;
+      });
+      return rows.map((r) => r.id);
+    });
+  }
+
+  /** Сколько из найденных товаров сейчас на витрине (без фильтров и категории) */
+  private async visibleCount(ids: string[]) {
+    return ids.length ? this.prisma.product.count({ where: { AND: [visibleWhere(), { id: { in: ids } }] } }) : 0;
+  }
+
+  /**
+   * «Возможно, вы искали…» для пустой выдачи: слова с опечатками заменяются на ближайшие слова словаря
+   * с запасом в одну опечатку сверх обычного; предлагаем, только если по исправленному запросу что-то есть.
+   */
+  async didYouMean(q: string): Promise<string | null> {
+    const norm = normalizeQuery(q);
+    const vocab = await this.vocabulary();
+    for (const str of [norm, normalizeQuery(swapLayout(norm))]) {
+      const ws = words(str);
+      let changed = false;
+      const fixed = ws.map((w) => {
+        const best = corrections(w, vocab, Math.min(3, typoBudget(w.length) + 1), 1)[0];
+        if (best && best !== w) changed = true;
+        return best ?? w;
+      });
+      if (!changed) continue;
+      const candidate = fixed.join(' ');
+      if (candidate === norm) continue;
+      if ((await this.visibleCount(await this.searchIds(candidate))) > 0) return candidate;
+    }
+    return null;
+  }
+
+  /** Журнал запросов без результатов: нормализованный текст, счётчик, последняя дата. Без пользователя и IP. */
+  async logEmpty(q: string) {
+    const norm = normalizeQuery(q);
+    if (norm.length < 2 || looksPersonal(norm)) return;
+    await this.prisma.$executeRaw`
+      INSERT INTO search_empty_queries (query, count, "firstAt", "lastAt") VALUES (${norm}, 1, now(), now())
+      ON CONFLICT (query) DO UPDATE SET count = search_empty_queries.count + 1, "lastAt" = now()`;
+  }
+
+  /** Пустые запросы для админки: самые частые за период */
+  async emptyQueries(days: number, limit: number, contains?: string) {
+    const since = new Date(Date.now() - days * 86400_000);
+    const where: Prisma.SearchEmptyQueryWhereInput = { lastAt: { gte: since }, ...(contains ? { query: { contains: normalizeQuery(contains) } } : {}) };
+    const [items, total] = await Promise.all([
+      this.prisma.searchEmptyQuery.findMany({ where, orderBy: [{ count: 'desc' }, { lastAt: 'desc' }], take: limit }),
+      this.prisma.searchEmptyQuery.count({ where }),
+    ]);
+    return { since, total, items: items.map((i) => ({ query: i.query, count: i.count, firstAt: i.firstAt, lastAt: i.lastAt })) };
   }
 
   private async baseWhere(query: CatalogQuery) {
     const scope = await this.categoryScope(query.category);
     const and: Prisma.ProductWhereInput[] = [visibleWhere()];
     if (scope.ids) and.push({ categoryId: { in: scope.ids } });
-    if (query.q?.trim()) and.push({ id: { in: await this.searchIds(query.q.trim()) } });
-    return { where: { AND: and } as Prisma.ProductWhereInput, scope };
+    const searchIds = query.q?.trim() ? await this.searchIds(query.q.trim()) : null;
+    if (searchIds) and.push({ id: { in: searchIds } });
+    return { where: { AND: and } as Prisma.ProductWhereInput, scope, searchIds };
   }
 
   async list(query: CatalogQuery, fit: FitContext | null = null) {
-    const { where: base, scope } = await this.baseWhere(query);
+    const { where: base, scope, searchIds } = await this.baseWhere(query);
     const genders = list(query.gender).filter((g) => ['female', 'male', 'unisex'].includes(g)) as ('female' | 'male' | 'unisex')[];
     const brands = list(query.brand);
     const specialties = list(query.specialty);
@@ -230,7 +322,15 @@ export class CatalogService {
 
     const facetKey = JSON.stringify({ category: query.category, q: query.q?.trim().toLowerCase() });
     const [items, facets] = await Promise.all([this.cards(pageIds, priceRange, fit), this.cached(`facets:${facetKey}`, 120, () => this.facets(base))]);
+    // Поиск ничего не нашёл на всей витрине (а не только с фильтрами) — в журнал пустых запросов и подсказка
+    let didYouMean: string | null = null;
+    if (searchIds && total === 0 && (await this.visibleCount(searchIds)) === 0) {
+      await this.logEmpty(query.q!).catch(() => undefined);
+      didYouMean = await this.didYouMean(query.q!);
+    }
     return {
+      /** «Возможно, вы искали…» — только при пустой выдаче поиска */
+      didYouMean,
       category: scope.category && {
         name: scope.category.name,
         slug: scope.category.slug,
@@ -457,6 +557,35 @@ export class CatalogService {
     };
   }
 
+  /**
+   * Доставка на странице товара: тарифы СДЭК от склада поставщика до города покупателя по весу и габаритам
+   * выбранного варианта (без варианта — первого в наличии); к срокам прибавляется срок отгрузки поставщика.
+   * Цены — в копейках.
+   */
+  async deliveryEstimate(slug: string, variantId: string | undefined, cityCode: number) {
+    const p = await this.prisma.product.findFirst({
+      where: { AND: [{ slug }, visibleWhere()] },
+      select: { supplier: { select: { cdekCityCode: true, shipDays: true, warehouseAddress: true } }, variants: { select: { id: true, stock: true, weightG: true, lengthMm: true, widthMm: true, heightMm: true } } },
+    });
+    if (!p) throw new NotFoundException({ message: 'Товар не найден или снят с продажи' });
+    const v = (variantId && p.variants.find((x) => x.id === variantId)) || p.variants.find((x) => x.stock > 0) || p.variants[0];
+    const from = p.supplier.warehouseAddress?.split(',')[0]?.trim() || null;
+    const none = { from, pvz: null, courier: null, periodMin: null, periodMax: null };
+    if (!p.supplier.cdekCityCode || !v) return none;
+    const est = await this.delivery.estimate(p.supplier.cdekCityCode, cityCode, parcelOf([{ qty: 1, ...v }])).catch(() => null);
+    if (!est) return none;
+    const ship = p.supplier.shipDays;
+    const opt = (q: { price: number; periodMin: number; periodMax: number } | null) => q && { price: q.price, periodMin: q.periodMin + ship, periodMax: q.periodMax + ship };
+    const opts = [opt(est.pvz), opt(est.courier)].filter((x): x is NonNullable<typeof x> => x !== null);
+    return {
+      from,
+      pvz: opt(est.pvz),
+      courier: opt(est.courier),
+      periodMin: opts.length ? Math.min(...opts.map((o) => o.periodMin)) : null,
+      periodMax: opts.length ? Math.max(...opts.map((o) => o.periodMax)) : null,
+    };
+  }
+
   /** Подсказки поиска: товары, категории, бренды (ТЗ §4.1). */
   async suggest(q: string) {
     const term = q.trim();
@@ -558,6 +687,9 @@ export class CatalogService {
     return { products, categories, articles, collections };
   }
 }
+
+/** Слово поиска: набранное покупателем (нестрого) или из словаря синонимов / исправление опечатки (с начала слова) */
+type SearchTerm = { w: string; exact: boolean };
 
 type VariantFilter = { sizes?: string[]; colors?: string[]; heights?: string[]; from?: number; to?: number; sale?: boolean };
 const range = (from?: number, to?: number) => ({ ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) });

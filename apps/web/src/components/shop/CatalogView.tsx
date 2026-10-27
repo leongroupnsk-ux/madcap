@@ -55,7 +55,17 @@ export function CatalogView({ data, basePath, params, title, crumbs, chips }: Pr
 
       {data.items.length === 0 ? (
         <div className={c.empty}>
-          <p>Ничего не нашли. Попробуйте убрать часть фильтров.</p>
+          {data.didYouMean ? (
+            <p>
+              Ничего не нашли. Возможно, вы искали{' '}
+              <Link href={`${basePath}?${toQuery({ ...params, q: data.didYouMean, page: undefined }).toString()}`} className={c.didYouMean}>
+                «{data.didYouMean}»
+              </Link>
+              ?
+            </p>
+          ) : (
+            <p>Ничего не нашли. Попробуйте убрать часть фильтров.</p>
+          )}
           <Link href={basePath} className={c.chip}>
             Сбросить фильтры
           </Link>

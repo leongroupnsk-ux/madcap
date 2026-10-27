@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CartLineInput } from '@aesculap/shared';
+import { ProductStatsService } from '../analytics/product-stats.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { shown } from '../promotions/price';
@@ -36,6 +37,7 @@ export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly stats: ProductStatsService,
   ) {}
 
   async get(userId: string) {
@@ -45,13 +47,18 @@ export class CartService {
 
   async replace(userId: string, lines: CartLineInput[]) {
     const ids = [...new Set(lines.map((l) => l.variantId))];
-    const known = new Set((await this.prisma.productVariant.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((v) => v.id));
+    const variants = await this.prisma.productVariant.findMany({ where: { id: { in: ids } }, select: { id: true, productId: true } });
+    const productOf = new Map(variants.map((v) => [v.id, v.productId]));
     const merged = new Map<string, CartLineInput>();
-    for (const l of lines) if (known.has(l.variantId)) merged.set(l.variantId, { ...l, qty: Math.min(l.qty, 99) });
+    for (const l of lines) if (productOf.has(l.variantId)) merged.set(l.variantId, { ...l, qty: Math.min(l.qty, 99) });
+    // Аналитика поставщика: позиции, которых не было в корзине (или стало больше), — «добавление в корзину»
+    const before = new Map((await this.prisma.cartItem.findMany({ where: { userId }, select: { variantId: true, qty: true } })).map((r) => [r.variantId, r.qty]));
+    const added = [...merged.values()].filter((l) => l.qty > (before.get(l.variantId) ?? 0)).map((l) => productOf.get(l.variantId)!);
     await this.prisma.$transaction([
       this.prisma.cartItem.deleteMany({ where: { userId } }),
       this.prisma.cartItem.createMany({ data: [...merged.values()].map((l) => ({ userId, variantId: l.variantId, qty: l.qty, fromCapsule: Boolean(l.fromCapsule) })) }),
     ]);
+    await this.stats.cartAdds(added);
     return this.get(userId);
   }
 

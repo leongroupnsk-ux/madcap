@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { BUDGETS, COLOR_TYPES, heightRangeOf, type ColorType, type StylistRequestInput } from '@aesculap/shared';
 import type { StylistRequest, User } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { config } from '../config';
@@ -20,7 +20,7 @@ export class StylistService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
   ) {}
 
   // ─── Покупатель ───
@@ -110,7 +110,7 @@ export class StylistService {
     await this.audit.log(staff.id, 'stylist.answer', 'stylist_request', id);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: r.userId } });
     if (!user.deletedAt) {
-      await this.mail.send({ to: user.email, subject: 'Стилист ответил на ваш вопрос', text: `Ответ стилиста:\n\n${answer}\n\nВсе ответы — в профиле: ${config.webOrigin}/account\nДоступ стилиста к вашей анкете и фото закрыт.` });
+      await this.mail.send('stylist.answer', user.email, { answer, profileUrl: `${config.webOrigin}/account` });
     }
     return this.view(id, staff);
   }

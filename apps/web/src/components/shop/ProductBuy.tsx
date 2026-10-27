@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import type { ProductDetails } from '@/lib/catalog';
+import { DeliveryEstimate } from './DeliveryEstimate';
 import { COLOR_EVENT } from './Gallery';
 import { FavButton } from './FavButton';
 import { RestockNotify } from './RestockNotify';
@@ -203,15 +204,7 @@ export function ProductBuy({ product, viewer = null }: { product: ProductDetails
         </div>
       )}
 
-      <div className={p.delivery}>
-        <img src="/design/icons/delivery.svg" alt="" width={20} height={20} />
-        <span>
-          <b>СДЭК: пункт выдачи или курьер</b>
-          <small>
-            Со склада поставщика{product.seller.city ? ` в ${product.seller.city === 'Москва' ? 'Москве' : product.seller.city}` : ''} · срок и цена — при оформлении
-          </small>
-        </span>
-      </div>
+      <DeliveryEstimate slug={product.slug} variantId={variant?.id ?? null} sellerCity={product.seller.city} />
 
       {chart && <SizeChart chart={product.sizeChart} initial={chart} onClose={() => setChart(null)} />}
     </div>

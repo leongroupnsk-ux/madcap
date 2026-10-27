@@ -393,6 +393,85 @@
   margin-top: 4px;
   font: 400 14px/20px var(--font-sans);
 }
+/* Расчёт доставки: строки держат высоту и до ответа API (без сдвига вёрстки) */
+.deliveryBody {
+  flex: 1;
+  min-width: 0;
+}
+.deliveryQuote {
+  min-height: 20px;
+}
+.delivery .deliveryCity {
+  position: relative;
+  margin-top: 2px;
+  color: var(--c-text-muted);
+}
+.cityBtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.cityBtn:hover {
+  text-decoration-style: solid;
+}
+.cityPicker {
+  position: relative;
+  display: block;
+}
+.cityInput {
+  width: 100%;
+  max-width: 320px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 8px;
+  background: #fff;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+}
+.citySuggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 5;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(18, 61, 50, 0.12);
+  overflow: hidden;
+}
+.citySuggest button {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-top: 1px solid #f0f1f3;
+  background: none;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.citySuggest button:first-child {
+  border-top: 0;
+}
+.citySuggest button:hover,
+.citySuggest button:focus-visible {
+  background: var(--c-chip);
+}
+.citySuggest small {
+  display: inline;
+  margin-left: 6px;
+  color: #6b7280;
+}
 
 /* ——— О товаре / Характеристики, связанные материалы ——— */
 .sections {

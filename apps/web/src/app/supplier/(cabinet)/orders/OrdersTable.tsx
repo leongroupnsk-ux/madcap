@@ -10,7 +10,7 @@ import { api, isApiError } from '@/lib/api';
 
 export type OrderRow = {
   id: string; number: string; createdAt: string; paidAt: string | null; status: string; overdue: boolean; returnRequested: boolean;
-  items: string[]; goodsTotal: number; deliveryType: 'pvz' | 'courier'; address: string; eta: string | null; customer: string; trackNo: string | null;
+  items: string[]; goodsTotal: number; deliveryType: 'pvz' | 'courier'; address: string; eta: string | null; customer: string; trackNo: string | null; hasWaybill?: boolean;
 };
 
 const FILTERS = [
@@ -36,6 +36,8 @@ export function OrdersTable() {
   const [q, setQ] = useState(params.get('q') ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [printing, setPrinting] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api<{ items: OrderRow[] }>(`/supplier/orders?status=${status}&q=${encodeURIComponent(params.get('q') ?? '')}`)
@@ -43,6 +45,48 @@ export function OrdersTable() {
       .catch((e) => setError(isApiError(e) ? e.message : 'Не удалось загрузить заказы'));
   }, [status, params]);
   useEffect(load, [load]);
+  // Выбор — только среди видимых строк с накладной
+  const printable = (rows ?? []).filter((r) => r.hasWaybill);
+  const selected = printable.filter((r) => picked.has(r.id));
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  /** Массовая печать: PDF приходит файлом, ошибки — JSON с сообщением */
+  const print = async (path: 'waybills' | 'act', kind?: 'waybill' | 'barcode') => {
+    const label = kind ?? path;
+    setPrinting(label);
+    setError(null);
+    try {
+      const res = await fetch(`/api/supplier/orders/print/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ ids: selected.map((r) => r.id), ...(kind ? { kind } : {}) }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(typeof data.message === 'string' ? data.message : 'Не удалось сформировать PDF');
+      }
+      const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'documents.pdf';
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Нет связи с сервером');
+    } finally {
+      setPrinting(null);
+    }
+  };
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -89,11 +133,38 @@ export function OrdersTable() {
         </select>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
+      {/* Массовая печать: накладные/этикетки СДЭК одним PDF и акт приёма-передачи для курьера */}
+      <div className={s.printBar} role="group" aria-label="Массовая печать">
+        <label className={s.printAll}>
+          <input
+            type="checkbox"
+            checked={printable.length > 0 && selected.length === printable.length}
+            disabled={!printable.length}
+            onChange={(e) => setPicked(e.target.checked ? new Set(printable.map((r) => r.id)) : new Set())}
+          />
+          Выбрать все с накладной
+        </label>
+        <span className={s.printCount} aria-live="polite">
+          {selected.length ? `Выбрано: ${selected.length}` : printable.length ? 'Отметьте отправления для печати' : 'Печать — для отправлений с накладной СДЭК'}
+        </span>
+        <span className={s.printActions}>
+          <Button variant="outline" className={s.rowBtn} disabled={!selected.length || !!printing} onClick={() => void print('waybills', 'waybill')}>
+            {printing === 'waybill' ? 'Готовим PDF…' : 'Печать накладных'}
+          </Button>
+          <Button variant="outline" className={s.rowBtn} disabled={!selected.length || !!printing} onClick={() => void print('waybills', 'barcode')}>
+            {printing === 'barcode' ? 'Готовим PDF…' : 'Печать этикеток'}
+          </Button>
+          <Button variant="outline" className={s.rowBtn} disabled={!selected.length || !!printing} onClick={() => void print('act')}>
+            {printing === 'act' ? 'Готовим PDF…' : 'Акт приёма-передачи'}
+          </Button>
+        </span>
+      </div>
       <div className={s.tableCard}>
         <table className={`${s.table} ${s.ordersTable}`}>
           <colgroup>
+            <col style={{ width: '4%' }} />
             <col style={{ width: '10%' }} />
-            <col style={{ width: '33%' }} />
+            <col style={{ width: '29%' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '20%' }} />
             <col style={{ width: '13%' }} />
@@ -101,6 +172,9 @@ export function OrdersTable() {
           </colgroup>
           <thead>
             <tr>
+              <th scope="col">
+                <span className="visually-hidden">Выбор для печати</span>
+              </th>
               <th scope="col">Номер</th>
               <th scope="col">Состав</th>
               <th scope="col">Сумма</th>
@@ -114,6 +188,15 @@ export function OrdersTable() {
               const next = NEXT_ACTION[r.status];
               return (
                 <tr key={r.id} className={r.overdue ? s.rowWarn : undefined}>
+                  <td className={s.pick}>
+                    <input
+                      type="checkbox"
+                      checked={picked.has(r.id) && !!r.hasWaybill}
+                      disabled={!r.hasWaybill}
+                      onChange={() => toggle(r.id)}
+                      aria-label={r.hasWaybill ? `Выбрать отправление ${r.number} для печати` : `Отправление ${r.number}: накладная СДЭК ещё не создана`}
+                    />
+                  </td>
                   <td data-label="Номер">
                     <Link href={`/supplier/orders/${r.id}`} className={s.orderNo}>
                       {r.number}

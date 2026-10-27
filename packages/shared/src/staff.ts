@@ -12,6 +12,7 @@ export type StaffRoleId = keyof typeof STAFF_ROLES;
 
 /** Области админки и кто, кроме владельца, в них работает */
 export const STAFF_AREAS = {
+  dashboard: { label: 'Дашборд платформы', roles: ['support'] },
   orders: { label: 'Заказы и платежи', roles: ['support'] },
   suppliers: { label: 'Заявки поставщиков', roles: ['moderator', 'support'] },
   moderation: { label: 'Модерация', roles: ['moderator', 'editor'] },
@@ -76,3 +77,20 @@ export type StylistRequestInput = z.infer<typeof stylistRequestSchema>;
 export const stylistAnswerSchema = z.object({
   answer: z.string().trim().min(20, 'Ответ — от 20 символов').max(3000, 'До 3000 символов'),
 });
+
+/**
+ * Шаблон письма из админки (реестр — в API): тема и текст — обычный текст с подстановками {{order.number}}.
+ * HTML не допускается: письма уходят как text/plain, а разметка в теме или тексте — признак вставки ссылки-ловушки.
+ */
+const noHtml = (v: string) => !/<\/?[a-z!][^>]*>/i.test(v);
+export const mailTemplateSaveSchema = z.object({
+  subject: z
+    .string()
+    .trim()
+    .min(3, 'Тема — от 3 символов')
+    .max(200, 'Тема — до 200 символов')
+    .refine((v) => !/[\r\n]/.test(v), 'Тема — одной строкой')
+    .refine(noHtml, 'HTML в теме не допускается'),
+  text: z.string().trim().min(10, 'Текст — от 10 символов').max(10000, 'Текст — до 10 000 символов').refine(noHtml, 'HTML не допускается — письмо уходит обычным текстом'),
+});
+export type MailTemplateSaveInput = z.infer<typeof mailTemplateSaveSchema>;

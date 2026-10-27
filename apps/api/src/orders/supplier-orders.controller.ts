@@ -11,14 +11,42 @@ import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
 import { PayoutRegistryService } from './payout-registry.service';
 import { SupplierOrdersService } from './supplier-orders.service';
+import { MAX_PRINT, SupplierPrintService } from './supplier-print.service';
 
 const optionalReason = z.object({ reason: z.string().trim().max(500).optional() });
 const modeSchema = z.object({ mode: z.enum(['split', 'registry']), reason: z.string().trim().min(5, 'Опишите причину').max(500) });
+const printSchema = z.object({
+  ids: z.array(z.string().uuid('Неверный id отправления')).min(1, 'Выберите отправления').max(MAX_PRINT, `Не больше ${MAX_PRINT} отправлений за раз`),
+  kind: z.enum(['waybill', 'barcode']).default('waybill'),
+});
 const activateSchema = z.object({ accountId: z.string().trim().min(3, 'Укажите ID получателя ЮKassa').max(64) });
 
 @Controller('supplier')
 export class SupplierOrdersController {
-  constructor(private readonly svc: SupplierOrdersService) {}
+  constructor(
+    private readonly svc: SupplierOrdersService,
+    private readonly print: SupplierPrintService,
+  ) {}
+
+  /** Массовая печать: накладные или этикетки СДЭК выбранных отправлений одним PDF */
+  @Post('orders/print/waybills')
+  @SupplierAccess('owner', 'warehouse')
+  @HttpCode(200)
+  async printWaybills(@CurrentSupplier() ctx: SupplierContext, @Body(new ZodPipe(printSchema)) body: z.infer<typeof printSchema>, @CurrentUser() user: User, @Res({ passthrough: true }) res: Response) {
+    const doc = await this.print.waybills(ctx.supplier, body.ids, body.kind, user);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${doc.name}"`, 'Cache-Control': 'no-store' });
+    return new StreamableFile(doc.pdf);
+  }
+
+  /** Акт приёма-передачи для курьера СДЭК */
+  @Post('orders/print/act')
+  @SupplierAccess('owner', 'warehouse')
+  @HttpCode(200)
+  async printAct(@CurrentSupplier() ctx: SupplierContext, @Body(new ZodPipe(printSchema)) body: z.infer<typeof printSchema>, @CurrentUser() user: User, @Res({ passthrough: true }) res: Response) {
+    const doc = await this.print.act(ctx.supplier, body.ids, user);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${doc.name}"`, 'Cache-Control': 'no-store' });
+    return new StreamableFile(doc.pdf);
+  }
 
   @Get('orders')
   @SupplierAccess('owner', 'warehouse')

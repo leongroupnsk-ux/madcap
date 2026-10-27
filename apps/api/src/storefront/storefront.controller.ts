@@ -3,9 +3,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { User } from '@prisma/client';
 import type { Request } from 'express';
 import { articleSaveSchema, collectionSaveSchema, rejectSchema, type ArticleSaveInput, type CollectionSaveInput } from '@aesculap/shared';
+import { ProductStatsService } from '../analytics/product-stats.service';
 import { CurrentUser } from '../auth/auth.guard';
 import { Area, Roles } from '../auth/roles.guard';
 import { SessionService } from '../auth/session.service';
+import { PrismaService } from '../common/prisma.service';
+import { RateLimitService } from '../common/rate-limit.service';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
 import { CapsuleService } from '../me/capsule.service';
@@ -20,6 +23,9 @@ export class StorefrontController {
     private readonly content: ContentService,
     private readonly sessions: SessionService,
     private readonly capsules: CapsuleService,
+    private readonly prisma: PrismaService,
+    private readonly limits: RateLimitService,
+    private readonly stats: ProductStatsService,
   ) {}
 
   /** Если покупатель вошёл и прошёл анкету — витрина отмечает подходящие товары. */
@@ -54,7 +60,40 @@ export class StorefrontController {
 
   @Get('catalog/products/:slug')
   async product(@Param('slug') slug: string, @Req() req: Request) {
-    return this.catalog.product(slug, await this.fit(req));
+    const p = await this.catalog.product(slug, await this.fit(req));
+    // Счётчик просмотров для аналитики поставщика. Страницу запрашивает сервер Next.js — настоящий User-Agent
+    // браузера он передаёт в X-Client-UA (lib/server-api.ts); запрос из браузера напрямую — свой User-Agent.
+    const ua = (req.headers['x-client-ua'] as string | undefined) ?? req.headers['user-agent'];
+    void this.stats.viewOnce(p.id, { sid: req.cookies?.sid, ip: req.ip, ua: ua?.slice(0, 400) });
+    return p;
+  }
+
+  /**
+   * Расчёт доставки на странице товара (подгружается браузером после отрисовки). Город:
+   * выбранный в карточке (picked=1) → первый сохранённый адрес вошедшего → запомненный в браузере → Москва.
+   * Публичный, лимит — 120 запросов за 10 минут с IP; тарифы кэшируются на час.
+   */
+  @Get('catalog/products/:slug/delivery')
+  async delivery(
+    @Param('slug') slug: string,
+    @Req() req: Request,
+    @Query('variantId') variantId?: string,
+    @Query('cityCode') cityCode?: string,
+    @Query('city') cityName?: string,
+    @Query('picked') picked?: string,
+  ) {
+    await this.limits.hit('pdp-delivery', req.ip ?? 'unknown', 120, 600);
+    const code = /^\d{1,7}$/.test(cityCode ?? '') && Number(cityCode) > 0 ? Number(cityCode) : null;
+    const name = typeof cityName === 'string' && cityName.trim() ? cityName.trim().slice(0, 60) : null;
+    let city: { code: number; name: string; source: 'picked' | 'address' | 'stored' | 'default' } | null = code && name && picked === '1' ? { code, name, source: 'picked' } : null;
+    if (!city) {
+      const s = await this.sessions.resolve(req).catch(() => null);
+      const addr = s && (await this.prisma.address.findFirst({ where: { userId: s.user.id }, orderBy: { createdAt: 'desc' }, select: { cityCode: true, city: true } }));
+      if (addr) city = { code: addr.cityCode, name: addr.city, source: 'address' };
+    }
+    city ??= code && name ? { code, name, source: 'stored' } : { code: 44, name: 'Москва', source: 'default' };
+    const vid = typeof variantId === 'string' && /^[0-9a-f-]{36}$/.test(variantId) ? variantId : undefined;
+    return { city, ...(await this.catalog.deliveryEstimate(slug, vid, city.code)) };
   }
 
   /** Одобренные отзывы товара: сводка и страница списка */

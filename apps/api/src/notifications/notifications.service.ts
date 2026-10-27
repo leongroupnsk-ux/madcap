@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NOTIFY_EVENTS, type NotifyEvent } from '@aesculap/shared';
 import type { SupplierMemberRole, User } from '@prisma/client';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { config } from '../config';
@@ -15,6 +15,7 @@ const ROLES: Record<NotifyEvent, SupplierMemberRole[]> = {
   moderation: ['owner', 'catalog'],
   import_report: ['owner', 'catalog'],
   promotion: ['owner', 'catalog'],
+  review: ['owner', 'catalog'],
 };
 
 export type NotifyPayload = { title: string; body?: string; link?: string };
@@ -29,7 +30,7 @@ export class NotificationsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     readonly telegram: TelegramService,
     private readonly limits: RateLimitService,
   ) {}
@@ -47,7 +48,7 @@ export class NotificationsService {
         if (st?.mutedEvents.includes(event)) continue;
         const url = p.link ? `${config.webOrigin}${p.link}` : '';
         if (st?.email ?? true) {
-          await this.mail.send({ to: m.user.email, subject: p.title, text: [p.body, url].filter(Boolean).join('\n\n') }).catch((e) => this.logger.warn(`email: ${e.message}`));
+          await this.mail.send('supplier.notification', m.user.email, { title: p.title, body: p.body, link: url }).catch((e) => this.logger.warn(`email: ${e.message}`));
         }
         if (st?.telegramChatId) await this.telegram.send(st.telegramChatId, [p.title, p.body, url].filter(Boolean).join('\n'));
       }

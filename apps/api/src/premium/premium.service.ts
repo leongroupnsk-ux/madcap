@@ -5,7 +5,7 @@ import {
 } from '@aesculap/shared';
 import type { Prisma, User } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { SettingsService } from '../common/settings.service';
@@ -50,7 +50,7 @@ export class PremiumService {
     private readonly storage: StorageService,
     private readonly limits: RateLimitService,
     private readonly audit: AuditService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
   ) {}
 
   // ─── ответы анкеты вошедшего покупателя ──────────────────────────────
@@ -88,7 +88,7 @@ export class PremiumService {
       userId: 'premium', gender: a.gender ?? null, name: a.name ?? null, age: a.age ?? null, heightCm: a.heightCm ?? null, weightKg: a.weightKg ?? null,
       sizeTop: a.sizeTop ?? null, sizeBottom: a.sizeBottom ?? null, sizeShoes: a.sizeShoes ?? null, bodyType: null,
       skinTone: a.skinTone ?? null, hair: a.hair ?? null, eyes: a.eyes ?? null, colorType: colorTypeOf(a.skinTone, a.hair),
-      dressCode: null, budgetRange: null, completenessPct: 100, quizCompletedAt: now, updatedAt: now,
+      dressCode: null, budgetRange: null, completenessPct: 100, quizStartedAt: now, quizCompletedAt: now, updatedAt: now,
       specialties: specs.map((s) => ({ specialtyId: s.id })),
     };
   }
@@ -173,18 +173,14 @@ export class PremiumService {
     if (config.alertEmail) {
       const lines = snapshot.items.map((i) => `• ${i.slotLabel}: ${i.title} (${i.brand}), ${i.color}, ${i.size} — ${formatRub(i.price)}`);
       await this.mail
-        .send({
-          to: config.alertEmail,
-          subject: `[${config.brandName}] Заявка премиум: ${input.name}`,
-          text: [
-            `${input.name}, ${input.phone} — связаться: ${PREMIUM_CONTACTS[input.contact]}`,
-            '',
-            `${snapshot.title}, вариант ${snapshot.variantNo}${snapshot.size ? `, размер ${snapshot.size}` : ''}`,
-            ...lines,
-            `Итого: ${formatRub(snapshot.total)}`,
-            '',
-            `Заявка в админке: ${config.webOrigin}/admin/premium/${lead.id}`,
-          ].join('\n'),
+        .send('premium.lead_manager', config.alertEmail, {
+          'lead.name': input.name,
+          'lead.phone': input.phone,
+          'lead.contact': PREMIUM_CONTACTS[input.contact],
+          capsule: `${snapshot.title}, вариант ${snapshot.variantNo}${snapshot.size ? `, размер ${snapshot.size}` : ''}`,
+          items: lines.join('\n'),
+          total: formatRub(snapshot.total),
+          adminUrl: `${config.webOrigin}/admin/premium/${lead.id}`,
         })
         .catch((e) => this.logger.error(`premium lead mail: ${e.message}`));
     }
@@ -209,13 +205,14 @@ export class PremiumService {
   }
 
   async view(id: string) {
-    const l = await this.prisma.premiumLead.findUnique({ where: { id }, include: { user: { select: { email: true } } } });
+    const l = await this.prisma.premiumLead.findUnique({ where: { id }, include: { user: { select: { email: true } }, order: { select: { number: true, status: true, total: true, paymentStatus: true } } } });
     if (!l) throw new NotFoundException();
     const a = l.answers as PremiumAnswers;
     const groups = a.specialtyGroupIds?.length ? await this.prisma.specialtyGroup.findMany({ where: { id: { in: a.specialtyGroupIds } } }) : [];
     return {
       id: l.id, name: l.name, phone: l.phone, contact: l.contact, status: l.status, managerComment: l.managerComment, createdAt: l.createdAt, updatedAt: l.updatedAt,
       userEmail: l.user?.email ?? null, capsule: l.capsule, answers: a, workplaces: groups.map((g) => g.name),
+      order: l.order ? { number: l.order.number, status: l.order.status, total: l.order.total } : null,
       budgetLabel: PREMIUM_BUDGETS.find((b) => b.id === a.budgetRange)?.label ?? null,
     };
   }

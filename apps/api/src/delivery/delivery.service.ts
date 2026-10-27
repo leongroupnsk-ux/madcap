@@ -49,4 +49,20 @@ export class DeliveryService {
     const key = `dlv:${this.provider.name}:quote:${from}:${to}:${parcel.weightG}:${parcel.lengthCm}x${parcel.widthCm}x${parcel.heightCm}`;
     return this.cached(key, 900, () => this.provider.quote(from, to, parcel));
   }
+
+  /**
+   * Оценка доставки для страницы товара: самый дешёвый тариф до ПВЗ и курьером со сроками (без срока отгрузки).
+   * Кэш — час по паре городов и весу посылки (габариты одной вещи почти не влияют на тариф).
+   * Ошибка СДЭК не кэшируется: следующий запрос попробует снова.
+   */
+  async estimate(from: number, to: number, parcel: Parcel): Promise<{ pvz: Quote | null; courier: Quote | null }> {
+    const key = `dlv:${this.provider.name}:estimate:${from}:${to}:${parcel.weightG}`;
+    const hit = await this.redis.client.get(key);
+    if (hit) return JSON.parse(hit) as { pvz: Quote | null; courier: Quote | null };
+    const quotes = await this.provider.quote(from, to, parcel);
+    const cheapest = (type: Quote['type']) => quotes.filter((q) => q.type === type).sort((a, b) => a.price - b.price)[0] ?? null;
+    const value = { pvz: cheapest('pvz'), courier: cheapest('courier') };
+    await this.redis.client.set(key, JSON.stringify(value), 'EX', 3600);
+    return value;
+  }
 }

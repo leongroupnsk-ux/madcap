@@ -148,6 +148,9 @@ test.describe('кабинет поставщика', () => {
     ['настройки', '/supplier/settings'],
     ['акции', '/supplier/promotions'],
     ['выплаты', '/supplier/payouts'],
+    ['аналитика', '/supplier/analytics'],
+    ['аналитика за 90 дней', '/supplier/analytics?days=90'],
+    ['API для учётной системы', '/supplier/api'],
   ];
   for (const [name, path] of PAGES) {
     test(`axe: ${name}`, async ({ page }) => {
@@ -155,6 +158,47 @@ test.describe('кабинет поставщика', () => {
       await audit(page);
     });
   }
+
+  test('аналитика: метрики, график с таблицей для скринридера, переключение периода и показателя', async ({ page }) => {
+    await open(page, '/supplier/analytics');
+    await expect(page.getByRole('heading', { name: 'Аналитика продаж', level: 1 })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Кабинет поставщика' }).getByRole('link', { name: 'Аналитика' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText('Выручка', { exact: true }).first()).toBeVisible();
+    // Таблица по дням доступна скринридеру: 30 строк данных
+    const table = page.getByRole('table', { name: /Продажи по дням за 30 дней/ });
+    await expect(table.getByRole('row')).toHaveCount(31);
+    const units = page.getByRole('button', { name: 'Штуки' });
+    await units.click();
+    await expect(units).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('link', { name: '90 дней' }).click();
+    await expect(page).toHaveURL(/days=90/);
+    await expect(page.getByRole('table', { name: /Продажи по дням за 90 дней/ }).getByRole('row')).toHaveCount(91);
+    await expect(page.getByRole('heading', { name: 'Воронка' })).toBeVisible();
+  });
+
+  test('ключ API: создаётся в настройках, показывается один раз, отзывается', async ({ page }) => {
+    await open(page, '/supplier/settings');
+    const name = `e2e ${Date.now()}`;
+    await page.getByLabel('Название ключа').fill(name);
+    await page.getByRole('button', { name: 'Создать ключ' }).click();
+    const value = page.getByTestId('api-key-value');
+    await expect(value).toHaveText(/^ak_[A-Za-z0-9_-]{32}$/);
+    const key = (await value.textContent())!;
+    await audit(page);
+    // Ключ работает в партнёрском API
+    const res = await page.request.get('/api/partner/v1/orders?status=all&limit=1', { headers: { Authorization: `Bearer ${key}` } });
+    expect(res.status()).toBe(200);
+    await page.getByRole('button', { name: 'Я сохранил ключ' }).click();
+    await expect(value).toBeHidden();
+    // После перезагрузки ключа на странице нет — только начало
+    await page.reload();
+    await expect(page.getByRole('list', { name: 'Действующие ключи' }).getByText(name)).toBeVisible();
+    expect(await page.content()).not.toContain(key);
+    page.once('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: `Отозвать ключ ${name}` }).click();
+    await expect(page.getByRole('button', { name: `Отозвать ключ ${name}` })).toBeHidden();
+    expect((await page.request.get('/api/partner/v1/orders', { headers: { Authorization: `Bearer ${key}` } })).status()).toBe(401);
+  });
 
   test('axe: карточка товара и окно варианта; клавиатура: окно открывается и закрывается без потери фокуса', async ({ page }) => {
     const href = await firstHref(page, '/supplier/products', /^\/supplier\/products\/(?!new)[^/?]+$/);
@@ -233,11 +277,13 @@ test.describe('админка', () => {
   test.beforeEach(async ({ context }) => context.addCookies(sessions.admin!));
 
   const PAGES: [string, string][] = [
-    ['заявки поставщиков', '/admin'],
+    ['дашборд платформы', '/admin/dashboard'],
+    ['заявки поставщиков', '/admin/applications'],
     ['модерация товаров', '/admin/moderation'],
     ['модерация контента', '/admin/content'],
     ['модерация отзывов', '/admin/reviews'],
     ['справочники', '/admin/dictionaries'],
+    ['поиск без результатов', '/admin/search'],
     ['витрина', '/admin/storefront'],
     ['подбор', '/admin/capsule'],
     ['заказы', '/admin/orders'],
@@ -249,6 +295,8 @@ test.describe('админка', () => {
     ['стилист', '/admin/stylist'],
     ['премиум-заявки', '/admin/premium'],
     ['сотрудники и настройки', '/admin/system'],
+    ['шаблоны писем', '/admin/system/mail-templates'],
+    ['шаблон письма', '/admin/system/mail-templates/order.paid'],
     ['безопасность и 2FA', '/admin/security'],
   ];
   for (const [name, path] of PAGES) {
@@ -306,6 +354,40 @@ test.describe('админка', () => {
       await audit(page);
     });
   }
+
+  test('/admin ведёт владельца на дашборд; график с подписью и таблицей значений', async ({ page }) => {
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/admin\/dashboard$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Дашборд платформы' })).toBeVisible();
+    await expect(page.getByRole('img', { name: /^GMV по дням/ })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'GMV, комиссия и число заказов по дням' }).getByRole('row')).toHaveCount(31);
+  });
+
+  test('axe: шаблон письма — предпросмотр и ошибка проверки', async ({ page }) => {
+    await open(page, '/admin/system/mail-templates/review.invite');
+    await page.getByRole('button', { name: 'Предпросмотр' }).click();
+    await expect(page.getByRole('heading', { name: 'Предпросмотр на тестовых данных' })).toBeVisible();
+    await audit(page);
+    // Удалили обязательную ссылку отписки — ошибка у поля, без сохранения
+    const text = page.getByLabel('Текст письма (обычный текст)');
+    await text.fill('Оставьте отзыв: {{orderUrl}}');
+    await page.getByRole('button', { name: 'Предпросмотр' }).click();
+    await expect(page.getByText(/Обязательные переменные нельзя удалить/).first()).toBeVisible();
+    await audit(page);
+  });
+
+  test('axe: форма «Создать заказ» в премиум-заявке', async ({ page }) => {
+    await open(page, '/admin/premium');
+    const link = page.locator('a[href^="/admin/premium/"]').first();
+    test.skip(!(await link.count()), 'Список пуст');
+    await open(page, (await link.getAttribute('href'))!);
+    const btn = page.getByRole('button', { name: 'Создать заказ' });
+    test.skip(!(await btn.count()), 'По заявке уже есть заказ или она закрыта');
+    await btn.click();
+    await expect(page.getByRole('heading', { name: 'Новый заказ по заявке' })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await audit(page);
+  });
 
   test('axe: окно рассылки по акции; клавиатура: открытие, Tab внутри, Escape возвращает фокус', async ({ page }) => {
     await open(page, '/admin/promotions');

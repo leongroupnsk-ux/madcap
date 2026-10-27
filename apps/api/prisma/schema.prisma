@@ -18,25 +18,27 @@ enum UserRole {
 }
 
 model User {
-  id              String     @id @default(uuid()) @db.Uuid
-  email           String     @unique
-  passwordHash    String
-  role            UserRole   @default(buyer)
-  phone           String?
-  emailVerifiedAt DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  deletedAt       DateTime?
+  id                 String     @id @default(uuid()) @db.Uuid
+  email              String     @unique
+  passwordHash       String
+  role               UserRole   @default(buyer)
+  phone              String?
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
   /// Роль сотрудника платформы (для role = admin); null — владелец со всеми правами (ТЗ §8)
-  staffRole       StaffRole?
+  staffRole          StaffRole?
   /// Блокировка администратором: вход и сессии недоступны
-  blockedAt       DateTime?
-  blockReason     String?
+  blockedAt          DateTime?
+  blockReason        String?
   /// Последняя активность: от неё считается срок хранения фото (12 месяцев, ТЗ §11)
-  lastActiveAt    DateTime   @default(now())
+  lastActiveAt       DateTime   @default(now())
   /// TOTP-секрет (base32); 2FA обязательна для владельца поставщика по желанию, для админа — рекомендуется
-  totpSecret      String?
-  totpEnabledAt   DateTime?
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+  /// Покупатель отписался от писем «Оставьте отзыв» (профиль или ссылка в письме); null — письма приходят
+  reviewInvitesOffAt DateTime?
 
   sessions             Session[]
   tokens               AuthToken[]
@@ -161,6 +163,8 @@ model BuyerProfile {
   completenessPct Int       @default(0)
   /// Анкета пройдена до шага «Создать мой профиль»
   quizCompletedAt DateTime?
+  /// Первый сохранённый ответ анкеты — начало воронки подбора на дашборде (запись профиля создаётся и при просмотре /account)
+  quizStartedAt   DateTime?
   updatedAt       DateTime  @updatedAt
 
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -324,6 +328,8 @@ model Supplier {
   payouts              Payout[]
   promotionProducts    PromotionProduct[]
   notificationSettings NotificationSetting[]
+  feedSchedule         SupplierFeedSchedule?
+  apiKeys              PartnerApiKey[]
 
   @@map("suppliers")
 }
@@ -402,6 +408,7 @@ model Product {
   capsuleItems CapsuleItem[]
   reviews      Review[]
   favorites    Favorite[]
+  dailyStats   ProductDailyStat[]
 
   @@unique([supplierId, externalId])
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "products_title_trgm_idx")
@@ -798,9 +805,11 @@ model Order {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  user      User       @relation(fields: [userId], references: [id])
-  shipments Shipment[]
-  refunds   Refund[]
+  user        User         @relation(fields: [userId], references: [id])
+  shipments   Shipment[]
+  refunds     Refund[]
+  /// Заказ, созданный менеджером из премиум-заявки
+  premiumLead PremiumLead?
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -852,6 +861,8 @@ model Shipment {
   paidAt            DateTime?
   /// Уведомление «не подтверждён 24 ч» отправлено
   overdueNotifiedAt DateTime?
+  /// Письмо «Оставьте отзыв» через 7 дней после доставки отправлено или пропущено (одно на отправление)
+  reviewInviteAt    DateTime?
   confirmedAt       DateTime?
   deliveredAt       DateTime?
   createdAt         DateTime       @default(now())
@@ -867,6 +878,7 @@ model Shipment {
 
   @@unique([orderId, no])
   @@index([supplierId, status])
+  @@index([status, deliveredAt])
   @@map("shipments")
 }
 
@@ -1254,10 +1266,13 @@ model PremiumLead {
   status         PremiumLeadStatus @default(new)
   managerComment String?
   ip             String?
+  /// Заказ, созданный менеджером из заявки кнопкой «Создать заказ»
+  orderId        String?           @unique @db.Uuid
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@index([userId])
@@ -1351,4 +1366,82 @@ model RestockSubscription {
   @@index([email])
   @@index([userId])
   @@map("restock_subscriptions")
+}
+
+/// Поисковые запросы без результатов (аналитика каталога): нормализованный текст, сколько раз искали, когда последний раз.
+/// Без ПДн: ни пользователя, ни IP; запросы, похожие на email или телефон, не пишутся.
+model SearchEmptyQuery {
+  query   String   @id
+  count   Int      @default(1)
+  firstAt DateTime @default(now())
+  lastAt  DateTime @default(now())
+
+  @@index([lastAt])
+  @@map("search_empty_queries")
+}
+
+/// Переопределённый в админке шаблон письма (реестр шаблонов — apps/api/src/mail-templates/registry.ts).
+/// Нет строки — действует текст по умолчанию из кода; «Сбросить к стандартному» удаляет строку.
+model MailTemplate {
+  key         String   @id
+  subject     String
+  text        String
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt
+
+  @@map("mail_templates")
+}
+
+// ─── Кабинет поставщика: автоимпорт, партнёрский API, аналитика ─────────
+
+/// Расписание синка YML-фида (ссылка — suppliers.ymlFeedUrl). Нет строки — каждые 6 ч, без паузы.
+model SupplierFeedSchedule {
+  supplierId  String    @id @db.Uuid
+  /// Частота: 1, 6 или 24 часа (не чаще раза в час)
+  everyHours  Int       @default(6)
+  /// Пауза: поставщиком (pauseReason = manual) или автоматически после 3 ошибок подряд (errors)
+  pausedAt    DateTime?
+  pauseReason String?
+  /// Ошибок подряд; сбрасывается успешным синком, сменой ссылки или включением
+  failures    Int       @default(0)
+  /// Последний запуск по расписанию или вручную — от него считается следующий
+  lastRunAt   DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_feed_schedules")
+}
+
+/// Ключ партнёрского API поставщика (docs/PARTNER_API.md). Сам ключ показывается один раз, хранится SHA-256.
+model PartnerApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  supplierId  String    @db.Uuid
+  name        String
+  /// Начало ключа для списка: «ak_3fA9»
+  prefix      String
+  hash        String    @unique
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@map("partner_api_keys")
+}
+
+/// Агрегаты по товару за день (по Москве) для аналитики поставщика: просмотры карточки и добавления в корзину. Без ПДн.
+model ProductDailyStat {
+  productId String   @db.Uuid
+  day       DateTime @db.Date
+  views     Int      @default(0)
+  cartAdds  Int      @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, day])
+  @@index([day])
+  @@map("product_daily_stats")
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { addressSchema, recipientSchema } from './orders.js';
 import { SHOE_SIZES } from './profile.js';
 import { SIZES } from './supplier.js';
 
@@ -100,3 +101,15 @@ export const premiumLeadUpdateSchema = z.object({
   managerComment: z.string().trim().max(2000, 'До 2000 символов').optional().default(''),
 });
 export type PremiumLeadUpdate = z.infer<typeof premiumLeadUpdateSchema>;
+
+/**
+ * «Создать заказ» из премиум-заявки: получатель (email обязателен — туда уйдёт ссылка на оплату), доставка по
+ * отправлениям как в оформлении (ключ — supplierId) и варианты из снимка капсулы, которые идут в заказ.
+ */
+export const premiumOrderSchema = z.object({
+  recipient: recipientSchema,
+  delivery: z.record(z.string().uuid(), addressSchema),
+  variantIds: z.array(z.string().uuid()).min(1, 'Выберите хотя бы одну вещь').max(20),
+});
+export type PremiumOrderInput = z.infer<typeof premiumOrderSchema>;
+export const premiumQuoteSchema = z.object({ cityCode: z.number().int().positive(), variantIds: z.array(z.string().uuid()).min(1).max(20) });

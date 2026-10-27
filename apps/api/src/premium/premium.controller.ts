@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import {
-  premiumAnswersSchema, premiumCapsuleRequestSchema, premiumLeadSchema, premiumLeadUpdateSchema,
-  type PremiumAnswers, type PremiumCapsuleRequest, type PremiumLeadInput, type PremiumLeadUpdate,
+  premiumAnswersSchema, premiumCapsuleRequestSchema, premiumLeadSchema, premiumLeadUpdateSchema, premiumOrderSchema, premiumQuoteSchema,
+  type PremiumAnswers, type PremiumCapsuleRequest, type PremiumLeadInput, type PremiumLeadUpdate, type PremiumOrderInput,
 } from '@aesculap/shared';
 import type { User } from '@prisma/client';
 import type { Request } from 'express';
@@ -10,6 +10,8 @@ import { AuthGuard, CurrentUser } from '../auth/auth.guard';
 import { Area, Roles } from '../auth/roles.guard';
 import { SessionService } from '../auth/session.service';
 import { ZodPipe } from '../common/zod.pipe';
+import { RateLimitService } from '../common/rate-limit.service';
+import { PremiumOrderService } from './premium-order.service';
 import { PremiumService } from './premium.service';
 
 const saveSchema = premiumAnswersSchema.extend({ complete: z.boolean().optional() });
@@ -54,7 +56,11 @@ export class PremiumController {
 @Roles('admin')
 @Area('premium')
 export class AdminPremiumController {
-  constructor(private readonly premium: PremiumService) {}
+  constructor(
+    private readonly premium: PremiumService,
+    private readonly orders: PremiumOrderService,
+    private readonly limits: RateLimitService,
+  ) {}
 
   @Get()
   list(@Query('status') status?: string) {
@@ -64,6 +70,33 @@ export class AdminPremiumController {
   @Get(':id')
   view(@Param('id', ParseUUIDPipe) id: string) {
     return this.premium.view(id);
+  }
+
+  /** «Создать заказ»: получатель, состав капсулы с ценами и наличием на сейчас */
+  @Get(':id/order-draft')
+  draft(@Param('id', ParseUUIDPipe) id: string) {
+    return this.orders.draft(id);
+  }
+
+  @Post(':id/quote')
+  @HttpCode(200)
+  async quote(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(premiumQuoteSchema)) body: { cityCode: number; variantIds: string[] }, @CurrentUser() staff: User) {
+    await this.limits.hit('premium-quote', staff.id, 120, 600);
+    return this.orders.quote(id, body.cityCode, body.variantIds);
+  }
+
+  @Post(':id/order')
+  async order(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(premiumOrderSchema)) body: PremiumOrderInput, @CurrentUser() staff: User) {
+    await this.limits.hit('premium-order', staff.id, 20, 600);
+    return this.orders.create(id, body, staff);
+  }
+
+  /** Повторная ссылка на оплату покупателю */
+  @Post(':id/order/resend')
+  @HttpCode(200)
+  async resend(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() staff: User) {
+    await this.limits.hit('premium-order', staff.id, 20, 600);
+    return this.orders.resend(id, staff);
   }
 
   @Put(':id')

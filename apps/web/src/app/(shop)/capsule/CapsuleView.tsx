@@ -8,6 +8,7 @@ import { api, isApiError } from '@/lib/api';
 import { addCapsule } from '@/lib/cart';
 import c from './capsule.module.css';
 import { imgSet, type ImageSet } from '@/lib/image';
+import { GOALS, reachGoal } from '@/lib/metrika';
 
 type Item = {
   slot: string; slotLabel: string; pinned: boolean; alternatives: number; unavailable: boolean;
@@ -174,6 +175,7 @@ export function CapsuleView({ initial }: { initial: CapsuleData }) {
               onClick={() => {
                 addCapsule(cap.items.filter((i) => i.variant && !i.unavailable).map((i) => ({ variantId: i.variant!.id, price: i.variant!.price })));
                 setAdded(true);
+                void reachGoal(GOALS.capsuleToCart);
               }}
             >
               Добавить капсулу

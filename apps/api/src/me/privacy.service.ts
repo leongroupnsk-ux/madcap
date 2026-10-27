@@ -4,7 +4,7 @@ import * as argon2 from 'argon2';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../common/audit.service';
 import { JobsService } from '../common/jobs.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { config } from '../config';
@@ -27,7 +27,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly jobs: JobsService,
     private readonly reviews: ReviewsService,
   ) {}
@@ -66,7 +66,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     return {
       exportedAt: new Date(),
       operator: config.brandName,
-      account: { email: u.email, phone: u.phone, role: u.role, createdAt: u.createdAt, emailVerifiedAt: u.emailVerifiedAt, lastActiveAt: u.lastActiveAt, twoFactor: Boolean(u.totpEnabledAt) },
+      account: { email: u.email, phone: u.phone, role: u.role, createdAt: u.createdAt, emailVerifiedAt: u.emailVerifiedAt, lastActiveAt: u.lastActiveAt, twoFactor: Boolean(u.totpEnabledAt), reviewInvites: !u.reviewInvitesOffAt },
       consents: u.consents.map((c) => ({ type: c.type, version: c.version, grantedAt: c.grantedAt, revokedAt: c.revokedAt, ip: c.ip })),
       profile: p && {
         gender: p.gender, name: p.name, age: p.age, heightCm: p.heightCm, weightKg: p.weightKg, sizeTop: p.sizeTop, sizeBottom: p.sizeBottom, sizeShoes: p.sizeShoes,
@@ -139,7 +139,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     // Неоплаченные заказы отменит таймер оплаты и вернёт резерв; файлы фото удаляем сразу.
     for (const ph of photos) await this.storage.remove(ph.storageKey).catch(() => undefined);
     await this.audit.log(opts.byAdmin?.id ?? user.id, opts.byAdmin ? 'user.delete.admin' : 'user.delete', 'user', user.id, { photos: photos.length, reviews });
-    await this.mail.send({ to: user.email, subject: `Аккаунт удалён — ${config.brandName}`, text: 'Ваш аккаунт и персональные данные профиля удалены. Сведения о заказах хранятся для бухгалтерского учёта.' }).catch(() => undefined);
+    await this.mail.send('privacy.account_deleted', user.email, {}).catch(() => undefined);
     return { ok: true };
   }
 
@@ -158,7 +158,7 @@ export class PrivacyService implements OnApplicationBootstrap {
     }
     for (const [id, email] of users) {
       await this.audit.log(null, 'privacy.photos.expired', 'user', id);
-      await this.mail.send({ to: email, subject: `Фото удалены — ${config.brandName}`, text: 'Вы не заходили в аккаунт больше года, поэтому фото из анкеты удалены, как обещано в согласии. Профиль и заказы сохранены.' }).catch(() => undefined);
+      await this.mail.send('privacy.photos_deleted', email, {}).catch(() => undefined);
     }
     if (stale.length) this.logger.log(`Удалено фото по сроку хранения: ${stale.length}`);
     return { photos: stale.length, users: users.size };

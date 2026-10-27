@@ -6,7 +6,7 @@ import { AuditService } from '../common/audit.service';
 import { SettingsService } from '../common/settings.service';
 import { LegalService } from '../common/legal.service';
 import { PrismaService } from '../common/prisma.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { CaptchaService } from '../common/captcha.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { newToken, sha256 } from '../common/crypto';
@@ -31,7 +31,7 @@ export const publicUser = (u: User) => ({
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly limits: RateLimitService,
     private readonly legal: LegalService,
     private readonly captcha: CaptchaService,
@@ -94,11 +94,7 @@ export class AuthService {
 
   async sendVerification(user: User): Promise<void> {
     const token = await this.issueToken(user.id, 'email_verify', config.tokens.emailVerifyHours * 60);
-    await this.mail.send({
-      to: user.email,
-      subject: `Подтвердите email — ${config.brandName}`,
-      text: `Чтобы подтвердить email, перейдите по ссылке:\n${config.webOrigin}/verify-email?token=${token}\n\nСсылка действует ${config.tokens.emailVerifyHours} ч.`,
-    });
+    await this.mail.send('auth.verify_email', user.email, { link: `${config.webOrigin}/verify-email?token=${token}`, hours: config.tokens.emailVerifyHours });
   }
 
   async verifyEmail(token: string): Promise<void> {
@@ -114,11 +110,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || user.deletedAt) return;
     const token = await this.issueToken(user.id, 'password_reset', config.tokens.passwordResetMinutes);
-    await this.mail.send({
-      to: user.email,
-      subject: `Восстановление пароля — ${config.brandName}`,
-      text: `Чтобы задать новый пароль, перейдите по ссылке:\n${config.webOrigin}/reset-password?token=${token}\n\nСсылка одноразовая и действует ${config.tokens.passwordResetMinutes} минут. Если вы не запрашивали сброс, просто проигнорируйте письмо.`,
-    });
+    await this.mail.send('auth.password_reset', user.email, { link: `${config.webOrigin}/reset-password?token=${token}`, minutes: config.tokens.passwordResetMinutes });
   }
 
   /** Новый пароль; все сессии пользователя закрываются. Возвращает пользователя для автовхода. */
@@ -135,21 +127,22 @@ export class AuthService {
   /** Приглашение сотрудника админки: ссылка на установку пароля (тот же механизм, что сброс), живёт 7 дней. */
   async sendStaffInvite(user: User, roleLabel: string): Promise<void> {
     const token = await this.issueToken(user.id, 'password_reset', 7 * 24 * 60);
-    await this.mail.send({
-      to: user.email,
-      subject: `Доступ в админку — ${config.brandName}`,
-      text: `Вас пригласили в админку ${config.brandName} с ролью «${roleLabel}».\nЧтобы задать пароль, перейдите по ссылке:\n${config.webOrigin}/reset-password?token=${token}\n\nПосле этого войдите на ${config.webOrigin}/admin. Ссылка действует 7 дней.`,
-    });
+    await this.mail.send('auth.staff_invite', user.email, { role: roleLabel, link: `${config.webOrigin}/reset-password?token=${token}` });
+  }
+
+  /**
+   * Аккаунт, созданный менеджером для заказа из премиум-заявки: пароль никто не знает, покупатель задаёт его
+   * по ссылке (механизм сброса пароля, 7 дней — как у приглашения сотрудника). Email подтверждается при установке пароля.
+   */
+  async sendAccountSetup(user: User, name: string, orderNumber: string): Promise<void> {
+    const token = await this.issueToken(user.id, 'password_reset', 7 * 24 * 60);
+    await this.mail.send('auth.account_created', user.email, { name, link: `${config.webOrigin}/reset-password?token=${token}`, 'order.number': orderNumber });
   }
 
   /** Письмо-приглашение сотруднику поставщика: ссылка на установку пароля, живёт 7 дней. */
   async sendSupplierInvite(user: User, supplierName: string): Promise<void> {
     const token = await this.issueToken(user.id, 'supplier_invite', 7 * 24 * 60);
-    await this.mail.send({
-      to: user.email,
-      subject: `Доступ в кабинет поставщика — ${config.brandName}`,
-      text: `Вас пригласили в кабинет поставщика «${supplierName}».\nЧтобы задать пароль и войти, перейдите по ссылке:\n${config.webOrigin}/supplier/invite?token=${token}\n\nСсылка действует 7 дней.`,
-    });
+    await this.mail.send('supplier.invite', user.email, { 'supplier.name': supplierName, link: `${config.webOrigin}/supplier/invite?token=${token}` });
   }
 
   async acceptInvite(token: string, password: string): Promise<User> {

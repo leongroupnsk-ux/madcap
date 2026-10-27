@@ -6,9 +6,9 @@ import { usePathname } from 'next/navigation';
 /** Меню админки: активный раздел отмечен aria-current="page" (и выделен стилем, как в кабинете поставщика). */
 export function AdminNav({ items, className, activeClass }: { items: { href: string; label: string }[]; className?: string; activeClass?: string }) {
   const path = usePathname();
-  // Самый длинный подходящий адрес: /admin — только сама страница заявок, /admin/orders/… — «Заказы и платежи»
+  // Самый длинный подходящий адрес: /admin/orders/… — «Заказы и платежи», /admin/system/mail-templates — «Шаблоны писем»
   const active = items
-    .filter((i) => (i.href === '/admin' ? path === '/admin' : path === i.href || path.startsWith(`${i.href}/`)))
+    .filter((i) => path === i.href || path.startsWith(`${i.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
   return (
     <nav className={className} aria-label="Админка">

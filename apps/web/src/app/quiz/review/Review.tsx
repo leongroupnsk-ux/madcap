@@ -9,6 +9,7 @@ import { useQuiz } from '@/components/quiz/useQuiz';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import type { Dictionaries } from '@/lib/types';
+import { GOALS, reachGoal } from '@/lib/metrika';
 
 const age = (n?: number | null) => (n ? `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'год' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'года' : 'лет'}` : null);
 
@@ -43,6 +44,8 @@ export function Review({ groups }: { groups: Dictionaries['specialtyGroups'] }) 
     setError(null);
     try {
       await api('/me/profile', { complete: true }, 'PUT');
+      // Цель Метрики «анкета пройдена» (если счётчик подключён)
+      void reachGoal(GOALS.quizDone);
       router.push('/quiz/done');
     } catch (e) {
       setError(isApiError(e) ? e.message : 'Нет связи с сервером');

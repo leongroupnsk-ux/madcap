@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { AuditService } from '../common/audit.service';
 import { JobsService } from '../common/jobs.service';
 import { MailService } from '../common/mail.service';
+import { RateLimitService } from '../common/rate-limit.service';
 import { repriceSales } from '../promotions/price';
 import { PrismaService } from '../common/prisma.service';
 import { shortId, slugify } from '../common/slug';
@@ -19,7 +20,12 @@ import { ParseError, parseCsv, parseXlsx, parseYml, type RawRow } from './parse'
 
 const MAX_ROWS = 10_000;
 const MAX_ERRORS = 200;
-const YML_EVERY_MS = 6 * 3600_000;
+/** Проверка, каким фидам пора синхронизироваться, — раз в 10 минут; частота фида — 1, 6 или 24 ч (не чаще раза в час) */
+const FEED_TICK_MS = 10 * 60_000;
+const HOUR_MS = 3600_000;
+export const FEED_EVERY_HOURS = [1, 6, 24] as const;
+/** Ошибок подряд до автоматической паузы фида */
+export const FEED_MAX_FAILURES = 3;
 
 type RowError = { row: number; field: string; message: string };
 
@@ -49,14 +55,16 @@ export class ImportService implements OnModuleInit {
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
     private readonly restock: RestockService,
+    private readonly limits: RateLimitService,
   ) {}
 
   async onModuleInit() {
     this.jobs.register('import:check', (d: { jobId: string }) => this.check(d.jobId));
     this.jobs.register('import:apply', (d: { jobId: string }) => this.apply(d.jobId));
     this.jobs.register('import:photo', (d: { jobId: string; productId: string; url: string }) => this.fetchPhoto(d));
-    this.jobs.register('yml:sync-all', () => this.syncAllFeeds());
-    await this.jobs.repeat('yml:sync-all', YML_EVERY_MS);
+    // Имя задачи прежнее: планировщик в Redis обновится с «раз в 6 ч» на «раз в 10 мин»
+    this.jobs.register('yml:sync-all', () => this.syncDueFeeds().then(() => undefined));
+    await this.jobs.repeat('yml:sync-all', FEED_TICK_MS);
   }
 
   // ─── запуск ──────────────────────────────────────────────────────────
@@ -75,24 +83,110 @@ export class ImportService implements OnModuleInit {
 
   async setFeed(supplier: Supplier, url: string | null, actor: User) {
     await this.prisma.supplier.update({ where: { id: supplier.id }, data: { ymlFeedUrl: url } });
+    // Новая ссылка — счётчик ошибок и пауза сбрасываются, частота остаётся
+    await this.prisma.supplierFeedSchedule.upsert({
+      where: { supplierId: supplier.id },
+      create: { supplierId: supplier.id },
+      update: { failures: 0, pausedAt: null, pauseReason: null },
+    });
     await this.audit.log(actor.id, 'import.feed', 'supplier', supplier.id, { url });
     return url ? this.syncFeed(supplier.id) : null;
   }
 
   /** Синк фида: проверка и автоприменение (ручного шага нет — ТЗ §7.4). */
-  async syncFeed(supplierId: string) {
+  async syncFeed(supplierId: string, now = new Date()) {
     const supplier = await this.prisma.supplier.findUniqueOrThrow({ where: { id: supplierId } });
     if (!supplier.ymlFeedUrl) throw new BadRequestException({ message: 'Ссылка на фид не указана' });
     const running = await this.prisma.importJob.findFirst({ where: { supplierId, source: 'yml', status: { in: ['queued', 'checking', 'applying'] } } });
     if (running) return this.view(running);
+    await this.prisma.supplierFeedSchedule.upsert({ where: { supplierId }, create: { supplierId, lastRunAt: now }, update: { lastRunAt: now } });
     const job = await this.prisma.importJob.create({ data: { supplierId, source: 'yml', feedUrl: supplier.ymlFeedUrl, fileName: 'YML-фид', autoApply: true } });
     await this.jobs.enqueue('import:check', { jobId: job.id }, { attempts: 1 });
     return this.view(await this.prisma.importJob.findUniqueOrThrow({ where: { id: job.id } }));
   }
 
-  private async syncAllFeeds() {
-    const suppliers = await this.prisma.supplier.findMany({ where: { status: 'active', ymlFeedUrl: { not: null } }, select: { id: true } });
-    for (const s of suppliers) await this.syncFeed(s.id).catch((e) => this.logger.error(`Фид ${s.id}: ${e.message}`));
+  /** «Синхронизировать» из кабинета: не чаще 10 раз в час, работает и на паузе */
+  async syncFeedManual(supplierId: string) {
+    await this.limits.hit('feed-sync', supplierId, 10, 3600);
+    return this.syncFeed(supplierId);
+  }
+
+  /**
+   * Задача по расписанию: фиды активных поставщиков без паузы, у которых с прошлого запуска прошло
+   * everyHours (с запасом 5 минут на шаг планировщика). Возвращает id поставщиков, чей синк запущен.
+   */
+  async syncDueFeeds(now = new Date()) {
+    const suppliers = await this.prisma.supplier.findMany({
+      where: { status: 'active', ymlFeedUrl: { not: null }, OR: [{ feedSchedule: null }, { feedSchedule: { pausedAt: null } }] },
+      select: { id: true, feedSchedule: true },
+    });
+    const started: string[] = [];
+    for (const s of suppliers) {
+      const every = Math.max(1, s.feedSchedule?.everyHours ?? 6) * HOUR_MS;
+      const last = s.feedSchedule?.lastRunAt?.getTime();
+      if (last && now.getTime() - last < every - 5 * 60_000) continue;
+      try {
+        await this.syncFeed(s.id, now);
+        started.push(s.id);
+      } catch (e) {
+        this.logger.error(`Фид ${s.id}: ${(e as Error).message}`);
+      }
+    }
+    return started;
+  }
+
+  async feedState(supplierId: string) {
+    const [supplier, sch, last] = await Promise.all([
+      this.prisma.supplier.findUniqueOrThrow({ where: { id: supplierId }, select: { ymlFeedUrl: true } }),
+      this.prisma.supplierFeedSchedule.findUnique({ where: { supplierId } }),
+      this.prisma.importJob.findFirst({ where: { supplierId, source: 'yml' }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    const everyHours = sch?.everyHours ?? 6;
+    const paused = Boolean(sch?.pausedAt);
+    return {
+      url: supplier.ymlFeedUrl,
+      everyHours,
+      paused,
+      pauseReason: (sch?.pauseReason as 'manual' | 'errors' | null) ?? null,
+      pausedAt: sch?.pausedAt ?? null,
+      failures: sch?.failures ?? 0,
+      lastRunAt: sch?.lastRunAt ?? null,
+      nextRunAt: supplier.ymlFeedUrl && !paused ? new Date(Math.max(Date.now(), (sch?.lastRunAt?.getTime() ?? Date.now()) + everyHours * HOUR_MS)) : null,
+      lastJob: last ? this.view(last) : null,
+    };
+  }
+
+  /** Частота и пауза фида. Включение после паузы сбрасывает счётчик ошибок. */
+  async setFeedSchedule(supplier: Supplier, input: { everyHours: number; paused: boolean }, actor: User) {
+    if (!(FEED_EVERY_HOURS as readonly number[]).includes(input.everyHours)) throw new BadRequestException({ message: 'Частота — каждый 1, 6 или 24 часа' });
+    const cur = await this.prisma.supplierFeedSchedule.findUnique({ where: { supplierId: supplier.id } });
+    const pause = input.paused ? { pausedAt: cur?.pausedAt ?? new Date(), pauseReason: cur?.pausedAt ? cur.pauseReason : 'manual' } : { pausedAt: null, pauseReason: null, failures: 0 };
+    await this.prisma.supplierFeedSchedule.upsert({
+      where: { supplierId: supplier.id },
+      create: { supplierId: supplier.id, everyHours: input.everyHours, ...pause },
+      update: { everyHours: input.everyHours, ...pause },
+    });
+    await this.audit.log(actor.id, 'import.feed_schedule', 'supplier', supplier.id, { everyHours: input.everyHours, paused: input.paused });
+    return this.feedState(supplier.id);
+  }
+
+  /** Ошибка синка: уведомление в колокольчик; после FEED_MAX_FAILURES подряд — автоматическая пауза */
+  private async feedFailed(supplierId: string, reason: string) {
+    const sch = await this.prisma.supplierFeedSchedule.upsert({
+      where: { supplierId },
+      create: { supplierId, failures: 1 },
+      update: { failures: { increment: 1 } },
+    });
+    if (sch.failures >= FEED_MAX_FAILURES && !sch.pausedAt) {
+      await this.prisma.supplierFeedSchedule.update({ where: { supplierId }, data: { pausedAt: new Date(), pauseReason: 'errors' } });
+      await this.notifyOwners(
+        supplierId,
+        'Синхронизация фида приостановлена',
+        `${sch.failures} ошибки подряд, последняя: ${reason}. Проверьте ссылку и включите синк в разделе «Импорт».`,
+      );
+      return;
+    }
+    await this.notifyOwners(supplierId, 'Синхронизация фида не удалась', `Причина: ${reason}`);
   }
 
   async requestApply(supplier: Supplier, jobId: string, actor: User) {
@@ -128,12 +222,13 @@ export class ImportService implements OnModuleInit {
           payload: groups as unknown as Prisma.InputJsonValue,
         },
       });
-      if (job.autoApply && validRows > 0) await this.jobs.enqueue('import:apply', { jobId }, { attempts: 1 });
+      if (job.autoApply && validRows === 0) throw new ParseError(rows.length ? 'в фиде нет ни одной строки без ошибок' : 'в фиде нет товаров');
+      if (job.autoApply) await this.jobs.enqueue('import:apply', { jobId }, { attempts: 1 });
     } catch (e) {
       const message = e instanceof ParseError || e instanceof RemoteFetchError ? e.message : 'Внутренняя ошибка при чтении файла';
       if (!(e instanceof ParseError || e instanceof RemoteFetchError)) this.logger.error(`check ${jobId}: ${(e as Error).stack}`);
       await this.prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failReason: message } });
-      if (job.source === 'yml') await this.notifyOwners(job.supplierId, 'Синхронизация фида не удалась', `Причина: ${message}`);
+      if (job.source === 'yml') await this.feedFailed(job.supplierId, message);
     }
   }
 
@@ -244,16 +339,21 @@ export class ImportService implements OnModuleInit {
       // Синк обновляет цену поставщика; акционная цена пересчитывается от неё, а не перетирается (ТЗ §7.7).
       await repriceSales(this.prisma);
       await this.prisma.importJob.update({ where: { id: jobId }, data: { status: 'applied', appliedAt: new Date(), payload: Prisma.DbNull } });
+      if (job.source === 'yml') await this.prisma.supplierFeedSchedule.updateMany({ where: { supplierId: job.supplierId }, data: { failures: 0 } });
       // Импорт или синк фида пополнил остатки — письма подписчикам «Сообщить о поступлении»
       await this.restock.check({ supplierId: job.supplierId }).catch((e: Error) => this.logger.warn(`restock ${jobId}: ${e.message}`));
-      await this.notifyOwners(
-        job.supplierId,
-        job.source === 'yml' ? 'Фид синхронизирован' : 'Импорт применён',
-        `Строк: ${job.totalRows}; новые товары: ${job.newProducts} строк; обновления: ${job.updates}; с ошибками: ${job.errorRows}.`,
-      );
+      // Фид синкается до раза в час — об успешном синке без ошибок в строках не уведомляем
+      if (job.source !== 'yml' || job.errorRows > 0) {
+        await this.notifyOwners(
+          job.supplierId,
+          job.source === 'yml' ? 'Фид синхронизирован, есть строки с ошибками' : 'Импорт применён',
+          `Строк: ${job.totalRows}; новые товары: ${job.newProducts} строк; обновления: ${job.updates}; с ошибками: ${job.errorRows}.`,
+        );
+      }
     } catch (e) {
       this.logger.error(`apply ${jobId}: ${(e as Error).stack}`);
       await this.prisma.importJob.update({ where: { id: jobId }, data: { status: 'failed', failReason: 'Ошибка при записи товаров. Повторите импорт.' } });
+      if (job.source === 'yml') await this.feedFailed(job.supplierId, 'ошибка при записи товаров');
     }
   }
 

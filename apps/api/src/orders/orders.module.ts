@@ -11,12 +11,13 @@ import { PayoutRegistryService } from './payout-registry.service';
 import { OrdersService } from './orders.service';
 import { AdminPayoutsController, SupplierOrdersController } from './supplier-orders.controller';
 import { SupplierOrdersService } from './supplier-orders.service';
+import { SupplierPrintService } from './supplier-print.service';
 
 @Module({
   imports: [AuthModule, DeliveryModule, PaymentsModule],
   controllers: [OrdersController, SupplierOrdersController, AdminPayoutsController, AdminOrdersController],
-  providers: [CartService, OrdersService, SupplierOrdersService, AdminOrdersService, PayoutRegistryService],
-  exports: [OrdersService, SupplierOrdersService],
+  providers: [CartService, OrdersService, SupplierOrdersService, AdminOrdersService, PayoutRegistryService, SupplierPrintService],
+  exports: [OrdersService, SupplierOrdersService, CartService],
 })
 export class OrdersModule implements OnApplicationBootstrap {
   constructor(

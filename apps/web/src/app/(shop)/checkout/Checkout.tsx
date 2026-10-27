@@ -10,6 +10,7 @@ import c from '@/components/shop/checkout.module.css';
 import { imgSet } from '@/lib/image';
 import type { CheckedItem } from '../cart/CartView';
 import { AddressDrawer, addressText, type DeliveryFeatures, type Quote, type SavedAddress } from './AddressDrawer';
+import { GOALS, reachGoal } from '@/lib/metrika';
 
 type Group = { supplierId: string; name: string; city: string | null; items: { line: CartLine; item: CheckedItem }[]; goods: number };
 
@@ -139,6 +140,8 @@ export function Checkout({
         saveAddresses: true,
       });
       writeCart([]);
+      // Цель «заказ оформлен» — до перехода на оплату (ждём отправку не дольше 400 мс)
+      await reachGoal(GOALS.orderPlaced);
       window.location.href = res.confirmationUrl ?? `/orders/${res.number}/result`;
     } catch (e) {
       setBusy(false);

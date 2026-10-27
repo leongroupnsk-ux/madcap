@@ -7,7 +7,7 @@ import { LegalService } from '../common/legal.service';
 import { SettingsService } from '../common/settings.service';
 import { AuditService } from '../common/audit.service';
 import { newToken } from '../common/crypto';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { CaptchaService } from '../common/captcha.service';
 import { RateLimitService } from '../common/rate-limit.service';
@@ -18,7 +18,7 @@ export class SuppliersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly limits: RateLimitService,
     private readonly audit: AuditService,
     private readonly settings: SettingsService,
@@ -39,11 +39,7 @@ export class SuppliersService {
         ip,
       },
     });
-    await this.mail.send({
-      to: input.email,
-      subject: `Заявка на подключение получена — ${config.brandName}`,
-      text: `Здравствуйте, ${input.contactName}!\nМы получили заявку компании «${input.company}». Менеджер свяжется с вами в течение 2 часов в рабочее время.\nСогласие на обработку данных: версия ${await this.legal.consentVersion('pdn')}.`,
-    });
+    await this.mail.send('supplier.application_received', input.email, { contactName: input.contactName, company: input.company, consentVersion: await this.legal.consentVersion('pdn') });
     return { id: app.id };
   }
 
@@ -89,11 +85,7 @@ export class SuppliersService {
 
     if (isNewUser) await this.auth.sendSupplierInvite(user, supplier.legalName);
     else
-      await this.mail.send({
-        to: user.email,
-        subject: `Кабинет поставщика открыт — ${config.brandName}`,
-        text: `Компания «${supplier.legalName}» подключена. Войдите со своим паролем: ${config.webOrigin}/supplier/login`,
-      });
+      await this.mail.send('supplier.approved_existing', user.email, { 'supplier.name': supplier.legalName, loginUrl: `${config.webOrigin}/supplier/login` });
     await this.audit.log(admin.id, 'supplier.approve', 'supplier_application', id, { supplierId: supplier.id });
     return supplier;
   }
@@ -103,11 +95,7 @@ export class SuppliersService {
     if (!app) throw new NotFoundException();
     if (app.status !== 'new') throw new BadRequestException({ message: 'Заявка уже рассмотрена' });
     await this.prisma.supplierApplication.update({ where: { id }, data: { status: 'rejected', rejectReason: reason, reviewedAt: new Date() } });
-    await this.mail.send({
-      to: app.email,
-      subject: `Заявка на подключение — ${config.brandName}`,
-      text: `Здравствуйте, ${app.contactName}!\nК сожалению, сейчас мы не можем подключить компанию «${app.company}».\nПричина: ${reason}`,
-    });
+    await this.mail.send('supplier.application_rejected', app.email, { contactName: app.contactName, company: app.company, reason });
     await this.audit.log(admin.id, 'supplier.reject', 'supplier_application', id, { reason });
   }
 
@@ -152,11 +140,7 @@ export class SuppliersService {
     await this.prisma.supplierMember.create({ data: { supplierId: supplier.id, userId: user.id, role } });
     if (isNew) await this.auth.sendSupplierInvite(user, supplier.legalName);
     else
-      await this.mail.send({
-        to: email,
-        subject: `Доступ в кабинет поставщика — ${config.brandName}`,
-        text: `Вам открыли доступ к кабинету «${supplier.legalName}». Войдите: ${config.webOrigin}/supplier/login`,
-      });
+      await this.mail.send('supplier.member_access', email, { 'supplier.name': supplier.legalName, loginUrl: `${config.webOrigin}/supplier/login` });
     await this.audit.log(actor.id, 'supplier.member.invite', 'supplier', supplier.id, { email, role });
     return this.members(supplier.id);
   }

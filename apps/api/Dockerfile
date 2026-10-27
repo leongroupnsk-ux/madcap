@@ -13,7 +13,7 @@ RUN pnpm --filter @aesculap/shared build \
  && pnpm --filter @aesculap/api exec prisma generate \
  && pnpm --filter @aesculap/api build \
  && pnpm --filter @aesculap/api deploy --prod --legacy /out \
- && cp -r apps/api/dist apps/api/prisma apps/api/scripts apps/api/prisma.config.ts /out/ \
+ && cp -r apps/api/dist apps/api/prisma apps/api/scripts apps/api/assets apps/api/prisma.config.ts /out/ \
  && cd /out && npx prisma generate
 
 FROM node:22-bookworm-slim

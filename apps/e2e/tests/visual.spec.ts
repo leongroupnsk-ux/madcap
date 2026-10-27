@@ -39,7 +39,11 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void>;
   {
     name: 'product',
     path: PRODUCT,
-    ready: (p) => expect(p.getByRole('button', { name: 'Добавить в корзину' })).toBeVisible(),
+    // Расчёт доставки подгружается после отрисовки — ждём его, чтобы снимок не ловил «Считаем стоимость…»
+    ready: async (p) => {
+      await expect(p.getByRole('button', { name: 'Добавить в корзину' })).toBeVisible();
+      await expect(p.getByText(/^ПВЗ от /)).toBeVisible();
+    },
     // Остаток («в наличии: N шт.») и срок акции меняются
     extra: (p) => [p.locator('[class*="product_stock"]'), p.locator('[class*="product_promo"]')],
   },

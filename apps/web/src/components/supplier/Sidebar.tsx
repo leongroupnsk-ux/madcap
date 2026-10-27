@@ -12,6 +12,7 @@ const ITEMS: { href: string; label: string; roles?: Role[] }[] = [
   { href: '/supplier/products', label: 'Товары', roles: ['owner', 'catalog'] },
   { href: '/supplier/import', label: 'Импорт', roles: ['owner', 'catalog'] },
   { href: '/supplier/orders', label: 'Заказы', roles: ['owner', 'warehouse'] },
+  { href: '/supplier/analytics', label: 'Аналитика', roles: ['owner'] },
   { href: '/supplier/content', label: 'Контент', roles: ['owner', 'catalog'] },
   { href: '/supplier/promotions', label: 'Акции', roles: ['owner', 'catalog'] },
   { href: '/supplier/payouts', label: 'Выплаты', roles: ['owner'] },

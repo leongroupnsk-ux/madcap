@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { SHIPMENT_FLOW, maskAccount, type PayoutDetailsInput } from '@aesculap/shared';
+import { SHIPMENT_FLOW, formatRub, maskAccount, type PayoutDetailsInput } from '@aesculap/shared';
 import type { Prisma, ShipmentStatus, Supplier, User } from '@prisma/client';
 import { AuditService } from '../common/audit.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
+import { config } from '../config';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { DeliveryService, parcelOf } from '../delivery/delivery.service';
@@ -22,6 +24,7 @@ export class SupplierOrdersService {
     private readonly delivery: DeliveryService,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly mail: MailTemplatesService,
   ) {}
 
   private async own(supplier: Supplier, id: string) {
@@ -63,6 +66,8 @@ export class SupplierOrdersService {
         eta: s.eta,
         customer: s.order.recipientName,
         trackNo: s.trackNo,
+        // Накладная СДЭК создана — отправление можно выбрать для массовой печати
+        hasWaybill: Boolean(s.cdekUuid),
       })),
     };
   }
@@ -98,16 +103,17 @@ export class SupplierOrdersService {
     };
   }
 
-  private async move(supplier: Supplier, id: string, from: ShipmentStatus, to: ShipmentStatus, note: string, actor: User, extra: Prisma.ShipmentUpdateManyMutationInput = {}) {
+  /** actor = null — действие через партнёрский API (ключ поставщика указывается в аудите) */
+  private async move(supplier: Supplier, id: string, from: ShipmentStatus, to: ShipmentStatus, note: string, actor: User | null, extra: Prisma.ShipmentUpdateManyMutationInput = {}, auditData: Prisma.InputJsonObject = {}) {
     const r = await this.prisma.shipment.updateMany({ where: { id, supplierId: supplier.id, status: from }, data: { status: to, ...extra } });
     if (r.count === 0) throw new ConflictException({ message: 'Статус отправления уже изменился — обновите страницу' });
     await this.prisma.shipmentEvent.create({ data: { shipmentId: id, status: to, note } });
-    await this.audit.log(actor.id, `shipment.${to}`, 'shipment', id, {});
+    await this.audit.log(actor?.id ?? null, `shipment.${to}`, 'shipment', id, auditData);
     return this.detail(supplier, id);
   }
 
-  confirm(supplier: Supplier, id: string, actor: User) {
-    return this.move(supplier, id, 'new', 'confirmed', 'Поставщик подтвердил заказ', actor, { confirmedAt: new Date() });
+  confirm(supplier: Supplier, id: string, actor: User | null, auditData: Prisma.InputJsonObject = {}) {
+    return this.move(supplier, id, 'new', 'confirmed', actor ? 'Поставщик подтвердил заказ' : 'Поставщик подтвердил заказ через API', actor, { confirmedAt: new Date() }, auditData);
   }
 
   pack(supplier: Supplier, id: string, actor: User) {
@@ -219,6 +225,13 @@ export class SupplierOrdersService {
       await this.prisma.shipmentEvent.create({ data: { shipmentId: rr.shipmentId, status: 'return_approved', note: 'Возврат принят, деньги возвращены' } });
     }
     await this.audit.log(actor.id, approve ? 'return.approve' : 'return.reject', 'return', rr.id, { reason });
+    // Покупателю — итог заявки (ошибка почты не откатывает решение)
+    const shipmentNumber = `${rr.shipment.order.number}-${rr.shipment.no}`;
+    const orderUrl = `${config.webOrigin}/account/orders/${rr.shipment.order.number}`;
+    await (approve
+      ? this.mail.send('order.return_approved', rr.shipment.order.recipientEmail, { 'shipment.number': shipmentNumber, amount: formatRub(rr.amount), orderUrl })
+      : this.mail.send('order.return_rejected', rr.shipment.order.recipientEmail, { 'shipment.number': shipmentNumber, reason, orderUrl })
+    ).catch((e: Error) => this.logger.warn(`Письмо о возврате ${rr.id}: ${e.message}`));
     return this.detail(supplier, rr.shipmentId);
   }
 

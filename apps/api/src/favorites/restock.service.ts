@@ -3,7 +3,7 @@ import type { Prisma, User } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { AuditService } from '../common/audit.service';
 import { JobsService } from '../common/jobs.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { config } from '../config';
 import { visibleWhere } from '../storefront/catalog.service';
@@ -42,7 +42,7 @@ export class RestockService implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jobs: JobsService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly audit: AuditService,
   ) {}
 
@@ -78,16 +78,11 @@ export class RestockService implements OnApplicationBootstrap {
     // Гостю — подтверждение со ссылкой отписки: если email ввёл кто-то другой, владелец адреса отпишется в один клик
     if (!user) {
       await this.mail
-        .send({
-          to: email,
-          subject: `Сообщим о поступлении — ${config.brandName}`,
-          text: [
-            `Вы подписались на уведомление о поступлении: «${variant.product.title}», ${variantLabel(variant)}.`,
-            'Пришлём одно письмо, когда товар снова появится в наличии.',
-            '',
-            `Товар: ${config.webOrigin}/product/${variant.product.slug}`,
-            `Если это были не вы или уведомление больше не нужно — отписаться: ${config.webOrigin}/restock/unsubscribe?token=${restockToken(sub.id)}`,
-          ].join('\n'),
+        .send('restock.confirm', email, {
+          'product.title': variant.product.title,
+          variant: variantLabel(variant),
+          productUrl: `${config.webOrigin}/product/${variant.product.slug}`,
+          unsubscribeUrl: `${config.webOrigin}/restock/unsubscribe?token=${restockToken(sub.id)}`,
         })
         .catch((e: Error) => this.logger.warn(`Подтверждение подписки ${sub.id}: ${e.message}`));
     }
@@ -168,21 +163,14 @@ export class RestockService implements OnApplicationBootstrap {
       if (!claimed.count) continue;
       const url = `${config.webOrigin}/product/${s.variant.product.slug}`;
       try {
-        await this.mail.send({
-          to: s.email,
-          subject: `«${s.variant.product.title}» снова в наличии — ${config.brandName}`,
-          text: [
-            'Здравствуйте!',
-            '',
-            `Товар, о котором вы просили сообщить, снова в наличии: «${s.variant.product.title}», ${variantLabel(s.variant)}.`,
-            `Купить: ${url}`,
-            '',
-            'Остатки ограничены — это письмо приходит один раз, подписка на этот вариант закрыта.',
-            '—',
-            `Отписаться от уведомлений о поступлении: ${config.webOrigin}/restock/unsubscribe?token=${restockToken(s.id)}`,
-          ].join('\n'),
-          headers: { 'List-Unsubscribe': `<${config.webOrigin}/api/restock/unsubscribe?token=${restockToken(s.id)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
-        });
+        await this.mail.send(
+          'restock.available',
+          s.email,
+          { 'product.title': s.variant.product.title, variant: variantLabel(s.variant), productUrl: url, unsubscribeUrl: `${config.webOrigin}/restock/unsubscribe?token=${restockToken(s.id)}` },
+          {
+            headers: { 'List-Unsubscribe': `<${config.webOrigin}/api/restock/unsubscribe?token=${restockToken(s.id)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+          },
+        );
         sent++;
       } catch (e) {
         // Письмо не ушло — подписка снова открыта, следующая проверка повторит

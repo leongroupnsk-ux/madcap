@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { CurrentUser } from '../auth/auth.guard';
 import { ZodPipe } from '../common/zod.pipe';
 import { CurrentSupplier, SupplierAccess, type SupplierContext } from '../suppliers/supplier.guard';
-import { ImportService } from './import.service';
+import { FEED_EVERY_HOURS, ImportService } from './import.service';
 import { buildTemplate } from './parse';
 
 const feedSchema = z.object({
@@ -15,6 +15,11 @@ const feedSchema = z.object({
     .url('Введите ссылку на фид, например https://shop.ru/export/yml.xml')
     .refine((u) => /^https?:\/\//.test(u), 'Ссылка должна начинаться с http(s)://')
     .nullable(),
+});
+
+const scheduleSchema = z.object({
+  everyHours: z.coerce.number().refine((v) => (FEED_EVERY_HOURS as readonly number[]).includes(v), 'Частота — каждый 1, 6 или 24 часа'),
+  paused: z.boolean(),
 });
 
 @Controller('supplier/import')
@@ -51,7 +56,18 @@ export class ImportController {
   @Post('feed/sync')
   @HttpCode(200)
   sync(@CurrentSupplier() ctx: SupplierContext) {
-    return this.imports.syncFeed(ctx.supplier.id);
+    return this.imports.syncFeedManual(ctx.supplier.id);
+  }
+
+  /** Состояние фида: ссылка, частота, пауза, ошибки подряд, следующий запуск */
+  @Get('feed')
+  feedState(@CurrentSupplier() ctx: SupplierContext) {
+    return this.imports.feedState(ctx.supplier.id);
+  }
+
+  @Put('feed/schedule')
+  schedule(@Body(new ZodPipe(scheduleSchema)) body: z.infer<typeof scheduleSchema>, @CurrentSupplier() ctx: SupplierContext, @CurrentUser() user: User) {
+    return this.imports.setFeedSchedule(ctx.supplier, body, user);
   }
 
   @Get(':id')

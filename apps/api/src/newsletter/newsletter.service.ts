@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { AuditService } from '../common/audit.service';
 import { JobsService } from '../common/jobs.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { config } from '../config';
 import { visibleWhere } from '../storefront/catalog.service';
@@ -41,7 +41,7 @@ export class NewsletterService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly audit: AuditService,
     private readonly jobs: JobsService,
   ) {}
@@ -138,7 +138,8 @@ export class NewsletterService {
     const claimed = created.count || (await this.prisma.newsletterDelivery.updateMany({ where: { promotionId: promo.id, userId: u.id, status: 'failed' }, data: { status: 'sending', error: null } })).count;
     if (!claimed) return;
     try {
-      await this.mail.send(this.letter(promo, products, u));
+      const l = this.letter(promo, products, u);
+      await this.mail.send('newsletter.promotion', u.email, l.vars, { headers: l.headers });
       await this.prisma.newsletterDelivery.update({ where: { promotionId_userId: { promotionId: promo.id, userId: u.id } }, data: { status: 'sent', sentAt: new Date() } });
       await this.prisma.newsletterCampaign.update({ where: { promotionId: promo.id }, data: { sent: { increment: 1 } } });
     } catch (e) {
@@ -167,24 +168,18 @@ export class NewsletterService {
     const unsubscribe = `${config.webOrigin}/unsubscribe?token=${unsubscribeToken(u.id)}`;
     const started = promo.startsAt <= new Date();
     const when = started ? `Акция идёт до ${date(promo.endsAt)}` : `Акция пройдёт с ${date(promo.startsAt)} по ${date(promo.endsAt)}`;
-    const text = [
-      'Здравствуйте!',
-      '',
-      `${promo.name}. ${when}, скидки от ${promo.minDiscountPct}%.`,
-      ...(promo.description ? ['', promo.description] : []),
-      ...(products.length ? ['', 'Товары по акции:', ...products] : []),
-      '',
-      `${started ? 'Все товары по акции' : `Товары по акции появятся в каталоге ${date(promo.startsAt)}`}: ${config.webOrigin}/catalog?sale=1`,
-      '',
-      '—',
-      `Вы получили это письмо, потому что согласились получать рассылку ${config.brandName} об акциях.`,
-      `Отписаться: ${unsubscribe}`,
-      `Согласия можно изменить в профиле: ${config.webOrigin}/account`,
-    ].join('\n');
     return {
-      to: u.email,
-      subject: `${promo.name}: скидки от ${promo.minDiscountPct}% — ${config.brandName}`,
-      text,
+      // Текст письма — шаблон newsletter.promotion (админка «Шаблоны писем»); условные куски приходят готовыми строками
+      vars: {
+        'promotion.name': promo.name,
+        when,
+        minDiscount: promo.minDiscountPct,
+        description: promo.description,
+        products: products.length ? ['Товары по акции:', ...products].join('\n') : '',
+        catalogLine: `${started ? 'Все товары по акции' : `Товары по акции появятся в каталоге ${date(promo.startsAt)}`}: ${config.webOrigin}/catalog?sale=1`,
+        unsubscribeUrl: unsubscribe,
+        profileUrl: `${config.webOrigin}/account`,
+      },
       // RFC 2369 / RFC 8058: кнопка «Отписаться» в почтовом клиенте, one-click POST без перехода на сайт
       headers: {
         'List-Unsubscribe': `<${config.webOrigin}/api/newsletter/unsubscribe?token=${unsubscribeToken(u.id)}>`,

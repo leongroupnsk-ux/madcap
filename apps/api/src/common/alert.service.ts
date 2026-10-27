@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { config } from '../config';
-import { MailService } from './mail.service';
+import { MailTemplatesService } from './mail-templates.service';
 
 /**
  * Алерты дежурному (ТЗ §11): падение вебхуков оплаты и другие сбои, требующие человека.
@@ -11,7 +11,7 @@ export class AlertService {
   private readonly logger = new Logger('Alert');
   private readonly last = new Map<string, number>();
 
-  constructor(private readonly mail: MailService) {}
+  constructor(private readonly mail: MailTemplatesService) {}
 
   async send(subject: string, text: string) {
     this.logger.error(`${subject}\n${text}`);
@@ -19,6 +19,6 @@ export class AlertService {
     const now = Date.now();
     if ((this.last.get(subject) ?? 0) > now - 600_000) return;
     this.last.set(subject, now);
-    await this.mail.send({ to: config.alertEmail, subject: `[${config.brandName}] ${subject}`, text }).catch((e) => this.logger.error(`alert mail: ${e.message}`));
+    await this.mail.send('system.alert', config.alertEmail, { subject, text }).catch((e) => this.logger.error(`alert mail: ${e.message}`));
   }
 }

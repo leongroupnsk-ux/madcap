@@ -237,7 +237,7 @@ export function OrderView({ initial }: { initial: OrderData }) {
         </p>
       </div>
 
-      <h2 className={o.h2}>Товары в заказе</h2>
+      <h2 className={o.h2} id="reviews">Товары в заказе</h2>
       <div className={o.items}>
         {items.map((i) => (
           <div key={i.id} className={o.item}>

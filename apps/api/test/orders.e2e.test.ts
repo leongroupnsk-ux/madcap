@@ -306,7 +306,8 @@ describe('заказ, оплата, доставка, возвраты и вып
       .send({ legalName: 'ООО Тест', inn: '7707083893', account: '40702810900000012345', bik: '044525225' })
       .expect(200);
     expect(ok.body).toMatchObject({ payoutStatus: 'in_review', details: { account: '•••• 2345' } });
-    expect((await agent(app).get('/api/catalog/products?q=Костюм')).body.items).toHaveLength(0);
+    // Товар поставщика с выплатами на проверке пропадает с витрины (поиск ищет и по категории — проверяем по названию)
+    expect((await agent(app).get('/api/catalog/products?q=Костюм')).body.items.map((i: { title: string }) => i.title)).not.toContain('Костюм');
     expect((await supA.agent.get('/api/admin/payouts')).status).toBe(403);
     await admin.post(`/api/admin/payouts/${supA.supplierId}/activate`).set('Origin', ORIGIN).send({ accountId: 'acc-new' }).expect(200);
     expect((await supA.agent.get('/api/supplier/payouts')).body).toMatchObject({ payoutStatus: 'active', accountId: 'acc-new' });

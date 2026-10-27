@@ -4,13 +4,14 @@ import type { Prisma, Review, User } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
 import { AuditService } from '../common/audit.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis.service';
 import { StorageService } from '../common/storage.service';
 import { ThumbsService } from '../common/thumbs.service';
 import { photoVariantKeys } from '../common/image-keys';
 import { config } from '../config';
+import { NotificationsService } from '../notifications/notifications.service';
 import { catalogChanged } from '../storefront/catalog-cache';
 
 /** Загруженное, но ещё не привязанное к отзыву фото принадлежит загрузившему сутки (ключ в Redis) */
@@ -35,7 +36,8 @@ export class ReviewsService {
     private readonly thumbs: ThumbsService,
     private readonly redis: RedisService,
     private readonly audit: AuditService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ─── право на отзыв ──────────────────────────────────────────────────
@@ -217,7 +219,7 @@ export class ReviewsService {
   }
 
   async decide(id: string, approve: boolean, reason: string | null, admin: User) {
-    const r = await this.prisma.review.findUnique({ where: { id }, include: { product: { select: { title: true } }, user: { select: { email: true, deletedAt: true } } } });
+    const r = await this.prisma.review.findUnique({ where: { id }, include: { product: { select: { title: true, supplierId: true } }, user: { select: { email: true, deletedAt: true } } } });
     if (!r) throw new NotFoundException();
     const now = new Date();
     // Одобрить — из очереди или отклонённый; отклонить — из очереди или снять опубликованный
@@ -230,13 +232,17 @@ export class ReviewsService {
     if (!moved.count) throw new ConflictException({ message: 'Отзыв уже рассмотрен или изменён — обновите страницу' });
     // moderation.review.* сбрасывает кэш каталога (AuditService): меняются средняя оценка и число отзывов
     await this.audit.log(admin.id, approve ? 'moderation.review.approve' : 'moderation.review.reject', 'review', id, { productId: r.productId, ...(reason ? { reason } : {}) });
+    // Поставщику — о новом опубликованном отзыве (первая публикация; повторное одобрение после правки — не новый отзыв)
+    if (approve && !r.publishedAt) {
+      await this.notifications.notify(r.product.supplierId, 'review', {
+        title: `Новый отзыв на «${r.product.title}»: ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}`,
+        body: `${r.authorName}: ${r.text.length > 300 ? `${r.text.slice(0, 300)}…` : r.text}\nОтветить можно в карточке товара — ответ публикуется сразу.`,
+        link: `/supplier/products/${r.productId}`,
+      });
+    }
     if (!approve && !r.user.deletedAt) {
       await this.mail
-        .send({
-          to: r.user.email,
-          subject: `Отзыв не опубликован — ${config.brandName}`,
-          text: `Ваш отзыв о товаре «${r.product.title}» не прошёл модерацию: ${reason}.\nИсправить и отправить снова можно в профиле: ${config.webOrigin}/account#reviews`,
-        })
+        .send('review.rejected', r.user.email, { 'product.title': r.product.title, reason, profileUrl: `${config.webOrigin}/account#reviews` })
         .catch(() => undefined);
     }
     return { ok: true };

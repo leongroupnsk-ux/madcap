@@ -4,7 +4,7 @@ import { Prisma, type Order, type Shipment, type ShipmentItem, type ShipmentStat
 import { randomUUID } from 'node:crypto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SettingsService } from '../common/settings.service';
-import { MailService } from '../common/mail.service';
+import { MailTemplatesService } from '../common/mail-templates.service';
 import { PrismaService } from '../common/prisma.service';
 import { StorageService } from '../common/storage.service';
 import { config } from '../config';
@@ -35,7 +35,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly cart: CartService,
     private readonly delivery: DeliveryService,
-    private readonly mail: MailService,
+    private readonly mail: MailTemplatesService,
     private readonly storage: StorageService,
     @Inject(PAYMENTS_PROVIDER) readonly payments: PaymentsProvider,
     private readonly notifications: NotificationsService,
@@ -65,7 +65,11 @@ export class OrdersService {
     return out;
   }
 
-  async create(user: User, lines: CartLineInput[], input: CheckoutInput) {
+  /**
+   * Оформление заказа. opts — для заказа, который менеджер собирает из премиум-заявки: корзину покупателя
+   * не трогаем (заказ собран не из неё), срок оплаты длиннее (ссылка уходит письмом).
+   */
+  async create(user: User, lines: CartLineInput[], input: CheckoutInput, opts: { keepCart?: boolean; payMinutes?: number } = {}) {
     const checked = await this.cart.check(lines);
     if (!checked.length) throw new BadRequestException({ message: 'Корзина пуста' });
     const problems = checked.filter((l) => !l.available || l.qty > l.stock);
@@ -100,7 +104,7 @@ export class OrdersService {
     const goodsTotal = plan.reduce((s, p) => s + p.goods, 0);
     const deliveryTotal = plan.reduce((s, p) => s + p.price, 0);
     const now = new Date();
-    const { payMinutes } = await this.settings.get();
+    const payMinutes = opts.payMinutes ?? (await this.settings.get()).payMinutes;
 
     const order = await this.prisma.$transaction(async (tx) => {
       // Резерв: списываем остаток сразу, условием «остатка хватает» (ТЗ §6.1).
@@ -156,11 +160,11 @@ export class OrdersService {
     if (input.saveAddresses) await this.saveAddresses(user.id, Object.values(input.delivery));
     await this.notifyZeroStock(checked.map((l) => l.variantId));
     if (!user.phone) await this.prisma.user.update({ where: { id: user.id }, data: { phone: input.recipient.phone } });
-    await this.prisma.cartItem.deleteMany({ where: { userId: user.id } });
+    if (!opts.keepCart) await this.prisma.cartItem.deleteMany({ where: { userId: user.id } });
 
     try {
       const confirmationUrl = await this.startPayment(order, order.id);
-      return { number: order.number, confirmationUrl };
+      return { number: order.number, confirmationUrl, id: order.id, expiresAt: order.expiresAt };
     } catch (e) {
       await this.cancelUnpaid(order.id, 'Платёж не создан');
       throw e;
@@ -305,13 +309,12 @@ export class OrdersService {
 
   private async notifyPaid(order: FullOrder & { user: User }) {
     const eta = new Date(Math.max(...order.shipments.map((s) => s.eta?.getTime() ?? 0)));
-    await this.mail.send({
-      to: order.recipientEmail,
-      subject: `Заказ № ${order.number} оплачен — ${config.brandName}`,
-      text:
-        `Спасибо! Заказ № ${order.number} на ${formatRub(order.total)} оплачен.\n` +
-        `${order.shipments.length} ${plural(order.shipments.length, 'отправление', 'отправления', 'отправлений')}, доставим ориентировочно ${eta.toLocaleDateString('ru-RU')}.\n` +
-        `Детали: ${config.webOrigin}/account/orders/${order.number}`,
+    await this.mail.send('order.paid', order.recipientEmail, {
+      'order.number': order.number,
+      'order.total': formatRub(order.total),
+      shipments: `${order.shipments.length} ${plural(order.shipments.length, 'отправление', 'отправления', 'отправлений')}`,
+      eta: eta.toLocaleDateString('ru-RU'),
+      orderUrl: `${config.webOrigin}/account/orders/${order.number}`,
     });
     for (const s of order.shipments) {
       await this.notifications.notify(s.supplierId, 'order_paid', {
@@ -379,10 +382,10 @@ export class OrdersService {
     if (s.order.status === 'paid') await this.refund(s, s.items.filter((i) => i.qty > i.returnedQty).map((i) => ({ item: i, qty: i.qty - i.returnedQty })), true, reason, `cancel:${s.id}`);
     const left = await this.prisma.shipment.count({ where: { orderId: s.orderId, status: { notIn: ['cancelled', 'rejected'] } } });
     if (left === 0) await this.prisma.order.update({ where: { id: s.orderId }, data: { status: 'cancelled', cancelledAt: new Date(), cancelReason: reason } });
-    await this.mail.send({
-      to: s.order.recipientEmail,
-      subject: `Отправление № ${s.order.number}-${s.no} отменено`,
-      text: `Отправление № ${s.order.number}-${s.no} отменено: ${reason}.${s.order.status === 'paid' ? ` Деньги вернутся на карту или счёт СБП, обычно в течение нескольких дней.` : ''}`,
+    await this.mail.send('order.shipment_cancelled', s.order.recipientEmail, {
+      'shipment.number': `${s.order.number}-${s.no}`,
+      reason,
+      refundNote: s.order.status === 'paid' ? 'Деньги вернутся на карту или счёт СБП, обычно в течение нескольких дней.' : '',
     });
   }
 

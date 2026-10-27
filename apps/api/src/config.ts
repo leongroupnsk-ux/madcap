@@ -67,12 +67,19 @@ export const config = {
   },
   /** Ключ JS API Яндекс Карт 3.x для карты ПВЗ; отдаётся сайту через GET /api/delivery/config. Пусто — заглушка вместо карты. */
   ymapsKey: process.env.YMAPS_API_KEY ?? '',
+  /**
+   * Номер счётчика Яндекс Метрики; отдаётся сайту через GET /api/public-config. Пусто (или не число) — счётчика нет,
+   * скрипт не грузится. С ключом счётчик подключается только после согласия на аналитические cookie в баннере.
+   */
+  metrikaId: /^\d{4,12}$/.test(process.env.METRIKA_ID?.trim() ?? '') ? Number(process.env.METRIKA_ID!.trim()) : null,
   /** DaData: подсказки адреса курьера. Ключ только на сервере, браузер ходит через /api/delivery/address-suggest. */
   dadata: {
     apiKey: process.env.DADATA_API_KEY ?? '',
     url: process.env.DADATA_URL ?? 'https://suggestions.dadata.ru/suggestions/api/4_1/rs',
     timeoutMs: Number(process.env.DADATA_TIMEOUT_MS ?? 3000),
   },
+  /** Партнёрский API поставщиков (docs/PARTNER_API.md): лимит запросов в минуту на ключ */
+  partnerApi: { rpm: Math.max(1, Number(process.env.PARTNER_API_RPM ?? 120)) },
 };
 
 /**

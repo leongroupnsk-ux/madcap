@@ -67,7 +67,12 @@ export class ProfileService {
     await this.prisma.$transaction([
       this.prisma.buyerProfile.update({
         where: { userId: user.id },
-        data: { ...fields, colorType, bodyType, completenessPct, ...(complete ? { quizCompletedAt: current.quizCompletedAt ?? new Date() } : {}) },
+        data: {
+          ...fields, colorType, bodyType, completenessPct,
+          // Начало анкеты (воронка на дашборде платформы): первый сохранённый ответ, а не открытие профиля
+          ...(!current.quizStartedAt && (Object.keys(fields).length || specialtyIds?.length || complete) ? { quizStartedAt: new Date() } : {}),
+          ...(complete ? { quizCompletedAt: current.quizCompletedAt ?? new Date() } : {}),
+        },
       }),
       ...(specialtyIds
         ? [

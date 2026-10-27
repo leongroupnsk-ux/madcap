@@ -1,18 +1,20 @@
 'use client';
 
-import { COLOR_TYPES, PREMIUM_CONTACTS, PREMIUM_LEAD_STATUSES, bodyTypeOf, colorTypeOf, formatRub, type PremiumAnswers, type PremiumLeadStatus } from '@aesculap/shared';
+import { COLOR_TYPES, ORDER_STATUS_LABEL, PREMIUM_CONTACTS, PREMIUM_LEAD_STATUSES, bodyTypeOf, colorTypeOf, formatRub, type PremiumAnswers, type PremiumLeadStatus } from '@aesculap/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
+import { CreateOrder } from './CreateOrder';
 
 type CapItem = { slot: string; slotLabel: string; slug: string; title: string; brand: string; color: string; size: string; price: number; oldPrice: number | null };
 type View = {
   id: string; name: string; phone: string; contact: keyof typeof PREMIUM_CONTACTS; status: PremiumLeadStatus; managerComment: string | null; createdAt: string; updatedAt: string;
   userEmail: string | null; capsule: { variantNo: number; title: string; size: string | null; total: number; budget: number | null; items: CapItem[] };
   answers: PremiumAnswers; workplaces: string[]; budgetLabel: string | null;
+  order: { number: string; status: string; total: number } | null;
 };
 const v = (x: string | number | null | undefined, unit = '') => (x == null || x === '' ? '—' : `${x}${unit}`);
 const date = (d: string) => new Date(d).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
@@ -25,11 +27,13 @@ export default function AdminPremiumLeadPage() {
   const [comment, setComment] = useState('');
   const [msg, setMsg] = useState<{ tone: 'error' | 'success'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
   const apply = (x: View) => {
     setD(x);
     setStatus(x.status);
     setComment(x.managerComment ?? '');
   };
+  const reload = () => api<View>(`/admin/premium/${id}`).then(apply);
   useEffect(() => {
     api<View>(`/admin/premium/${id}`).then(apply).catch((e) => setMsg({ tone: 'error', text: isApiError(e) ? e.message : 'Ошибка' }));
   }, [id]);
@@ -102,8 +106,21 @@ export default function AdminPremiumLeadPage() {
               <b>Итого: {formatRub(d.capsule.total)}</b>
               {d.capsule.budget ? <span className={s.muted}> · бюджет до {formatRub(d.capsule.budget)}</span> : null}
             </p>
-            <p className={s.muted}>Цены — на момент заявки. Онлайн-оплаты нет: заказ подтверждает менеджер.</p>
+            <p className={s.muted}>Цены — на момент заявки. Заказ оформляет менеджер кнопкой «Создать заказ» — цены и наличие проверяются на сейчас.</p>
           </section>
+          {creating && !d.order && (
+            <section className={s.panel} aria-labelledby="create-order-title">
+              <h2 id="create-order-title">Новый заказ по заявке</h2>
+              <CreateOrder
+                leadId={d.id}
+                onCreated={() => {
+                  setCreating(false);
+                  void reload();
+                  setMsg({ tone: 'success', text: 'Заказ создан, покупателю отправлена ссылка на оплату' });
+                }}
+              />
+            </section>
+          )}
           <section className={s.panel}>
             <h2>Ответы анкеты</h2>
             <table className={s.table}>
@@ -121,6 +138,49 @@ export default function AdminPremiumLeadPage() {
           </section>
         </div>
         <div style={{ display: 'grid', gap: 16, alignContent: 'start', minWidth: 0 }}>
+          <section className={s.panel}>
+            <h2>Заказ</h2>
+            {d.order ? (
+              <>
+                <p>
+                  <Link className={s.link} href={`/admin/orders/${d.order.number}`}>
+                    Заказ № {d.order.number}
+                  </Link>{' '}
+                  · {ORDER_STATUS_LABEL[d.order.status] ?? d.order.status} · {formatRub(d.order.total)}
+                </p>
+                {d.order.status === 'pending_payment' && (
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      setMsg(null);
+                      try {
+                        const r = await api<{ paid: boolean }>(`/admin/premium/${id}/order/resend`, {});
+                        setMsg({ tone: 'success', text: r.paid ? 'Заказ уже оплачен' : 'Ссылка на оплату отправлена повторно' });
+                        await reload();
+                      } catch (e) {
+                        setMsg({ tone: 'error', text: isApiError(e) ? e.message : 'Нет связи с сервером' });
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Отправить ссылку повторно
+                  </Button>
+                )}
+              </>
+            ) : d.status === 'done' || d.status === 'cancelled' ? (
+              <p className={s.muted}>Заявка закрыта — чтобы оформить заказ, верните её в работу.</p>
+            ) : (
+              <>
+                <p className={s.muted}>Обычный заказ из капсулы заявки: доставка СДЭК по отправлениям, покупателю — письмо со ссылкой на оплату.</p>
+                <Button onClick={() => setCreating((v) => !v)} aria-expanded={creating}>
+                  {creating ? 'Скрыть форму' : 'Создать заказ'}
+                </Button>
+              </>
+            )}
+          </section>
           <section className={s.panel}>
             <h2>Контакты</h2>
             <p>

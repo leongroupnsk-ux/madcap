@@ -109,6 +109,15 @@
 .navLink:hover {
   color: var(--c-primary);
 }
+/* «Избранное»: сердечко и подпись; на ≤ 900 px — только сердечко (подпись остаётся для скринридеров) */
+.favLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.navIcon {
+  flex: none;
+}
 .badge {
   position: absolute;
   top: -8px;
@@ -286,6 +295,17 @@
   }
   .cta {
     display: none;
+  }
+  .navText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .favLink {
+    gap: 0;
   }
   /* «Корзина» здесь последняя в ряду: вынесенный вправо счётчик вылезал за поле экрана (e2e, 360 px) — ставим его в строку */
   .badge {

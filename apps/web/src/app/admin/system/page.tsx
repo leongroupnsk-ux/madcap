@@ -1,6 +1,7 @@
 'use client';
 
 import { STAFF_AREAS, STAFF_ROLES, platformSettingsSchema, type PlatformSettings, type SecuritySettings, type StaffRoleId } from '@aesculap/shared';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';
 import { Alert, Button, Chip, Field } from '@/components/ui';
@@ -72,6 +73,9 @@ export default function AdminSystemPage() {
           <div className="eyebrow">Админка</div>
           <h1>Сотрудники и настройки</h1>
         </div>
+        <Link href="/admin/system/mail-templates" className={s.link}>
+          Шаблоны писем →
+        </Link>
       </div>
       <div className={s.chips}>
         {(
