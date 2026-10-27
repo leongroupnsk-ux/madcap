@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Badge } from '@/components/supplier/Badge';
-import s from '@/components/supplier/cabinet.module.css';
+import { Badge } from '@/components/admin/Badge';
+import s from '@/components/admin/admin.module.css';
 import { ButtonLink } from '@/components/ui';
 import { serverApi } from '@/lib/server-api';
 
@@ -30,7 +30,7 @@ export default async function EditorialPage() {
       <p className={s.muted} style={{ marginBottom: 12 }}>
         В журнале материалы редакции подписаны названием площадки. К ним можно привязать товары любых поставщиков.
       </p>
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -59,7 +59,7 @@ export default async function EditorialPage() {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Материалов редакции пока нет.</p>}
+        {rows.length === 0 && <p className={s.empty}>Материалов редакции пока нет.</p>}
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -56,7 +56,7 @@ export default function AdminUsersPage() {
         <input className={s.input} style={{ flex: '1 1 260px', maxWidth: 360 }} placeholder="Email или телефон" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск" />
       </div>
       {error && <Alert tone="error">{error}</Alert>}
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -114,7 +114,7 @@ export default function AdminUsersPage() {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Никого не нашли.</p>}
+        {rows.length === 0 && <p className={s.empty}>Никого не нашли.</p>}
       </div>
 
       {block && (

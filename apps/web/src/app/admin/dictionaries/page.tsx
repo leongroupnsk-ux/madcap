@@ -2,7 +2,7 @@
 
 import { CAPSULE_SLOTS, COLOR_FAMILIES, DEFAULT_SIZE_CHART } from '@aesculap/shared';
 import { useCallback, useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Chip, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

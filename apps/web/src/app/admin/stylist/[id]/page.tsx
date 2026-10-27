@@ -4,7 +4,7 @@ import { PHOTO_ANGLES } from '@aesculap/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -71,7 +71,7 @@ export function EmptySearches() {
           {data ? `Запросов: ${data.total}${data.total > data.items.length ? ` (показаны первые ${data.items.length})` : ''} · с ${date(data.since)}` : 'Загружаем…'}
         </p>
         {data && data.items.length > 0 && (
-          <div className={s.scroll}>
+          <div className={s.scroll} tabIndex={0} role="region" aria-label="Пустые запросы, таблица">
             <table className={s.table}>
               <thead>
                 <tr>

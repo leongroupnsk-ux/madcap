@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { Registry } from './Registry';
@@ -32,7 +32,7 @@ export default function AdminPayoutsPage() {
         Поставщик заполняет реквизиты в кабинете, проходит проверку в ЮKassa и получает ID получателя (account_id). Внесите его здесь — выплаты включатся, товары появятся на витрине.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>

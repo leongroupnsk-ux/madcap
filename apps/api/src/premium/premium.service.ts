@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
-  PREMIUM_BUDGETS, PREMIUM_CONTACTS, PREMIUM_LEAD_STATUSES, colorTypeOf, premiumCompleteSchema, formatRub,
+  PREMIUM_BUDGETS, PREMIUM_CONTACTS, PREMIUM_LEAD_STATUSES, PREMIUM_TELEGRAM_LINK_DAYS, colorTypeOf, premiumCompleteSchema, premiumLeadNo, premiumWhatsappUrl, formatRub,
   type PremiumAnswers, type PremiumCapsuleRequest, type PremiumLeadInput, type PremiumLeadStatus, type PremiumLeadUpdate,
 } from '@aesculap/shared';
 import type { Prisma, User } from '@prisma/client';
@@ -16,6 +16,7 @@ import { shown } from '../promotions/price';
 import { visibleWhere } from '../storefront/catalog.service';
 import type { ImageSet } from '../common/image-keys';
 import { PHOTOS, photosFor, thumbKey } from '../storefront/media-pick';
+import { PremiumMessagesService } from './premium-messages.service';
 
 const SLOT_LABEL: Record<string, string> = { top: 'Топ', pants: 'Брюки', gown: 'Халат', shoes: 'Обувь', accessory: 'Аксессуар' };
 /** Подпись варианта капсулы под заголовком (кадр .Premium-capsule) */
@@ -51,7 +52,13 @@ export class PremiumService {
     private readonly limits: RateLimitService,
     private readonly audit: AuditService,
     private readonly mail: MailTemplatesService,
+    private readonly messages: PremiumMessagesService,
   ) {}
+
+  /** Какие способы связи доступны в форме заявки: Telegram — только с подключённым ботом */
+  contactOptions() {
+    return { telegram: this.messages.telegramAvailable };
+  }
 
   // ─── ответы анкеты вошедшего покупателя ──────────────────────────────
 
@@ -155,6 +162,9 @@ export class PremiumService {
   // ─── заявка ──────────────────────────────────────────────────────────
 
   async createLead(input: PremiumLeadInput, ip: string, user: User | null) {
+    if (input.contact === 'telegram' && !this.messages.telegramAvailable) {
+      throw new BadRequestException({ message: 'Telegram сейчас недоступен — выберите телефон или WhatsApp', errors: { contact: 'Telegram недоступен' } });
+    }
     await this.limits.hit('premium-lead', ip, 5, 3600);
     const cap = await this.capsule({ answers: input.answers, variantNo: input.variantNo, overrides: input.overrides });
     if (!cap.items.length) throw new BadRequestException({ message: 'Капсула пуста — заявку оформить нельзя' });
@@ -170,11 +180,18 @@ export class PremiumService {
       },
     });
     await this.audit.log(user?.id ?? null, 'premium.lead.create', 'premium_lead', lead.id, { items: snapshot.items.length, total: snapshot.total });
+    // Telegram: одноразовая ссылка на бота — на экране подтверждения и в письме (если есть аккаунт с email)
+    const tg = input.contact === 'telegram' ? await this.messages.issueLink(lead.id) : null;
+    if (tg && user && !user.deletedAt) {
+      await this.mail
+        .send('premium.lead_telegram', user.email, { name: input.name, 'lead.no': premiumLeadNo(lead.no), telegramUrl: tg.url, days: String(PREMIUM_TELEGRAM_LINK_DAYS) })
+        .catch((e) => this.logger.error(`premium telegram mail: ${e.message}`));
+    }
     if (config.alertEmail) {
       const lines = snapshot.items.map((i) => `• ${i.slotLabel}: ${i.title} (${i.brand}), ${i.color}, ${i.size} — ${formatRub(i.price)}`);
       await this.mail
         .send('premium.lead_manager', config.alertEmail, {
-          'lead.name': input.name,
+          'lead.name': `${input.name} (заявка ${premiumLeadNo(lead.no)})`,
           'lead.phone': input.phone,
           'lead.contact': PREMIUM_CONTACTS[input.contact],
           capsule: `${snapshot.title}, вариант ${snapshot.variantNo}${snapshot.size ? `, размер ${snapshot.size}` : ''}`,
@@ -184,22 +201,28 @@ export class PremiumService {
         })
         .catch((e) => this.logger.error(`premium lead mail: ${e.message}`));
     }
-    return { id: lead.id, ok: true };
+    return { id: lead.id, no: lead.no, ok: true, telegramUrl: tg?.url ?? null };
   }
 
   // ─── админка ─────────────────────────────────────────────────────────
 
   async list(status?: string) {
     const where = status && status in PREMIUM_LEAD_STATUSES ? { status: status as PremiumLeadStatus } : {};
-    const [rows, counts] = await Promise.all([
+    const [rows, counts, unreadTotal] = await Promise.all([
       this.prisma.premiumLead.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 }),
       this.prisma.premiumLead.groupBy({ by: ['status'], _count: true }),
+      this.messages.unreadTotal(),
     ]);
+    const unread = await this.messages.unreadByLead(rows.map((l) => l.id));
     return {
       counts: Object.fromEntries(counts.map((c) => [c.status, c._count])),
+      unreadTotal,
       items: rows.map((l) => {
         const cap = l.capsule as { total?: number; items?: unknown[]; title?: string };
-        return { id: l.id, name: l.name, phone: l.phone, contact: l.contact, status: l.status, title: cap.title ?? '', total: cap.total ?? 0, count: cap.items?.length ?? 0, createdAt: l.createdAt };
+        return {
+          id: l.id, no: l.no, name: l.name, phone: l.phone, contact: l.contact, status: l.status, title: cap.title ?? '', total: cap.total ?? 0, count: cap.items?.length ?? 0,
+          telegramLinked: Boolean(l.telegramChatId), unread: unread.get(l.id) ?? 0, createdAt: l.createdAt,
+        };
       }),
     };
   }
@@ -210,7 +233,8 @@ export class PremiumService {
     const a = l.answers as PremiumAnswers;
     const groups = a.specialtyGroupIds?.length ? await this.prisma.specialtyGroup.findMany({ where: { id: { in: a.specialtyGroupIds } } }) : [];
     return {
-      id: l.id, name: l.name, phone: l.phone, contact: l.contact, status: l.status, managerComment: l.managerComment, createdAt: l.createdAt, updatedAt: l.updatedAt,
+      id: l.id, no: l.no, name: l.name, phone: l.phone, contact: l.contact, status: l.status, managerComment: l.managerComment, createdAt: l.createdAt, updatedAt: l.updatedAt,
+      telegram: this.messages.telegramInfo(l), whatsappUrl: premiumWhatsappUrl(l.phone, l.name, l.no, config.brandName), messages: await this.messages.thread(l.id),
       userEmail: l.user?.email ?? null, capsule: l.capsule, answers: a, workplaces: groups.map((g) => g.name),
       order: l.order ? { number: l.order.number, status: l.order.status, total: l.order.total } : null,
       budgetLabel: PREMIUM_BUDGETS.find((b) => b.id === a.budgetRange)?.label ?? null,

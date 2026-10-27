@@ -1,0 +1,118 @@
+/* Переписка по премиум-заявке: лента сообщений, поле ответа, счётчик непрочитанных */
+
+.unread {
+  display: inline-block;
+  min-width: 20px;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  /* как бейдж в меню админки: --c-sale с белым текстом — 5.6:1 (AA) */
+  background: var(--c-sale);
+  color: var(--c-on-primary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  vertical-align: 1px;
+}
+
+.feed {
+  display: grid;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  margin: 0 0 16px;
+  padding: 4px 2px;
+  list-style: none;
+}
+.msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--c-surface-soft);
+  border: 1px solid var(--c-border-soft);
+  overflow-wrap: anywhere;
+}
+.msg p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 20px;
+}
+.in {
+  justify-self: start;
+}
+.out {
+  justify-self: end;
+  background: var(--c-surface-mint);
+}
+.note {
+  justify-self: end;
+  background: var(--c-surface-cream);
+  border-style: dashed;
+  border-color: var(--c-border-strong);
+}
+.unreadMsg {
+  border-color: var(--c-sale);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 4px;
+  color: var(--c-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+.failed {
+  color: var(--c-error);
+  font-weight: 600;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.reply {
+  display: grid;
+  gap: 8px;
+}
+.reply textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  resize: vertical;
+}
+.reply textarea:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.copy {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.copy input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 13px;
+}

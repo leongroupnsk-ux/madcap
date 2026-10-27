@@ -3,7 +3,7 @@
 import { ORDER_STATUS_LABEL, SHIPMENT_STATUS_LABEL, formatRub } from '@aesculap/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Chip } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -75,13 +75,15 @@ export default function AdminOrdersPage() {
       <div className={s.filters}>
         <input className={s.input} style={{ flex: '1 1 300px', maxWidth: 420 }} placeholder="Номер, email, телефон, имя или трек СДЭК" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск" />
       </div>
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
               <th scope="col">Заказ</th>
               <th scope="col">Покупатель</th>
-              <th scope="col">Сумма</th>
+              <th scope="col" className={s.num}>
+                Сумма
+              </th>
               <th scope="col">Статус</th>
               <th scope="col">Отправления</th>
             </tr>
@@ -99,8 +101,10 @@ export default function AdminOrdersPage() {
                   {o.customer}
                   <div className={s.muted}>{o.email}</div>
                 </td>
-                <td style={{ whiteSpace: 'nowrap' }}>{formatRub(o.total)}</td>
-                <td>{ORDER_STATUS_LABEL[o.status]}</td>
+                <td className={s.num}>{formatRub(o.total)}</td>
+                <td>
+                  <span className={`${s.badge} ${s[`b_o_${o.status}`] ?? ''}`}>{ORDER_STATUS_LABEL[o.status] ?? o.status}</span>
+                </td>
                 <td className={s.muted}>
                   {o.shipments.map((sh) => (
                     <div key={sh.no}>
@@ -112,7 +116,7 @@ export default function AdminOrdersPage() {
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Заказов не найдено.</p>}
+        {rows.length === 0 && <p className={s.empty}>Заказов не найдено.</p>}
       </div>
     </>
   );

@@ -4,10 +4,9 @@ import { NAV } from '@/lib/admin-nav';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import s from '@/components/supplier/cabinet.module.css';
-import { BRAND } from '@/lib/brand';
+import sh from '@/components/admin/shell.module.css';
 import { getSessionUser } from '@/lib/session';
-import { AdminNav } from './AdminNav';
+import { AdminNav, AdminSection } from './AdminNav';
 
 export const metadata: Metadata = { title: { default: 'Админка', template: '%s — админка' }, robots: { index: false } };
 
@@ -18,28 +17,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Обязательная 2FA не включена — вся админка, кроме страницы её настройки, закрыта (сервер отвечает twofa_setup_required)
   const setupOnly = Boolean(user.twofaSetupRequired);
   if (setupOnly && (await headers()).get('x-pathname') !== '/admin/security') redirect('/admin/security');
+  // Счётчик непрочитанных у «Заявки премиум» AdminNav запрашивает сам (GET /admin/premium/unread)
+  const items = NAV.filter((n) => !setupOnly && canAccess(user.staffRole, n.area)).map(({ href, label }) => ({ href, label }));
   return (
-    <div className={s.shell}>
-      <aside className={s.side}>
-        <Link href="/admin" className={s.brand}>
-          {BRAND.mark}
-          <span className={s.brandSub}>Админка</span>
-        </Link>
-        <AdminNav
-          items={NAV.filter((n) => !setupOnly && canAccess(user.staffRole, n.area)).map(({ href, label }) => ({ href, label }))}
-          className={s.nav}
-          activeClass={s.active}
-        />
-        <div className={s.sideFoot}>
-          {user.email}
-          <div style={{ opacity: 0.7 }}>{STAFF_ROLES[user.staffRole ?? 'owner']}</div>
-          <Link href="/admin/security" style={{ display: 'inline-block', marginTop: 6 }}>
-            Профиль и безопасность
+    <div className={sh.shell}>
+      <AdminNav items={items} />
+      <div className={sh.main}>
+        {/* Шапка: текущий раздел и сотрудник (ссылка — на «Профиль и безопасность») */}
+        <header className={sh.top}>
+          <AdminSection items={items} />
+          <Link href="/admin/security" className={sh.who} title={`${user.email} · ${STAFF_ROLES[user.staffRole ?? 'owner']}`}>
+            <span className={sh.whoEmail}>{user.email}</span>
+            <span className={sh.whoRole}>{STAFF_ROLES[user.staffRole ?? 'owner']}</span>
           </Link>
-        </div>
-      </aside>
-      <div className={s.main}>
-        <main className={s.content}>{children}</main>
+        </header>
+        <main className={sh.content}>{children}</main>
       </div>
     </div>
   );

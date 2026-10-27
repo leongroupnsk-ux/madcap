@@ -1,0 +1,294 @@
+/* Каркас админки: тот же, что у кабинета поставщика (components/supplier/shell.module.css, кадр supplier-shell 62:2394) —
+   меню слева 256 px с логотипом, липкая шапка, область контента. Отдельного макета у админки нет (ТЗ §8).
+   Только токены из tokens.css. На ширине меньше 1024 px меню сворачивается под кнопку «Меню». */
+
+.shell {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr);
+  min-height: 100vh;
+  /* Фон колонки меню — на всю высоту страницы (само меню липкое, высотой в экран) */
+  background: linear-gradient(to right, var(--c-surface-cream) 255px, var(--c-border-soft) 255px 256px, var(--c-bg) 256px);
+}
+
+/* ── Боковое меню ── */
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px;
+  background: var(--c-surface-cream);
+  border-right: 1px solid var(--c-border-soft);
+  overflow-y: auto;
+}
+.sideHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+.brand {
+  display: inline-block;
+  font: 400 24px/32px var(--font-serif);
+  color: var(--c-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.brandDot {
+  color: var(--c-sale);
+}
+.brandSub {
+  padding-top: 8px;
+  font: 700 10px/15px var(--font-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+/* Кнопка «Меню» — только на узких экранах */
+.menuToggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.menuToggle:hover {
+  background: var(--c-surface-mint);
+}
+.burger {
+  position: relative;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.burger::before,
+.burger::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.burger::before {
+  top: -5px;
+}
+.burger::after {
+  top: 5px;
+}
+.menuToggle[aria-expanded='true'] .burger {
+  background: transparent;
+}
+.menuToggle[aria-expanded='true'] .burger::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+.menuToggle[aria-expanded='true'] .burger::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 28px;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-text-body);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.nav a:hover {
+  background: var(--c-surface-mint);
+}
+.nav a.active {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+/* Счётчик в пункте меню (непрочитанные сообщения по премиум-заявкам и т. п.) */
+.navBadge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--c-sale);
+  color: var(--c-on-primary);
+  font: 700 11px/20px var(--font-sans);
+  text-align: center;
+}
+.sideFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px 4px 0;
+}
+.sideFoot a {
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.sideFoot a[aria-current='page'] {
+  font-weight: 700;
+}
+.logout {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 700 14px/20px var(--font-sans);
+  color: var(--c-sale);
+  cursor: pointer;
+}
+.sideFoot a:hover,
+.logout:hover {
+  text-decoration: underline;
+}
+
+/* ── Шапка: раздел и сотрудник ── */
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 40px;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.section {
+  min-width: 0;
+  overflow: hidden;
+  font: 400 20px/28px var(--font-serif);
+  color: var(--c-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 50%;
+  padding: 8px 14px;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  font: 600 14px/20px var(--font-sans);
+  color: var(--c-primary);
+  text-decoration: none;
+}
+.who:hover {
+  background: var(--c-surface-mint);
+}
+.whoEmail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whoRole {
+  flex: none;
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+.content {
+  width: 100%;
+  max-width: 1293px;
+  padding: 40px 40px 64px;
+}
+
+/* ── Узкие экраны: меню сворачивается, шапка и контент — на всю ширину ── */
+@media (max-width: 1023px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    background: var(--c-bg);
+  }
+  .side {
+    position: static;
+    height: auto;
+    padding: 12px var(--gutter);
+    border-right: 0;
+    border-bottom: 1px solid var(--c-border-soft);
+    overflow: visible;
+  }
+  .sideHead {
+    align-items: center;
+    padding: 0;
+  }
+  .brandSub {
+    padding-top: 0;
+  }
+  .menuToggle {
+    display: inline-flex;
+  }
+  .menu {
+    display: none;
+  }
+  .menuOpen {
+    display: flex;
+  }
+  .nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+    gap: 4px;
+    padding-top: 16px;
+  }
+  .sideFoot {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    padding: 16px 16px 4px;
+  }
+  .top {
+    height: 60px;
+    padding: 0 var(--gutter);
+  }
+  .content {
+    padding: 28px var(--gutter) 48px;
+  }
+}
+@media (max-width: 560px) {
+  .whoRole {
+    display: none;
+  }
+  .who {
+    max-width: 60%;
+  }
+  .section {
+    font-size: 18px;
+  }
+}

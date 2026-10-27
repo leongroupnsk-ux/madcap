@@ -389,6 +389,26 @@ test.describe('админка', () => {
     await audit(page);
   });
 
+  test('axe: переписка в премиум-заявке — лента и поле ответа', async ({ page }) => {
+    await open(page, '/admin/premium');
+    const link = page.locator('a[href^="/admin/premium/"]').first();
+    test.skip(!(await link.count()), 'Список пуст');
+    await open(page, (await link.getAttribute('href'))!);
+    const thread = page.getByRole('region', { name: /^Переписка/ });
+    await expect(thread).toBeVisible();
+    // Заметка о WhatsApp (без бота на dev-стенде Telegram недоступен) — в ленте появляется запись «вне системы»
+    await thread.getByRole('button', { name: 'Заметка о WhatsApp' }).click();
+    const note = `e2e: отправил фото халата ${Date.now()}`;
+    await thread.getByLabel(/Что написали клиенту в WhatsApp/).fill(note);
+    await thread.getByRole('button', { name: 'Добавить заметку' }).click();
+    const feed = thread.getByRole('list', { name: 'Лента переписки' });
+    await expect(feed.getByText(note)).toBeVisible();
+    await expect(feed.getByRole('listitem').filter({ hasText: note })).toContainText('Вне системы');
+    await expect(thread.getByRole('link', { name: 'Написать в WhatsApp' })).toHaveAttribute('href', /^https:\/\/wa\.me\/\d+\?text=/);
+    await page.waitForLoadState('networkidle');
+    await audit(page);
+  });
+
   test('axe: окно рассылки по акции; клавиатура: открытие, Tab внутри, Escape возвращает фокус', async ({ page }) => {
     await open(page, '/admin/promotions');
     const btn = page.getByRole('button', { name: 'Разослать покупателям' }).first();

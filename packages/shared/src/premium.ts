@@ -79,13 +79,14 @@ export const ruPhoneSchema = z
   .transform((v) => v.replace(/[\s()-]/g, ''))
   .refine((v) => /^\+7\d{10}$/.test(v), 'Телефон в формате +7 (999) 123-45-67');
 
-export const PREMIUM_CONTACTS = { phone: 'Телефон', whatsapp: 'WhatsApp' } as const;
+export const PREMIUM_CONTACTS = { phone: 'Телефон', whatsapp: 'WhatsApp', telegram: 'Telegram' } as const;
+export type PremiumContact = keyof typeof PREMIUM_CONTACTS;
 
 /** Заявка «Оставить заявку» (кадр premium-call-me). Капсулу сервер пересчитывает сам по ответам и заменам. */
 export const premiumLeadSchema = z.object({
   name: z.string({ required_error: 'Как к вам обращаться' }).trim().min(2, 'Имя — от 2 символов').max(60, 'Имя — до 60 символов'),
   phone: ruPhoneSchema,
-  contact: z.enum(['phone', 'whatsapp'], { errorMap: () => ({ message: 'Выберите способ связи' }) }),
+  contact: z.enum(['phone', 'whatsapp', 'telegram'], { errorMap: () => ({ message: 'Выберите способ связи' }) }),
   consent: z.literal(true, { errorMap: () => ({ message: 'Нужно согласие с политикой конфиденциальности' }) }),
   answers: premiumAnswersSchema,
   variantNo: z.coerce.number().int().min(1).max(3).default(1),
@@ -113,3 +114,31 @@ export const premiumOrderSchema = z.object({
 });
 export type PremiumOrderInput = z.infer<typeof premiumOrderSchema>;
 export const premiumQuoteSchema = z.object({ cityCode: z.number().int().positive(), variantIds: z.array(z.string().uuid()).min(1).max(20) });
+
+// ─── переписка по заявке ────────────────────────────────────────────────
+
+/** Сколько дней живёт одноразовая ссылка привязки Telegram из заявки */
+export const PREMIUM_TELEGRAM_LINK_DAYS = 7;
+
+export const PREMIUM_MESSAGE_CHANNELS = { telegram: 'Telegram', whatsapp: 'WhatsApp', note: 'Заметка' } as const;
+export const PREMIUM_MESSAGE_STATUSES = { sent: 'Отправлено', failed: 'Не доставлено', received: 'Получено', offline: 'Вне системы' } as const;
+export type PremiumMessageStatus = keyof typeof PREMIUM_MESSAGE_STATUSES;
+
+/**
+ * Сообщение менеджера в ленте заявки: telegram — уходит клиенту через бота платформы,
+ * whatsapp — заметка «написал в WhatsApp: …» (официального API нет, отправлено вне системы).
+ */
+export const premiumMessageSchema = z.object({
+  channel: z.enum(['telegram', 'whatsapp'], { errorMap: () => ({ message: 'Выберите канал' }) }),
+  text: z.string({ required_error: 'Введите текст' }).trim().min(1, 'Введите текст').max(4000, 'До 4000 символов'),
+});
+export type PremiumMessageInput = z.infer<typeof premiumMessageSchema>;
+
+/** Номер заявки для клиента: «№ 12» */
+export const premiumLeadNo = (no: number) => `№ ${no}`;
+
+/** Приветствие в WhatsApp: ссылка wa.me с готовым текстом (официального API нет — менеджер пишет из своего WhatsApp) */
+export function premiumWhatsappUrl(phone: string, name: string, no: number, brand: string) {
+  const text = `Здравствуйте, ${name}! Это менеджер ${brand}, пишу по вашей заявке ${premiumLeadNo(no)} на премиум-капсулу.`;
+  return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`;
+}

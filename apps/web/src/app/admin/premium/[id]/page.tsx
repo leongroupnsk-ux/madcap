@@ -4,17 +4,19 @@ import { COLOR_TYPES, ORDER_STATUS_LABEL, PREMIUM_CONTACTS, PREMIUM_LEAD_STATUSE
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 import { CreateOrder } from './CreateOrder';
+import { Thread, type TelegramInfo, type ThreadMessage } from './Thread';
 
 type CapItem = { slot: string; slotLabel: string; slug: string; title: string; brand: string; color: string; size: string; price: number; oldPrice: number | null };
 type View = {
-  id: string; name: string; phone: string; contact: keyof typeof PREMIUM_CONTACTS; status: PremiumLeadStatus; managerComment: string | null; createdAt: string; updatedAt: string;
+  id: string; no: number; name: string; phone: string; contact: keyof typeof PREMIUM_CONTACTS; status: PremiumLeadStatus; managerComment: string | null; createdAt: string; updatedAt: string;
   userEmail: string | null; capsule: { variantNo: number; title: string; size: string | null; total: number; budget: number | null; items: CapItem[] };
   answers: PremiumAnswers; workplaces: string[]; budgetLabel: string | null;
   order: { number: string; status: string; total: number } | null;
+  telegram: TelegramInfo; whatsappUrl: string; messages: ThreadMessage[];
 };
 const v = (x: string | number | null | undefined, unit = '') => (x == null || x === '' ? '—' : `${x}${unit}`);
 const date = (d: string) => new Date(d).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
@@ -61,19 +63,20 @@ export default function AdminPremiumLeadPage() {
           </div>
           <h1>{d.name}</h1>
           <div className={s.muted}>
-            {PREMIUM_LEAD_STATUSES[d.status]} · {date(d.createdAt)}
+            Заявка № {d.no} · {PREMIUM_LEAD_STATUSES[d.status]} · {date(d.createdAt)}
           </div>
         </div>
       </div>
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <div className={s.detail} style={{ marginTop: 16 }}>
         <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+          <Thread leadId={d.id} name={d.name} messages={d.messages} telegram={d.telegram} whatsappUrl={d.whatsappUrl} onChange={reload} />
           <section className={s.panel}>
             <h2>
               {d.capsule.title} · вариант {d.capsule.variantNo}
               {d.capsule.size ? ` · размер ${d.capsule.size}` : ''}
             </h2>
-            <div className={s.scroll}>
+            <div className={s.scroll} tabIndex={0} role="region" aria-label="Состав капсулы, таблица">
               <table className={s.table}>
                 <thead>
                   <tr>
@@ -189,15 +192,12 @@ export default function AdminPremiumLeadPage() {
               </a>
               <br />
               Удобно: {PREMIUM_CONTACTS[d.contact]}
-              {d.contact === 'whatsapp' && (
-                <>
-                  {' '}
-                  ·{' '}
-                  <a className={s.link} href={`https://wa.me/${d.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">
-                    открыть WhatsApp
-                  </a>
-                </>
-              )}
+              {' '}
+              ·{' '}
+              <a className={s.link} href={d.whatsappUrl} target="_blank" rel="noreferrer">
+                открыть WhatsApp
+              </a>
+              {d.telegram.linked && <> · Telegram привязан</>}
             </p>
             <p className={s.muted}>{d.userEmail ? `Аккаунт: ${d.userEmail}` : 'Гость, без аккаунта'}</p>
           </section>

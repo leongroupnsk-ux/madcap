@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import e from '@/app/supplier/(cabinet)/content/editor.module.css';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

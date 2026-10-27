@@ -1,7 +1,7 @@
 'use client';
 
-import { formatRub, plural, premiumLeadSchema, type PremiumAnswers } from '@aesculap/shared';
-import { useState } from 'react';
+import { PREMIUM_TELEGRAM_LINK_DAYS, formatRub, plural, premiumLeadSchema, type PremiumAnswers, type PremiumContact } from '@aesculap/shared';
+import { useEffect, useState } from 'react';
 import s from '@/components/premium/premium.module.css';
 import { useEscape } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
@@ -31,7 +31,15 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
   useEscape(onClose);
   const [name, setName] = useState(answers.name ?? '');
   const [phone, setPhone] = useState('');
-  const [contact, setContact] = useState<'phone' | 'whatsapp'>('phone');
+  const [contact, setContact] = useState<PremiumContact>('phone');
+  // Telegram — только если бот платформы подключён (без TELEGRAM_BOT_TOKEN способа нет)
+  const [telegram, setTelegram] = useState(false);
+  const [telegramUrl, setTelegramUrl] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ telegram: boolean }>('/premium/contact-options')
+      .then((r) => setTelegram(r.telegram))
+      .catch(() => setTelegram(false));
+  }, []);
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -52,7 +60,8 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
     setErrors({});
     setBusy(true);
     try {
-      await api('/premium/leads', body);
+      const r = await api<{ telegramUrl: string | null }>('/premium/leads', body);
+      setTelegramUrl(r.telegramUrl);
       void reachGoal(GOALS.premiumRequest);
       setSent(true);
     } catch (err) {
@@ -98,9 +107,18 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
             <div className={s.sent} role="status">
               <h3>Заявка отправлена</h3>
               <p>
-                Спасибо, {name.trim()}! Менеджер свяжется с вами {contact === 'whatsapp' ? 'в WhatsApp' : 'по телефону'} в ближайшее время, подтвердит состав капсулы, размеры и
-                доставку и ответит на все вопросы.
+                Спасибо, {name.trim()}! Менеджер свяжется с вами {contact === 'whatsapp' ? 'в WhatsApp' : contact === 'telegram' ? 'в Telegram' : 'по телефону'} в ближайшее время,
+                подтвердит состав капсулы, размеры и доставку и ответит на все вопросы.
               </p>
+              {telegramUrl && (
+                <>
+                  <p>Откройте чат с нашим ботом и нажмите «Запустить» — так менеджер сможет написать вам в Telegram.</p>
+                  <a className={s.tgLink} href={telegramUrl} target="_blank" rel="noreferrer">
+                    Открыть Telegram
+                  </a>
+                  <p className={s.tgNote}>Ссылка одноразовая и действует {PREMIUM_TELEGRAM_LINK_DAYS} дней. Если вы вошли в аккаунт, мы продублировали её на почту.</p>
+                </>
+              )}
               <button type="button" className={s.submit} onClick={onClose}>
                 Готово
               </button>
@@ -129,6 +147,7 @@ export function LeadModal({ cap, answers, overrides, onClose }: { cap: PremiumCa
                       [
                         ['phone', 'Телефон'],
                         ['whatsapp', 'WhatsApp'],
+                        ...(telegram ? ([['telegram', 'Telegram']] as const) : []),
                       ] as const
                     ).map(([v, l]) => (
                       <label key={v} className={s.radio}>

@@ -48,7 +48,7 @@ export class PrivacyService implements OnApplicationBootstrap {
         addresses: true,
         stylistRequests: { orderBy: { createdAt: 'asc' } },
         premiumAnswers: true,
-        premiumLeads: { orderBy: { createdAt: 'asc' } },
+        premiumLeads: { orderBy: { createdAt: 'asc' }, include: { messages: { orderBy: { createdAt: 'asc' } } } },
         orders: { include: { shipments: { include: { items: true } } }, orderBy: { createdAt: 'asc' } },
         sessions: { select: { createdAt: true, lastSeenAt: true, userAgent: true, ip: true } },
         reviews: { include: { product: { select: { title: true } } }, orderBy: { createdAt: 'asc' } },
@@ -78,7 +78,12 @@ export class PrivacyService implements OnApplicationBootstrap {
       addresses: u.addresses.map(({ userId: _u, id: _i, ...a }) => a),
       stylistRequests: u.stylistRequests.map((r) => ({ question: r.question, sharePhotos: r.sharePhotos, status: r.status, answer: r.answer, createdAt: r.createdAt, answeredAt: r.answeredAt })),
       premiumQuiz: u.premiumAnswers && { answers: u.premiumAnswers.answers, completedAt: u.premiumAnswers.completedAt },
-      premiumLeads: u.premiumLeads.map((l) => ({ name: l.name, phone: l.phone, contact: l.contact, status: l.status, capsule: l.capsule, createdAt: l.createdAt })),
+      premiumLeads: u.premiumLeads.map((l) => ({
+        no: l.no, name: l.name, phone: l.phone, contact: l.contact, status: l.status, capsule: l.capsule, createdAt: l.createdAt,
+        telegramLinkedAt: l.telegramLinkedAt,
+        // Переписка с менеджером (Telegram, заметки о WhatsApp); сотрудник не указывается
+        messages: l.messages.map((m) => ({ direction: m.direction === 'incoming' ? 'от вас' : 'от менеджера', channel: m.channel, text: m.text, status: m.status, createdAt: m.createdAt })),
+      })),
       orders: u.orders.map((o) => ({
         number: o.number, createdAt: o.createdAt, status: o.status, total: o.total / 100,
         recipient: { name: o.recipientName, phone: o.recipientPhone, email: o.recipientEmail },
@@ -118,6 +123,7 @@ export class PrivacyService implements OnApplicationBootstrap {
       this.prisma.capsule.deleteMany({ where: { userId: user.id } }),
       this.prisma.stylistRequest.deleteMany({ where: { userId: user.id } }),
       this.prisma.premiumAnswers.deleteMany({ where: { userId: user.id } }),
+      // Переписка по заявкам удаляется каскадом вместе с заявками
       this.prisma.premiumLead.deleteMany({ where: { userId: user.id } }),
       this.prisma.cartItem.deleteMany({ where: { userId: user.id } }),
       this.prisma.favorite.deleteMany({ where: { userId: user.id } }),

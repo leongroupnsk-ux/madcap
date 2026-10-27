@@ -2,7 +2,7 @@
 
 import { formatRub, plural, promotionSchema } from '@aesculap/shared';
 import { useCallback, useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

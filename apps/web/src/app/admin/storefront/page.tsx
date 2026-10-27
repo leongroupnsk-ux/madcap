@@ -2,7 +2,7 @@
 
 import { DEFAULT_STOREFRONT, storefrontSchema, type MenuItem, type StorefrontSettings } from '@aesculap/shared';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

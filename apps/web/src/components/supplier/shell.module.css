@@ -1,5 +1,5 @@
 /* Каркас кабинета поставщика по кадру supplier-shell (62:2394) и шапке .Partner-* (1:5884).
-   Админка использует свой каркас из cabinet.module.css — здесь только кабинет поставщика. */
+   Каркас админки — свой, components/admin/shell.module.css (в том же виде). */
 
 .shell {
   display: grid;

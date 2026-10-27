@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert } from '@/components/ui';
 import { serverApi } from '@/lib/server-api';
 
@@ -28,7 +28,7 @@ export default async function MailTemplatesPage() {
         {[...groups].map(([group, rows]) => (
           <section key={group} className={s.panel}>
             <h2>{group}</h2>
-            <div className={s.scroll}>
+            <div className={s.scroll} tabIndex={0} role="region" aria-label={`${group}, таблица`}>
               <table className={s.table}>
                 <thead>
                   <tr>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import s from '@/components/supplier/cabinet.module.css';
-import { Badge } from '@/components/supplier/Badge';
+import s from '@/components/admin/admin.module.css';
+import { Badge } from '@/components/admin/Badge';
 import { serverApi } from '@/lib/server-api';
 
 export const metadata = { title: 'Модерация' };
@@ -18,7 +18,7 @@ export default async function ModerationPage() {
           <h1>Модерация · {items.length}</h1>
         </div>
       </div>
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -50,7 +50,7 @@ export default async function ModerationPage() {
             })}
             {!items.length && (
               <tr>
-                <td colSpan={5} className={s.muted} style={{ padding: 24 }}>
+                <td colSpan={5} className={s.empty}>
                   Очередь пуста.
                 </td>
               </tr>

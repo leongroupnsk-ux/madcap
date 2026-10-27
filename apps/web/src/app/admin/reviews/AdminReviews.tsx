@@ -3,8 +3,8 @@
 import { REVIEW_FIT_LABEL } from '@aesculap/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Stars } from '@/components/shop/Stars';
-import { Badge } from '@/components/supplier/Badge';
-import s from '@/components/supplier/cabinet.module.css';
+import { Badge } from '@/components/admin/Badge';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Chip, Field, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -109,7 +109,7 @@ export function AdminReviews() {
           </section>
         ))}
         {data && !data.items.length && (
-          <div className={`${s.panel} ${s.muted}`} style={{ padding: 24 }}>
+          <div className={`${s.tableCard} ${s.empty}`}>
             {tab === 'pending' ? 'Очередь пуста.' : 'Здесь пока ничего нет.'}
           </div>
         )}

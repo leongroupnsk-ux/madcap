@@ -2,7 +2,7 @@
 
 import { BUDGETS, CAPSULE_WEIGHTS, COLOR_TYPES, DEFAULT_CAPSULE_WEIGHTS, SHOE_SIZES, SIZES, capsuleWeightsSchema, type CapsuleWeightKey, type CapsuleWeights } from '@aesculap/shared';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 

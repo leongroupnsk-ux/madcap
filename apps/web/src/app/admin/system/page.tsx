@@ -3,7 +3,7 @@
 import { STAFF_AREAS, STAFF_ROLES, platformSettingsSchema, type PlatformSettings, type SecuritySettings, type StaffRoleId } from '@aesculap/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Chip, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -121,7 +121,7 @@ export default function AdminSystemPage() {
             </div>
             <p className={s.muted}>Доступ роли «{STAFF_ROLES[invite.staffRole]}»: {roleAreas(invite.staffRole)}.</p>
           </section>
-          <section className={`${s.panel} ${s.scroll}`} style={{ padding: 0, marginTop: 16 }}>
+          <section className={s.tableCard} style={{ marginTop: 16 }}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -189,7 +189,7 @@ export default function AdminSystemPage() {
             <input className={s.input} placeholder="Действие: order., staff., moderation." value={filter.action} onChange={(e) => setFilter({ ...filter, action: e.target.value })} aria-label="Действие" />
             <input className={s.input} placeholder="Email сотрудника" value={filter.actor} onChange={(e) => setFilter({ ...filter, actor: e.target.value })} aria-label="Сотрудник" />
           </div>
-          <section className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+          <section className={s.tableCard}>
             <table className={s.table}>
               <thead>
                 <tr>
@@ -221,7 +221,7 @@ export default function AdminSystemPage() {
                 ))}
               </tbody>
             </table>
-            {log.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Записей не найдено.</p>}
+            {log.length === 0 && <p className={s.empty}>Записей не найдено.</p>}
           </section>
         </>
       )}

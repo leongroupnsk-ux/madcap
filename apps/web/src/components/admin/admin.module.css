@@ -1,0 +1,363 @@
+/* Страницы админки (ТЗ §8: утилитарная админка без отдельного макета) — в том же виде, что кабинет поставщика
+   (components/supplier/cabinet.module.css, блок .sup): заголовок Prata, белые карточки 24 px, таблицы,
+   пилюли статусов, фильтры в строку. Каркас — ./shell.module.css; кнопки, поля, модалки — components/ui. */
+
+/* ── Заголовок страницы ── */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+.head :global(.eyebrow) {
+  color: var(--c-text-label);
+}
+.head h1 {
+  margin-top: 12px;
+  font-size: 48px;
+  line-height: 52px;
+  color: var(--c-text);
+}
+/* Заголовок-строка внутри карточки (пояснение слева, кнопки справа) */
+.panel .head {
+  align-items: center;
+  margin-bottom: 16px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.lead {
+  margin: 12px 0 0;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+}
+
+/* ── Карточки ── */
+.panel {
+  min-width: 0;
+  padding: 24px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.panel h2 {
+  margin: 0 0 16px;
+  font-size: 26px;
+  line-height: 32px;
+  color: var(--c-text);
+}
+/* Карточка-таблица: таблица на всю ширину карточки, прокрутка — внутри неё */
+.tableCard {
+  min-width: 0;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  overflow-x: auto;
+}
+.scroll {
+  overflow-x: auto;
+}
+/* На узких экранах таблица не сжимается в столбик — карточка прокручивается по горизонтали */
+.tableCard > .table {
+  min-width: 720px;
+}
+/* Пустое состояние списка */
+.empty {
+  margin: 0;
+  padding: 32px 24px;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text-muted);
+  text-align: center;
+}
+
+/* ── Таблицы ── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text);
+}
+.table th {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font: 700 12px/16px var(--font-sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  vertical-align: bottom;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+.table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border-soft);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.table tr:last-child td {
+  border-bottom: 0;
+}
+/* Таблица внутри карточки с полями: края колонок — по полям карточки */
+.panel .table th,
+.panel .table td {
+  padding: 12px 14px;
+}
+.panel .table th:first-child,
+.panel .table td:first-child {
+  padding-left: 0;
+}
+.panel .table th:last-child,
+.panel .table td:last-child {
+  padding-right: 0;
+}
+.tableCard .table th:first-child,
+.tableCard .table td:first-child {
+  padding-left: 24px;
+}
+.tableCard .table th:last-child,
+.tableCard .table td:last-child {
+  padding-right: 24px;
+}
+/* Колонки чисел и сумм — по правому краю */
+.num {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+/* ── Пилюли статусов — те же цвета, что у статусов кабинета поставщика ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.1);
+  font: 700 12px/16px var(--font-sans);
+  color: #666666;
+  white-space: nowrap;
+}
+.b_published,
+.b_active,
+.b_approved,
+.b_s_in_transit,
+.b_s_ready_for_pickup,
+.b_p_in_progress {
+  background: var(--c-chip);
+  color: var(--c-primary);
+}
+.b_s_new {
+  background: #e7f2ef;
+  color: #0d4a3e;
+}
+.b_s_confirmed {
+  background: #e8eef5;
+  color: #31526b;
+}
+.b_applied,
+.b_s_delivered,
+.b_o_paid,
+.b_p_done {
+  background: #e8f5ee;
+  color: #1a7a46;
+}
+.b_pending,
+.b_revision,
+.b_checked,
+.b_checking,
+.b_applying,
+.b_queued,
+.b_new,
+.b_s_overdue,
+.b_requested,
+.b_in_review,
+.b_o_pending_payment,
+.b_p_new {
+  background: #fdf0e9;
+  color: #b14d36;
+}
+.b_s_packed {
+  background: rgba(169, 182, 137, 0.3);
+  color: #5b6b63;
+}
+/* Черновик, снят с витрины, передан в доставку — серая (как у .badge по умолчанию) */
+.b_draft,
+.b_hidden,
+.b_s_handed_over {
+  background: rgba(0, 0, 0, 0.1);
+  color: #666666;
+}
+.b_rejected,
+.b_failed,
+.b_s_cancelled,
+.b_s_rejected,
+.b_not_connected,
+.b_o_cancelled,
+.b_p_cancelled {
+  background: #fbebeb;
+  color: var(--c-error);
+}
+
+/* ── Текст и ссылки ── */
+.link {
+  font-weight: 700;
+  color: var(--c-sale);
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+/* Ссылка-кнопка в строке таблицы («Изменить», «Удалить») */
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.muted {
+  font-size: 14px;
+  color: var(--c-text-muted);
+}
+td.muted,
+.table .muted {
+  font-size: 13px;
+}
+.neg {
+  color: var(--c-error);
+}
+.thumb {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: var(--c-surface-soft);
+}
+
+/* ── Фильтры списков: в одну строку ── */
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.input {
+  height: 42px;
+  min-width: 0;
+  padding: 0 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-surface);
+  font: 400 14px/20px var(--font-sans);
+  color: var(--c-text);
+}
+.input::placeholder {
+  color: var(--c-text-muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+}
+.input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+select.input {
+  padding-right: 40px;
+  appearance: none;
+  background: var(--c-surface) url('/design/icons/sup-select-chevron.svg') no-repeat right 12px center / 16px 16px;
+  cursor: pointer;
+}
+textarea.input {
+  height: auto;
+  min-height: 96px;
+  padding: 10px 16px;
+  line-height: 20px;
+  resize: vertical;
+}
+
+/* ── Карточка объекта: основное слева, сводка справа ── */
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+.detail > * {
+  min-width: 0;
+}
+.detailSide {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.kv {
+  display: grid;
+  gap: 10px;
+  font: 400 14px/20px var(--font-sans);
+}
+.kv div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.kv span {
+  color: var(--c-text-muted);
+}
+.events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font: 400 14px/20px var(--font-sans);
+}
+.events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 1023px) {
+  .head h1 {
+    font-size: 40px;
+    line-height: 44px;
+  }
+  .panel h2 {
+    font-size: 24px;
+    line-height: 30px;
+  }
+}
+@media (max-width: 640px) {
+  .head {
+    margin-bottom: 24px;
+  }
+  .head h1 {
+    font-size: 32px;
+    line-height: 36px;
+  }
+  .panel {
+    padding: 20px;
+  }
+  .filters > .input {
+    flex: 1 1 100%;
+    max-width: none !important;
+  }
+}

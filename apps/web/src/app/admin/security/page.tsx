@@ -1,6 +1,6 @@
 import { STAFF_ROLES } from '@aesculap/shared';
 import { redirect } from 'next/navigation';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { getSessionUser } from '@/lib/session';
 import { AdminSecurity } from './AdminSecurity';
 

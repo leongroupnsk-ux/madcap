@@ -2,7 +2,7 @@
 
 import { formatRub } from '@aesculap/shared';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -113,7 +113,7 @@ export function Registry() {
       </section>
 
       {ov.registries.length > 0 && (
-        <section className={`${s.panel} ${s.scroll}`} style={{ padding: 0, marginTop: 16 }}>
+        <section className={s.tableCard} style={{ marginTop: 16 }}>
           <table className={s.table}>
             <thead>
               <tr>

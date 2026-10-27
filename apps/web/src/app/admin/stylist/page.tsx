@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Chip } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -38,7 +38,7 @@ export default function AdminStylistPage() {
         Анкета и фото покупателя открыты, только пока вопрос ждёт ответа. Каждый просмотр записывается в журнал действий.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
-      <section className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <section className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -62,7 +62,7 @@ export default function AdminStylistPage() {
             ))}
           </tbody>
         </table>
-        {rows?.length === 0 && <p className={s.muted} style={{ padding: 24 }}>Вопросов нет.</p>}
+        {rows?.length === 0 && <p className={s.empty}>Вопросов нет.</p>}
       </section>
     </>
   );

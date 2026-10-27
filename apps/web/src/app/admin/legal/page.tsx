@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -27,7 +27,7 @@ export default function AdminLegalPage() {
         Пока документ не опубликован здесь, сайт показывает черновик из кода. Версия политики, оферты и согласия на фото записывается вместе с согласием пользователя.
       </p>
       {error && <Alert tone="error">{error}</Alert>}
-      <section className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <section className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/components/supplier/Badge';
-import s from '@/components/supplier/cabinet.module.css';
+import { Badge } from '@/components/admin/Badge';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
@@ -33,7 +33,7 @@ export function Applications({ initial }: { initial: Application[] }) {
         </div>
       </div>
       {error && <Alert tone="error">{error}</Alert>}
-      <div className={`${s.panel} ${s.scroll}`} style={{ padding: 0 }}>
+      <div className={s.tableCard}>
         <table className={s.table}>
           <thead>
             <tr>
@@ -86,7 +86,7 @@ export function Applications({ initial }: { initial: Application[] }) {
             ))}
             {!apps.length && (
               <tr>
-                <td colSpan={6} className={s.muted} style={{ padding: 24 }}>
+                <td colSpan={6} className={s.empty}>
                   Заявок нет.
                 </td>
               </tr>

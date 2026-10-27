@@ -92,3 +92,44 @@ for (const size of SIZES) {
     });
   });
 }
+
+/**
+ * Админка на 1440 (макета нет — эталон фиксирует общий с кабинетом вид: меню, шапка, карточки, таблицы, пилюли).
+ * Снимок — первый экран, без fullPage: число строк в списках меняют другие сценарии. Маскируются тела таблиц
+ * с заказами и даты/числа, которые меняются от прогона к прогону.
+ */
+test.describe('вёрстка админки 1440', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test.beforeEach(async ({ context, baseURL }) => {
+    const password = process.env.E2E_DEMO_PASSWORD;
+    if (!password) throw new Error('Задайте E2E_DEMO_PASSWORD (pnpm e2e подставляет его сам)');
+    // Вход как в a11y-cabinet.spec: POST /api/auth/login, cookies сессии остаются в контексте
+    const ip = `10.250.9.${1 + Math.floor(Math.random() * 250)}`;
+    let status = 0;
+    for (let i = 0; i < 3 && status !== 200; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 3000));
+      const res = await context.request.post(`${baseURL}/api/auth/login`, { data: { email: 'demo.admin@example.ru', password }, headers: { 'X-Forwarded-For': ip }, failOnStatusCode: false });
+      status = res.status();
+    }
+    expect(status, 'вход demo.admin не удался').toBe(200);
+  });
+
+  const ADMIN: { name: string; path: string; mask: (page: Page) => Locator[] }[] = [
+    // Список заказов пополняют сценарии оформления — маскируем строки целиком
+    { name: 'admin-orders', path: '/admin/orders', mask: (p) => [p.locator('main tbody')] },
+    // Число товаров в категориях зависит от каталога
+    { name: 'admin-dictionaries', path: '/admin/dictionaries', mask: (p) => [p.locator('main tbody td:nth-child(4)')] },
+    // Последняя активность сотрудников
+    { name: 'admin-system', path: '/admin/system', mask: (p) => [p.locator('main tbody td:nth-child(3)')] },
+  ];
+  for (const a of ADMIN) {
+    test(`${a.name} @1440`, async ({ page }) => {
+      await page.goto(a.path);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(page.locator('main table').first()).toBeVisible();
+      await page.waitForLoadState('networkidle');
+      await settle(page);
+      await expect(page).toHaveScreenshot(`${a.name}-1440.png`, { mask: a.mask(page) });
+    });
+  }
+});

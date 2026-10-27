@@ -51,5 +51,5 @@ class NotificationsController {
 
 /** Уведомления доступны всем модулям без импорта (как почта). */
 @Global()
-@Module({ imports: [AuthModule], controllers: [NotificationsController], providers: [NotificationsService, TelegramService], exports: [NotificationsService] })
+@Module({ imports: [AuthModule], controllers: [NotificationsController], providers: [NotificationsService, TelegramService], exports: [NotificationsService, TelegramService] })
 export class NotificationsModule {}

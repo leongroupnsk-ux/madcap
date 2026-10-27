@@ -56,6 +56,7 @@ model User {
   auditLogs            AuditLog[]
   premiumAnswers       PremiumAnswers?
   premiumLeads         PremiumLead[]
+  premiumLeadMessages  PremiumLeadMessage[]
   newsletterDeliveries NewsletterDelivery[]
   reviews              Review[]
   favorites            Favorite[]
@@ -1250,33 +1251,91 @@ enum PremiumLeadStatus {
 enum PremiumContact {
   phone
   whatsapp
+  telegram
 }
 
 /// Заявка «Оставить заявку» из премиум-капсулы: менеджер перезванивает, онлайн-оплаты нет
 model PremiumLead {
-  id             String            @id @default(uuid()) @db.Uuid
-  userId         String?           @db.Uuid
-  name           String
-  phone          String
-  contact        PremiumContact
+  id                    String            @id @default(uuid()) @db.Uuid
+  userId                String?           @db.Uuid
+  name                  String
+  phone                 String
+  contact               PremiumContact
   /// Снимок капсулы на момент заявки: вариант, вещи с ценами, сумма
-  capsule        Json
+  capsule               Json
   /// Ответы анкеты на момент заявки
-  answers        Json
-  status         PremiumLeadStatus @default(new)
-  managerComment String?
-  ip             String?
+  answers               Json
+  status                PremiumLeadStatus @default(new)
+  managerComment        String?
+  ip                    String?
   /// Заказ, созданный менеджером из заявки кнопкой «Создать заказ»
-  orderId        String?           @unique @db.Uuid
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  orderId               String?           @unique @db.Uuid
+  /// Номер заявки для клиента и менеджера («Заявка № 12»)
+  no                    Int               @unique @default(autoincrement())
+  /// Telegram: чат клиента, привязанный по ссылке t.me/<бот>?start=lead_<код>
+  telegramChatId        String?
+  telegramLinkedAt      DateTime?
+  /// sha256 одноразового кода привязки; после привязки обнуляется
+  telegramCodeHash      String?           @unique
+  telegramCodeExpiresAt DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
-  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  user     User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order    Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages PremiumLeadMessage[]
 
   @@index([status, createdAt])
   @@index([userId])
+  @@index([telegramChatId])
   @@map("premium_leads")
+}
+
+enum PremiumMessageDirection {
+  /// Менеджер → клиент
+  outgoing
+  /// Клиент → менеджер
+  incoming
+}
+
+enum PremiumMessageChannel {
+  telegram
+  whatsapp
+  note
+}
+
+enum PremiumMessageStatus {
+  /// Ушло через Telegram API
+  sent
+  /// Telegram API вернул ошибку (бот заблокирован и т. п.)
+  failed
+  /// Входящее от клиента
+  received
+  /// Записано менеджером вручную, отправлено вне системы (WhatsApp)
+  offline
+}
+
+/// Переписка по премиум-заявке: ответы менеджера в Telegram, входящие из бота, заметки о WhatsApp
+model PremiumLeadMessage {
+  id        String                  @id @default(uuid()) @db.Uuid
+  leadId    String                  @db.Uuid
+  direction PremiumMessageDirection
+  channel   PremiumMessageChannel
+  text      String
+  /// Сотрудник, отправивший ответ или записавший заметку
+  staffId   String?                 @db.Uuid
+  status    PremiumMessageStatus
+  error     String?
+  /// Входящее прочитано менеджером
+  readAt    DateTime?
+  createdAt DateTime                @default(now())
+
+  lead  PremiumLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  staff User?       @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@index([direction, readAt])
+  @@map("premium_lead_messages")
 }
 
 // ─── Улучшения продукта: отзывы, избранное, «Сообщить о поступлении» ─────

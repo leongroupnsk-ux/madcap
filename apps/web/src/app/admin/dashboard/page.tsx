@@ -1,6 +1,6 @@
 import { formatRub, plural } from '@aesculap/shared';
 import Link from 'next/link';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert } from '@/components/ui';
 import { serverApi } from '@/lib/server-api';
 import d from './dashboard.module.css';
@@ -221,7 +221,7 @@ export default async function AdminDashboardPage() {
 
         <section className={s.panel}>
           <h2>Сроки модерации, 30 дней</h2>
-          <div className={s.scroll}>
+          <div className={s.scroll} tabIndex={0} role="region" aria-label="Сроки модерации, таблица">
             <table className={s.table}>
               <thead>
                 <tr>

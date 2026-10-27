@@ -2,7 +2,7 @@
 
 import { formatRub } from '@aesculap/shared';
 import { useEffect, useId, useState } from 'react';
-import s from '@/components/supplier/cabinet.module.css';
+import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';
 
