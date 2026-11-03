@@ -149,7 +149,7 @@
 }
 
 .section {
-  padding: 56px 0;
+  padding-block: 56px;
 }
 
 .benefits {
@@ -349,7 +349,7 @@
     grid-template-columns: 1fr;
   }
   .section {
-    padding: 40px 0;
+    padding-block: 40px;
   }
   .ctaInner h2 {
     font-size: 28px;
