@@ -317,12 +317,23 @@
   .heroImg {
     object-position: 70% 50%;
   }
-  /* Текст поверх фото: подложка, чтобы читалось на узком экране */
-  .hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(247, 244, 237, 0.92) 0%, rgba(247, 244, 237, 0.75) 55%, rgba(247, 244, 237, 0) 100%);
+  /* Текст поверх фото: полупрозрачная подложка, чтобы читалось на узком экране */
+  .heroText {
+    margin: -8px;
+    padding: 16px 18px 20px;
+    border-radius: var(--r-md);
+    background: rgba(247, 244, 237, 0.78);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  .hero h1 {
+    margin-top: 14px;
+  }
+  .hero p {
+    margin-top: 14px;
+  }
+  .btnGhost {
+    background: rgba(247, 244, 237, 0.78);
   }
   .hero h1,
   .premium h2,
