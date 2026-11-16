@@ -26,6 +26,8 @@ jobs:
       WEB_ORIGIN: http://localhost:4000
     steps:
       - uses: actions/checkout@v4
+      # ffmpeg/ffprobe — постеры и проверка длины видео (тест медиа поставщика), как в Dockerfile API
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
