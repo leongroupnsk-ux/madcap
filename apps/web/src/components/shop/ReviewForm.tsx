@@ -1,6 +1,6 @@
 'use client';
 
-import { REVIEW_FITS, REVIEW_FIT_LABEL, REVIEW_MAX_PHOTOS, type ReviewFit } from '@aesculap/shared';
+import { REVIEW_FITS, REVIEW_FIT_LABEL, REVIEW_MAX_PHOTOS, type ReviewFit } from '@aesculap/shared/reviews-labels';
 import { useId, useRef, useState } from 'react';
 import { Alert, Button, Modal } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';

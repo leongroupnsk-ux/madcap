@@ -1,6 +1,6 @@
 'use client';
 
-import { REVIEW_FIT_LABEL } from '@aesculap/shared';
+import { REVIEW_FIT_LABEL } from '@aesculap/shared/reviews-labels';
 import { useCallback, useEffect, useState } from 'react';
 import { Stars } from '@/components/shop/Stars';
 import { Badge } from '@/components/admin/Badge';

@@ -1,6 +1,7 @@
 'use client';
 
-import { REVIEW_FIT_LABEL, plural } from '@aesculap/shared';
+import { plural } from '@aesculap/shared/format';
+import { REVIEW_FIT_LABEL } from '@aesculap/shared/reviews-labels';
 import { useEffect, useId, useState } from 'react';
 import { Stars } from '@/components/shop/Stars';
 import s from '@/components/supplier/cabinet.module.css';

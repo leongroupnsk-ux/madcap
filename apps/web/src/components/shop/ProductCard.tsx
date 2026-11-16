@@ -1,4 +1,4 @@
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import type { Card } from '@/lib/catalog';
 import { CARD_SIZES, imgSet } from '@/lib/image';

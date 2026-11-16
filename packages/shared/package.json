@@ -28,6 +28,11 @@
       "types": "./dist/format.d.ts",
       "import": "./dist/esm/format.js",
       "require": "./dist/format.js"
+    },
+    "./reviews-labels": {
+      "types": "./dist/reviews-labels.d.ts",
+      "import": "./dist/esm/reviews-labels.js",
+      "require": "./dist/reviews-labels.js"
     }
   }
 }

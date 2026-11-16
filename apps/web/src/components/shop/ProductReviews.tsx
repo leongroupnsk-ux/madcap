@@ -1,6 +1,7 @@
 'use client';
 
-import { REVIEW_FIT_LABEL, REVIEW_FIT_SUMMARY, plural } from '@aesculap/shared';
+import { plural } from '@aesculap/shared/format';
+import { REVIEW_FIT_LABEL, REVIEW_FIT_SUMMARY } from '@aesculap/shared/reviews-labels';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';

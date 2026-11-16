@@ -1,29 +1,5 @@
 import { z } from 'zod';
-
-/** «Размер подошёл» в отзыве */
-export const REVIEW_FITS = ['small', 'true_to_size', 'large'] as const;
-export type ReviewFit = (typeof REVIEW_FITS)[number];
-
-export const REVIEW_FIT_LABEL: Record<ReviewFit, string> = {
-  small: 'Меньше',
-  true_to_size: 'В размер',
-  large: 'Больше',
-};
-
-/** Сводка «Размер: в основном …» на странице товара */
-export const REVIEW_FIT_SUMMARY: Record<ReviewFit, string> = {
-  small: 'в основном маломерит',
-  true_to_size: 'в основном в размер',
-  large: 'в основном большемерит',
-};
-
-export const REVIEW_STATUS_LABEL: Record<string, string> = {
-  pending: 'На модерации',
-  approved: 'Опубликован',
-  rejected: 'Отклонён',
-};
-
-export const REVIEW_MAX_PHOTOS = 3;
+import { REVIEW_FITS, REVIEW_MAX_PHOTOS } from './reviews-labels.js';
 
 /** Отзыв покупателя: оценка 1–5, текст 10–2000 символов, посадка, до 3 фото (ключи из загрузки) */
 export const reviewSaveSchema = z.object({

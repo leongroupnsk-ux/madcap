@@ -1,6 +1,6 @@
 'use client';
 
-import { REVIEW_FIT_LABEL, REVIEW_STATUS_LABEL } from '@aesculap/shared';
+import { REVIEW_FIT_LABEL, REVIEW_STATUS_LABEL } from '@aesculap/shared/reviews-labels';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ReviewForm, type MyReview } from '@/components/shop/ReviewForm';
