@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import r from '@/components/shop/reviews.module.css';

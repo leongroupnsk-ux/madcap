@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';

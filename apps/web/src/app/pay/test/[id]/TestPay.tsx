@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub } from '@aesculap/shared';
+import { formatRub } from '@aesculap/shared/format';
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui';
 import { api, isApiError } from '@/lib/api';

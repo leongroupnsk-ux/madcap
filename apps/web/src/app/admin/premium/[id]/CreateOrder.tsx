@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub } from '@aesculap/shared';
+import { formatRub } from '@aesculap/shared/format';
 import { useEffect, useId, useState } from 'react';
 import s from '@/components/admin/admin.module.css';
 import { Alert, Button, Field } from '@/components/ui';

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",
+  "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -22,6 +23,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/index.js"
+    },
+    "./format": {
+      "types": "./dist/format.d.ts",
+      "import": "./dist/esm/format.js",
+      "require": "./dist/format.js"
     }
   }
 }

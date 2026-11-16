@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PremiumLogo } from '@/components/premium/PremiumLogo';

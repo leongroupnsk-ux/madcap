@@ -1,6 +1,6 @@
 'use client';
 
-import { plural } from '@aesculap/shared';
+import { plural } from '@aesculap/shared/format';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Alert } from '@/components/ui';

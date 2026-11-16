@@ -96,12 +96,14 @@ export default async function HomePage() {
             </div>
           </section>
           <section className={`${h.premium} ${playfair.variable}`}>
+            {/* Не LCP (на телефоне баннер у нижнего края экрана, на десктопе крупнее хиро): лениво, чтобы не делить канал с фото хиро */}
             <img
               className={h.premiumImg}
               src="/design/premium-banner.webp"
               srcSet="/design/premium-banner-640.webp 640w, /design/premium-banner.webp 1100w"
               sizes="(max-width: 900px) 100vw, 490px"
               alt=""
+              loading="lazy"
             />
             <span className={h.mark}>
               aesculap<span>. </span>

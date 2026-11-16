@@ -67,6 +67,9 @@ const config: NextConfig = {
     ];
   },
   poweredByHeader: false,
+  // CSS страницы — только из её модулей. По умолчанию Next.js склеивает CSS разных разделов, и главная грузила стили
+  // кабинета поставщика и админки (docs/PERF.md, «Этап 3»)
+  experimental: { cssChunking: 'strict' },
   // Отдельная папка сборки — чтобы прод-сборка для замеров (docs/PERF.md) не мешала запущенному next dev
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
 };

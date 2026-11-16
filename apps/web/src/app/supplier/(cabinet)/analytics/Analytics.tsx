@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import { useState } from 'react';
 import s from '@/components/supplier/cabinet.module.css';

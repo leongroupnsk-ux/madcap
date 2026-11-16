@@ -1,6 +1,6 @@
 'use client';
 
-import { plural } from '@aesculap/shared';
+import { plural } from '@aesculap/shared/format';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';

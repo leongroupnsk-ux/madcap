@@ -1,6 +1,6 @@
 'use client';
 
-import { formatRub, plural } from '@aesculap/shared';
+import { formatRub, plural } from '@aesculap/shared/format';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import p from './product.module.css';
