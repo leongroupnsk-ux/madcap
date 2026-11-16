@@ -4,7 +4,15 @@
 # число строк в ключевых таблицах с рабочей базой, затем удаляет временную базу.
 #
 #   DATABASE_URL=postgresql://…/aesculap  ADMIN_URL=postgresql://…/postgres  BACKUP_DIR=…  ops/restore-check.sh [файл.dump]
+#
+# На сервере — внутри контейнера postgres (версии psql и pg_restore совпадают с базой, вход по локальному сокету):
+#   cd /srv/aesculap && PG_EXEC="docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres" \
+#     DATABASE_URL=postgresql://aesculap@/aesculap ADMIN_URL=postgresql://aesculap@/postgres BACKUP_DIR=/var/backups/aesculap \
+#     ops/restore-check.sh
 set -euo pipefail
+
+# shellcheck disable=SC2086 # PG_EXEC — команда с аргументами
+psql() { if [[ -n "${PG_EXEC:-}" ]]; then $PG_EXEC psql "$@"; else command psql "$@"; fi; }
 
 : "${DATABASE_URL:?нужен DATABASE_URL рабочей базы}"
 : "${ADMIN_URL:?нужен ADMIN_URL — подключение с правом CREATE DATABASE}"
@@ -26,7 +34,9 @@ trap cleanup EXIT
 
 started=$(date +%s)
 psql "$ADMIN_URL" -qc "CREATE DATABASE $TMP_DB"
-pg_restore --no-owner --no-privileges --exit-on-error --dbname="$TMP_URL" "$DUMP"
+# Дамп — через stdin: так он доходит и до pg_restore внутри контейнера
+# shellcheck disable=SC2086
+${PG_EXEC:-} pg_restore --no-owner --no-privileges --exit-on-error --dbname="$TMP_URL" <"$DUMP"
 echo "✓ восстановлено за $(( $(date +%s) - started )) с: $DUMP"
 
 # Миграции: последняя применённая должна совпасть
