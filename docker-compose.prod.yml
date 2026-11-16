@@ -4,8 +4,14 @@
 # Caddy сам получает и продлевает сертификат Let's Encrypt для DOMAIN (HTTPS + HSTS).
 name: aesculap
 
+# Логи контейнеров — не больше 5 × 10 МБ на сервис (по умолчанию docker пишет без ограничения и съедает диск)
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: '5' }
+
 services:
   postgres:
+    logging: *logging
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -21,6 +27,7 @@ services:
       retries: 10
 
   redis:
+    logging: *logging
     image: redis:7-alpine
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
@@ -31,6 +38,7 @@ services:
       retries: 10
 
   api:
+    logging: *logging
     build: { context: ., dockerfile: apps/api/Dockerfile }
     restart: unless-stopped
     env_file: .env.production
@@ -45,6 +53,7 @@ services:
       redis: { condition: service_healthy }
 
   web:
+    logging: *logging
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -64,6 +73,7 @@ services:
       api: { condition: service_healthy }
 
   caddy:
+    logging: *logging
     image: caddy:2-alpine
     restart: unless-stopped
     ports: ['80:80', '443:443']

@@ -81,7 +81,14 @@ DATABASE_URL=…/aesculap ADMIN_URL=…/postgres BACKUP_DIR=/var/backups/aescula
 
 - `GET /api/healthz` — БД и Redis; используется healthcheck контейнеров. Внешний пинг (UptimeRobot / Яндекс Мониторинг) — раз в минуту.
 - Падение вебхука ЮKassa — письмо на `ALERT_EMAIL` (не чаще раза в 10 минут) и ошибка в логе; ЮKassa повторяет уведомление.
-- Логи: `docker compose logs -f api web`. Централизованный сбор (Loki / Яндекс Cloud Logging) — при подключении наблюдаемости.
+- Логи: `docker compose logs -f api web`. Каждый контейнер хранит не больше 5 × 10 МБ логов (`x-logging` в `docker-compose.prod.yml`, действует после пересоздания контейнеров — обычной выкладкой). Централизованный сбор (Loki / Яндекс Cloud Logging) — при подключении наблюдаемости.
+- Диск: выкладка удаляет старые образы и кэш сборки старше 3 дней. `ops/disk-alert.sh` по cron раз в 15 минут шлёт в Telegram предупреждение, когда занято ≥ 85% (повтор раз в 6 часов, затем «диск в норме»). Бот — `TELEGRAM_BOT_TOKEN`, получатель — `ALERT_TELEGRAM_CHAT_ID` в `.env.production`; без них — только syslog. Установка на сервере:
+
+```bash
+( crontab -l 2>/dev/null; echo '*/15 * * * * /srv/aesculap/ops/disk-alert.sh >> /var/log/aesculap-disk-alert.log 2>&1' ) | crontab -
+DRY_RUN=1 THRESHOLD=1 /srv/aesculap/ops/disk-alert.sh   # проверка без отправки
+THRESHOLD=1 STATE=/tmp/t /srv/aesculap/ops/disk-alert.sh # пробное сообщение в Telegram
+```
 
 ## Демо-стенд (с 2026-10-23)
 
