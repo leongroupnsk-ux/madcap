@@ -275,20 +275,22 @@ async function main() {
     },
   });
   // Акции: одна идёт (товары одобрены, цены снижены), вторая — в приёме заявок.
+  // Сроки — на 60 дней вперёд: демо-витрина и эталоны скриншотов (блок акции на главной) не меняются,
+  // пока базу не перезаливали неделями.
   await prisma.promotion.deleteMany({ where: { slug: { in: ['nedelya-hirurga-demo', 'osenniy-stomatolog-demo'] } } });
   const now = Date.now();
   const running = await prisma.promotion.create({
     data: {
       name: 'Неделя хирурга', slug: 'nedelya-hirurga-demo', badge: 'Неделя хирурга', description: 'Скидки на хирургические костюмы и шапочки.',
       minDiscountPct: 15, commissionBp: 800, onHomepage: true,
-      applyFrom: new Date(now - 10 * 86400_000), applyTo: new Date(now - 3 * 86400_000), startsAt: new Date(now - 2 * 86400_000), endsAt: new Date(now + 5 * 86400_000),
+      applyFrom: new Date(now - 10 * 86400_000), applyTo: new Date(now - 3 * 86400_000), startsAt: new Date(now - 2 * 86400_000), endsAt: new Date(now + 60 * 86400_000),
     },
   });
   await prisma.promotion.create({
     data: {
       name: 'Осенний стоматолог', slug: 'osenniy-stomatolog-demo', badge: 'Осень −20%', description: 'Форма для стоматологии к сезону.',
       minDiscountPct: 20, commissionBp: 800, onHomepage: true, newsletter: true,
-      applyFrom: new Date(now - 86400_000), applyTo: new Date(now + 6 * 86400_000), startsAt: new Date(now + 7 * 86400_000), endsAt: new Date(now + 21 * 86400_000),
+      applyFrom: new Date(now - 86400_000), applyTo: new Date(now + 59 * 86400_000), startsAt: new Date(now + 60 * 86400_000), endsAt: new Date(now + 74 * 86400_000),
     },
   });
   // В акции — вещи вне сетки макета, чтобы цены и плашки каталога совпадали с макетом

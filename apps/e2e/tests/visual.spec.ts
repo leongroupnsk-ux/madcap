@@ -114,9 +114,10 @@ test.describe('вёрстка админки 1440', () => {
     expect(status, 'вход demo.admin не удался').toBe(200);
   });
 
-  const ADMIN: { name: string; path: string; mask: (page: Page) => Locator[] }[] = [
-    // Список заказов пополняют сценарии оформления — маскируем строки целиком
-    { name: 'admin-orders', path: '/admin/orders', mask: (p) => [p.locator('main tbody')] },
+  const ADMIN: { name: string; path: string; mask: (page: Page) => Locator[]; aboveTable?: boolean }[] = [
+    // Список заказов пополняют сценарии оформления: от числа строк зависят высота таблицы и ширина колонок —
+    // снимаем экран до таблицы (меню, шапка, фильтры, поиск)
+    { name: 'admin-orders', path: '/admin/orders', mask: () => [], aboveTable: true },
     // Число товаров в категориях зависит от каталога
     { name: 'admin-dictionaries', path: '/admin/dictionaries', mask: (p) => [p.locator('main tbody td:nth-child(4)')] },
     // Последняя активность сотрудников
@@ -129,7 +130,11 @@ test.describe('вёрстка админки 1440', () => {
       await expect(page.locator('main table').first()).toBeVisible();
       await page.waitForLoadState('networkidle');
       await settle(page);
-      await expect(page).toHaveScreenshot(`${a.name}-1440.png`, { mask: a.mask(page) });
+      const top = a.aboveTable ? (await page.locator('main table').first().boundingBox())!.y : 0;
+      await expect(page).toHaveScreenshot(`${a.name}-1440.png`, {
+        mask: a.mask(page),
+        ...(a.aboveTable ? { clip: { x: 0, y: 0, width: 1440, height: Math.floor(top) } } : {}),
+      });
     });
   }
 });
