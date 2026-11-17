@@ -63,6 +63,8 @@ services:
     environment:
       API_INTERNAL_URL: http://api:4100
       SITE_URL: https://${DOMAIN}
+      # Простаивающее соединение с Caddy держится дольше, чем его держит Caddy (60 с, ops/Caddyfile)
+      KEEP_ALIVE_TIMEOUT: '65000'
       SITE_NOINDEX: ${SITE_NOINDEX:-}
       OPERATOR_NAME: ${OPERATOR_NAME:-}
       OPERATOR_INN: ${OPERATOR_INN:-}

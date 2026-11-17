@@ -55,17 +55,39 @@ export class CapsuleService {
     return p.sizeTop;
   }
 
-  /** Кандидаты по слотам: только подходящие варианты в наличии. */
+  /**
+   * Кандидаты по слотам: только подходящие варианты в наличии. Размер и ростовка отбираются в базе, по запросу на слот:
+   * раньше выбирались все варианты в наличии и отсеивались здесь — на каталоге в 50 000 вариантов сборка тянула
+   * десятки тысяч строк, и при 400 одновременных посетителях API упирался в процессор (docs/LOAD.md). Точная проверка
+   * ниже осталась прежней: база отдаёт не меньше подходящего, лишнее (размер в другом регистре) отсеивается здесь.
+   */
   async candidates(p: Profile, slots: string[], premium = false): Promise<Map<string, Candidate[]>> {
     const hr = heightRangeOf(p.heightCm);
-    const rows = await this.prisma.product.findMany({
-      where: {
-        AND: [visibleWhere(), { category: { slot: { in: slots } } }, p.gender ? { gender: { in: [p.gender, 'unisex'] } } : {}, premium ? { premium: true } : {}],
-      },
-      include: { category: true, specialties: true, variants: { where: { stock: { gt: 0 } }, include: { color: true } } },
-    });
+    const perSlot = await Promise.all(
+      slots.map((slot) => {
+        const size = this.sizeFor(p, slot);
+        const fits: Prisma.ProductVariantWhereInput = {
+          stock: { gt: 0 },
+          ...(size ? { size: { equals: size, mode: 'insensitive' } } : {}),
+          ...(hr ? { OR: [{ heightRange: null }, { heightRange: hr }] } : {}),
+        };
+        return this.prisma.product.findMany({
+          where: {
+            AND: [visibleWhere(), { category: { slot } }, p.gender ? { gender: { in: [p.gender, 'unisex'] } } : {}, premium ? { premium: true } : {}, { variants: { some: fits } }],
+          },
+          select: {
+            id: true, title: true, treatment: true, washing: true,
+            category: { select: { slot: true } },
+            specialties: { select: { specialtyId: true } },
+            variants: { where: fits, orderBy: { id: 'asc' }, select: { id: true, colorId: true, size: true, heightRange: true, price: true, salePrice: true, color: { select: { colorFamily: true } } } },
+          },
+          // При равной оценке и цене выбор не должен зависеть от того, в каком порядке база вернула строки
+          orderBy: { id: 'asc' },
+        });
+      }),
+    );
     const bySlot = new Map<string, Candidate[]>(slots.map((s) => [s, []]));
-    for (const r of rows) {
+    for (const r of perSlot.flat()) {
       const slot = r.category.slot!;
       const size = this.sizeFor(p, slot);
       const variants = r.variants

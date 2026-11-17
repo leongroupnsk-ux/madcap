@@ -13,10 +13,13 @@ git archive --format=tar HEAD | ssh "$HOST" "rm -rf $DIR.new && mkdir -p $DIR.ne
 # Сборка идёт на сервере в фоне (nohup): обрыв SSH-соединения её не прерывает.
 # Номер версии пишется только после успешного запуска. После него — чистка старых образов и кэша сборки
 # старше 3 дней (кэш сборки на сервере растёт на гигабайты с каждой выкладкой).
+# ops/Caddyfile подключён в контейнер Caddy файлом: rsync кладёт новый файл вместо старого, а контейнер продолжает
+# видеть старый, пока его не пересоздать. Поэтому при отличии конфигурации Caddy пересоздаётся (перерыв 1–2 с).
 ssh "$HOST" "rsync -a --delete --exclude .env.production --exclude REVISION --exclude deploy.log $DIR.new/ $DIR/ && rm -rf $DIR.new
   cd $DIR && nohup bash -c \"set -o pipefail; C='docker compose -f docker-compose.prod.yml --env-file .env.production'
     { \\\$C build && \\\$C up -d \\
       && for i in \\\$(seq 1 45); do [ \\\$(\\\$C ps --format '{{.Service}} {{.Status}}' | grep -cE '^(api|web) .*\\\\(healthy\\\\)') -eq 2 ] && break; sleep 4; done \\
+      && { \\\$C exec -T caddy cat /etc/caddy/Caddyfile | cmp -s - ops/Caddyfile || \\\$C up -d --force-recreate --no-deps caddy; } \\
       && echo $REV > REVISION && docker image prune -f >/dev/null && docker builder prune -f --filter until=72h >/dev/null && echo DEPLOY_OK; } || echo DEPLOY_FAIL\" > deploy.log 2>&1 < /dev/null &"
 # Ждём окончания короткими запросами (до 30 минут)
 for i in $(seq 1 180); do

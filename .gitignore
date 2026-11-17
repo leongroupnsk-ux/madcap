@@ -13,3 +13,5 @@ coverage
 .env.production
 backups
 .next-perf
+# Сессии тестовых покупателей нагрузочного теста (apps/api/scripts/load-users.ts)
+load-users*.json

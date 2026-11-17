@@ -8,7 +8,27 @@
 	request_body {
 		max_size 110MB
 	}
-	reverse_proxy web:4000
+
+	# API и фото — напрямую в API, мимо Next.js. Прокси Next.js (rewrites в next.config.ts) открывает к API новое
+	# соединение на каждый запрос и закрывает соединение с Caddy (Connection: close): под нагрузкой закрытые соединения
+	# занимали все порты, и с 200 посетителей ответы ждали по 3–13 с (docs/LOAD.md). Rewrites остаются для разработки.
+	# Простаивающие соединения живут 60 с — API и сайт держат их дольше (65 с), чтобы Caddy не писал в закрытое.
+	handle /api/* {
+		reverse_proxy api:4100 {
+			transport http {
+				keepalive 60s
+				keepalive_idle_conns_per_host 128
+			}
+		}
+	}
+	handle {
+		reverse_proxy web:4000 {
+			transport http {
+				keepalive 60s
+				keepalive_idle_conns_per_host 128
+			}
+		}
+	}
 }
 
 www.{$DOMAIN} {
