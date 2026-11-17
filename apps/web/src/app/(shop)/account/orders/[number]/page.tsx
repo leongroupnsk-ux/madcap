@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
-import { serverApi } from '@/lib/server-api';
+import { redirect } from 'next/navigation';
+import { pageMissing, serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
 import { OrderView, type OrderData } from './OrderView';
 
@@ -10,6 +10,6 @@ export default async function OrderPage({ params }: { params: Promise<{ number: 
   const { number } = await params;
   if (!(await getSessionUser())) redirect(`/login?next=/account/orders/${number}`);
   const order = await serverApi<OrderData>(`/orders/${encodeURIComponent(number)}`);
-  if (!order.data) notFound();
+  if (!order.data) pageMissing(order.status);
   return <OrderView initial={order.data} />;
 }

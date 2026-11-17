@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { CatalogView } from '@/components/shop/CatalogView';
 import { CATALOG_TITLE, categoryChips, fetchCatalog, SITE_URL, type CategoryTree } from '@/lib/catalog';
-import { serverApi } from '@/lib/server-api';
+import { pageMissing, serverApi } from '@/lib/server-api';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -22,7 +21,7 @@ export async function generateMetadata({ searchParams }: { searchParams: SP }): 
 export default async function CatalogPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const [res, tree] = await Promise.all([fetchCatalog(sp), serverApi<CategoryTree>('/catalog/categories')]);
-  if (!res.data) notFound();
+  if (!res.data) pageMissing(res.status);
   return (
     <CatalogView
       data={res.data}

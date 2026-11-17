@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
+import { notFound } from 'next/navigation';
 
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4100';
 
@@ -21,4 +22,17 @@ export async function serverApi<T>(path: string): Promise<{ status: number; data
   // res.json() на пустом теле падает «Unexpected end of JSON input» и роняет всю страницу (найдено e2e на /account).
   const text = await res.text();
   return { status: res.status, data: text ? (JSON.parse(text) as T) : null };
+}
+
+/** Ответы API, при которых страницы действительно нет: такого товара, раздела, заказа или запрос неверный. */
+const MISSING = new Set([400, 403, 404, 410]);
+
+/**
+ * Данных для страницы нет: 404 — только если API так и ответил. Сбой API (5xx, недоступен, 429) — ошибка страницы
+ * с кодом 500 и экраном «Не получилось загрузить» (app/(shop)/error.tsx). Раньше любой сбой становился 404: при
+ * перегрузке или перезапуске API поисковик видел «страницы нет» и мог убрать её из выдачи (docs/LOAD.md).
+ */
+export function pageMissing(status: number): never {
+  if (MISSING.has(status) || (status >= 200 && status < 300)) notFound();
+  throw new Error(`API недоступен: ${status}`);
 }

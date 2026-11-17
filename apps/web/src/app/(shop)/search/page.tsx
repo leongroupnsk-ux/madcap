@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { CatalogView } from '@/components/shop/CatalogView';
 import { fetchCatalog } from '@/lib/catalog';
+import { pageMissing } from '@/lib/server-api';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -11,7 +11,7 @@ export default async function SearchPage({ searchParams }: { searchParams: SP })
   const sp = await searchParams;
   const q = typeof sp.q === 'string' ? sp.q.trim() : '';
   const res = await fetchCatalog(sp);
-  if (!res.data) notFound();
+  if (!res.data) pageMissing(res.status);
   return (
     <CatalogView
       data={res.data}

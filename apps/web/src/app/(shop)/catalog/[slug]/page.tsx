@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CatalogView } from '@/components/shop/CatalogView';
 import { CATALOG_TITLE, categoryChips, fetchCatalog, SITE_URL, type CategoryTree } from '@/lib/catalog';
-import { serverApi } from '@/lib/server-api';
+import { pageMissing, serverApi } from '@/lib/server-api';
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 type P = Promise<{ slug: string }>;
@@ -26,7 +26,8 @@ export default async function CategoryPage({ params, searchParams }: { params: P
   const { slug } = await params;
   const sp = await searchParams;
   const [res, tree] = await Promise.all([fetchCatalog({ ...sp, category: slug }), serverApi<CategoryTree>('/catalog/categories')]);
-  if (!res.data?.category) notFound();
+  if (!res.data) pageMissing(res.status);
+  if (!res.data.category) notFound();
   const cat = res.data.category;
   return (
     <CatalogView

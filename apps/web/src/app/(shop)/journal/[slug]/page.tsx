@@ -1,19 +1,18 @@
 import { formatRub } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import j from '@/components/shop/journal.module.css';
 import { SITE_URL, pubDate, type Card } from '@/lib/catalog';
 import { ARTICLE_COVER_SIZES, imgSet, type ImageSet } from '@/lib/image';
-import { serverApi } from '@/lib/server-api';
+import { pageMissing, serverApi } from '@/lib/server-api';
 
 type Article = { slug: string; title: string; lead: string | null; body: string; author: string; publishedAt: string; updatedAt: string; coverUrl: string | null; cover?: ImageSet | null; products: Card[] };
 type P = Promise<{ slug: string }>;
 
-const load = async (slug: string) => (await serverApi<Article>(`/journal/articles/${encodeURIComponent(slug)}`)).data;
+const load = (slug: string) => serverApi<Article>(`/journal/articles/${encodeURIComponent(slug)}`);
 
 export async function generateMetadata({ params }: { params: P }): Promise<Metadata> {
-  const a = await load((await params).slug);
+  const a = (await load((await params).slug)).data;
   if (!a) return { title: 'Статья не найдена' };
   return {
     title: a.title,
@@ -24,8 +23,8 @@ export async function generateMetadata({ params }: { params: P }): Promise<Metad
 }
 
 export default async function ArticlePage({ params }: { params: P }) {
-  const a = await load((await params).slug);
-  if (!a) notFound();
+  const { data: a, status } = await load((await params).slug);
+  if (!a) pageMissing(status);
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'Article',

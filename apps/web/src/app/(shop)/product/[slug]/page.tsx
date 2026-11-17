@@ -2,7 +2,6 @@ import { plural } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Fragment } from 'react';
-import { notFound } from 'next/navigation';
 import { Gallery } from '@/components/shop/Gallery';
 import { ProductBuy } from '@/components/shop/ProductBuy';
 import { ProductReviews } from '@/components/shop/ProductReviews';
@@ -10,18 +9,16 @@ import p from '@/components/shop/product.module.css';
 import { BRAND } from '@/lib/brand';
 import { SITE_URL, type ProductDetails, type ReviewsPage } from '@/lib/catalog';
 import { imgSet } from '@/lib/image';
-import { serverApi } from '@/lib/server-api';
+import { pageMissing, serverApi } from '@/lib/server-api';
 import { getSessionUser } from '@/lib/session';
 
 type P = Promise<{ slug: string }>;
 const GENDER: Record<string, string> = { female: 'Женский', male: 'Мужской', unisex: 'Унисекс' };
 
-async function load(slug: string) {
-  return (await serverApi<ProductDetails>(`/catalog/products/${encodeURIComponent(slug)}`)).data;
-}
+const load = (slug: string) => serverApi<ProductDetails>(`/catalog/products/${encodeURIComponent(slug)}`);
 
 export async function generateMetadata({ params }: { params: P }): Promise<Metadata> {
-  const product = await load((await params).slug);
+  const product = (await load((await params).slug)).data;
   if (!product) return { title: 'Товар не найден' };
   const min = Math.min(...product.variants.filter((v) => v.stock > 0).map((v) => v.price)) / 100;
   const image = product.media.find((m) => m.type === 'photo')?.url;
@@ -34,8 +31,8 @@ export async function generateMetadata({ params }: { params: P }): Promise<Metad
 }
 
 export default async function ProductPage({ params }: { params: P }) {
-  const product = await load((await params).slug);
-  if (!product) notFound();
+  const { data: product, status } = await load((await params).slug);
+  if (!product) pageMissing(status);
   const [reviews, user] = await Promise.all([serverApi<ReviewsPage>(`/catalog/products/${encodeURIComponent(product.slug)}/reviews`).then((r) => r.data), getSessionUser()]);
   const summary = product.reviews;
   const cat = product.category;

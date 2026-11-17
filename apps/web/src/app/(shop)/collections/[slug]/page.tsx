@@ -1,26 +1,25 @@
 import { plural } from '@aesculap/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import j from '@/components/shop/journal.module.css';
 import { ProductGrid } from '@/components/shop/ProductCard';
 import { SITE_URL, type Card } from '@/lib/catalog';
 import { ARTICLE_COVER_SIZES, imgSet, type ImageSet } from '@/lib/image';
-import { serverApi } from '@/lib/server-api';
+import { pageMissing, serverApi } from '@/lib/server-api';
 
 type Collection = { slug: string; title: string; description: string | null; author: string; coverUrl: string | null; cover?: ImageSet | null; products: Card[] };
 type P = Promise<{ slug: string }>;
-const load = async (slug: string) => (await serverApi<Collection>(`/journal/collections/${encodeURIComponent(slug)}`)).data;
+const load = (slug: string) => serverApi<Collection>(`/journal/collections/${encodeURIComponent(slug)}`);
 
 export async function generateMetadata({ params }: { params: P }): Promise<Metadata> {
-  const c = await load((await params).slug);
+  const c = (await load((await params).slug)).data;
   if (!c) return { title: 'Подборка не найдена' };
   return { title: c.title, description: c.description ?? undefined, alternates: { canonical: `${SITE_URL}/collections/${c.slug}` } };
 }
 
 export default async function CollectionPage({ params }: { params: P }) {
-  const c = await load((await params).slug);
-  if (!c) notFound();
+  const { data: c, status } = await load((await params).slug);
+  if (!c) pageMissing(status);
   return (
     <section className={j.page}>
       <Link href="/journal" className={j.back}>
