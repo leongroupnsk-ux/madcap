@@ -14,8 +14,8 @@
 # Что делает: Docker и compose из пакетов Ubuntu; SSH только по ключу с ограничением одновременных попыток входа
 # (MaxStartups — на демо-стенде подбор паролей забивал sshd, и вход рвался до авторизации); fail2ban (sshd и
 # повторные нарушители); ufw — только SSH, 80, 443 (tcp и udp для HTTP/3); автоматические обновления безопасности;
-# подкачка; ограничение журналов; каталоги /srv/aesculap, /var/backups/aesculap, /etc/aesculap; cron бэкапа и
-# предупреждения о диске; ротация логов. Сайт не ставит — это следующий шаг (docs/DEPLOY.md, «Боевой сервер с нуля»).
+# подкачка; ограничение журналов; каталоги /srv/aesculap, /var/backups/aesculap, /etc/aesculap; cron бэкапа,
+# предупреждения о диске и проверки доступности сайта; ротация логов. Сайт не ставит — это следующий шаг (docs/DEPLOY.md, «Боевой сервер с нуля»).
 set -euo pipefail
 
 SSH_PORT="${SSH_PORT:-22}"
@@ -152,13 +152,14 @@ if [[ ! -e /etc/aesculap/backup.env ]]; then
   echo "создан пустой /etc/aesculap/backup.env — заполнить по ops/backup.env.example"
 fi
 
-say "Расписание: бэкап в 03:30, проверка диска раз в 15 минут"
+say "Расписание: бэкап в 03:30, проверка диска раз в 15 минут, доступность сайта раз в минуту"
 cat >/etc/cron.d/aesculap <<EOF
 # ops/setup-server.sh. Скрипты появляются в $APP_DIR после первой выкладки (ops/deploy.sh)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 30 3 * * * root [ -x $APP_DIR/ops/backup-cron.sh ] && $APP_DIR/ops/backup-cron.sh >> /var/log/aesculap-backup.log 2>&1
 */15 * * * * root [ -x $APP_DIR/ops/disk-alert.sh ] && $APP_DIR/ops/disk-alert.sh >> /var/log/aesculap-disk-alert.log 2>&1
+* * * * * root [ -x $APP_DIR/ops/health-alert.sh ] && $APP_DIR/ops/health-alert.sh >> /var/log/aesculap-health.log 2>&1
 EOF
 chmod 644 /etc/cron.d/aesculap
 

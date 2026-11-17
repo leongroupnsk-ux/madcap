@@ -93,7 +93,7 @@ else
 
   # Желательно
   want TELEGRAM_BOT_TOKEN "уведомления поставщикам и служебные сообщения"
-  want ALERT_TELEGRAM_CHAT_ID "сообщения о диске и бэкапах (ops/notify.sh)"
+  want ALERT_TELEGRAM_CHAT_ID "ошибки API и сайта, диск, бэкапы, доступность — без него о сбоях никто не узнает"
   want METRIKA_ID "аналитика пилота"
   want YMAPS_API_KEY "карта ПВЗ при оформлении"
   [[ -n "$cap_s" ]] || warn "SmartCaptcha не подключена — при превышении лимитов входа и регистрации формы отвечают 429"

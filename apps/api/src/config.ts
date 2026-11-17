@@ -17,6 +17,8 @@ export const config = {
   mailFrom: process.env.MAIL_FROM ?? 'aesculap <noreply@example.ru>',
   /** Куда слать алерты о сбоях (вебхуки оплаты) */
   alertEmail: process.env.ALERT_EMAIL ?? '',
+  /** Чат Telegram для сообщений об ошибках API и сайта (monitoring/error-alerts.service.ts) и служебных — ops/notify.sh */
+  alertTelegramChatId: process.env.ALERT_TELEGRAM_CHAT_ID ?? '',
   /** Telegram-бот уведомлений поставщикам; без токена бот выключен */
   telegram: { token: process.env.TELEGRAM_BOT_TOKEN ?? '', username: process.env.TELEGRAM_BOT_USERNAME ?? '' },
   isProd: process.env.NODE_ENV === 'production',

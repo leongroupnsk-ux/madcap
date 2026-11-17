@@ -9,6 +9,7 @@ import { PublicConfigController } from './health/public-config.controller';
 import { ImportModule } from './import/import.module';
 import { LegalModule } from './legal/legal.module';
 import { MeModule } from './me/me.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
@@ -22,7 +23,7 @@ import { StorefrontModule } from './storefront/storefront.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 
 @Module({
-  imports: [CommonModule, NotificationsModule, AuthModule, SuppliersModule, ProductsModule, ImportModule, AdminModule, StorefrontModule, MeModule, OrdersModule, PromotionsModule, NewsletterModule, LegalModule, PremiumModule, FavoritesModule, ReviewsModule, AnalyticsModule, PartnerModule],
+  imports: [CommonModule, NotificationsModule, AuthModule, SuppliersModule, ProductsModule, ImportModule, AdminModule, StorefrontModule, MeModule, OrdersModule, PromotionsModule, NewsletterModule, LegalModule, PremiumModule, FavoritesModule, ReviewsModule, AnalyticsModule, PartnerModule, MonitoringModule],
   controllers: [HealthController, PublicConfigController],
 })
 export class AppModule implements NestModule {

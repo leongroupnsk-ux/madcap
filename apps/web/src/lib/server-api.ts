@@ -34,5 +34,13 @@ const MISSING = new Set([400, 403, 404, 410]);
  */
 export function pageMissing(status: number): never {
   if (MISSING.has(status) || (status >= 200 && status < 300)) notFound();
-  throw new Error(`API недоступен: ${status}`);
+  throw new ApiUnavailableError(status);
+}
+
+/** API не ответил странице. instrumentation.ts не сообщает о 5xx: о своём сбое API сообщил сам, а недоступный API — ops/health-alert.sh */
+export class ApiUnavailableError extends Error {
+  constructor(readonly status: number) {
+    super(`API недоступен: ${status}`);
+    this.name = 'ApiUnavailableError';
+  }
 }
